@@ -65,8 +65,7 @@ const relationshipHealthTool = ai.defineTool({
   outputSchema: RelationshipHealthOutputSchema,
 },
 async (input) => {
-  // TODO: Implement the relationship health logic
-  // For now, providing a placeholder based on simple analysis
+  // Placeholder implementation for relationship health assessment
   const historyLength = input.communicationHistory.length;
   let score = 0.5;
   let summary = "The relationship health is moderate.";
@@ -154,7 +153,7 @@ const relationshipHealthPrompt = ai.definePrompt({
   name: 'relationshipHealthPrompt',
   tools: [relationshipHealthTool],
   input: {schema: CommunicationAnalysisInputSchema},
-  output: {schema: RelationshipHealthOutputSchema}, // Define the expected output structure
+  output: {schema: RelationshipHealthOutputSchema}, 
   prompt: `Based on the following communication history, use the getRelationshipHealth tool to get the relationship health score and summary.
   Then, provide the health score and summary as a JSON object matching the defined output schema.
 
@@ -165,42 +164,60 @@ export type IntelligentInsightsInput = {
   communicationHistory: string;
 };
 
-// Define the output type explicitly based on the individual flow outputs and the new relationshipHealth structure
 export type IntelligentInsightsOutput = {
   communicationAnalysis: CommunicationAnalysisOutput | null;
   updateSummary: UpdateSummaryOutput | null;
-  relationshipHealth: RelationshipHealthOutput | null; // This will now be the plain object
+  relationshipHealth: RelationshipHealthOutput | null;
 };
 
 
 const intelligentInsightsFlow = ai.defineFlow(
   {
     name: 'intelligentInsightsFlow',
-    inputSchema: z.object({ communicationHistory: z.string() }), // Define input schema for the main flow
-    outputSchema: z.object({ // Define output schema for the main flow
+    inputSchema: z.object({ communicationHistory: z.string() }),
+    outputSchema: z.object({
       communicationAnalysis: CommunicationAnalysisOutputSchema.nullable(),
       updateSummary: UpdateSummaryOutputSchema.nullable(),
       relationshipHealth: RelationshipHealthOutputSchema.nullable(),
     }),
   },
   async (input: IntelligentInsightsInput): Promise<IntelligentInsightsOutput> => {
-    const communicationAnalysisResult = await analyzeCommunicationFlow({
-      communicationHistory: input.communicationHistory,
-    });
+    let communicationAnalysisResult: CommunicationAnalysisOutput | null = null;
+    let updateSummaryResult: UpdateSummaryOutput | null = null;
+    let relationshipHealthResult: RelationshipHealthOutput | null = null;
 
-    const updateSummaryResult = await summarizeUpdateFlow({
-      updateContent: input.communicationHistory, 
-    });
+    try {
+      communicationAnalysisResult = await analyzeCommunicationFlow({
+        communicationHistory: input.communicationHistory,
+      });
+    } catch (error) {
+      console.error("Error in analyzeCommunicationFlow:", error);
+      // communicationAnalysisResult remains null
+    }
 
-    // Extract the structured output from the relationshipHealthPrompt
-    const { output: relationshipHealthResult } = await relationshipHealthPrompt({
-      communicationHistory: input.communicationHistory,
-    });
+    try {
+      updateSummaryResult = await summarizeUpdateFlow({
+        updateContent: input.communicationHistory, 
+      });
+    } catch (error) {
+      console.error("Error in summarizeUpdateFlow:", error);
+      // updateSummaryResult remains null
+    }
+
+    try {
+      const { output } = await relationshipHealthPrompt({
+        communicationHistory: input.communicationHistory,
+      });
+      relationshipHealthResult = output;
+    } catch (error) {
+      console.error("Error in relationshipHealthPrompt:", error);
+      // relationshipHealthResult remains null
+    }
 
     return {
       communicationAnalysis: communicationAnalysisResult,
       updateSummary: updateSummaryResult,
-      relationshipHealth: relationshipHealthResult, // This is now a plain object or null
+      relationshipHealth: relationshipHealthResult,
     };
   }
 );
