@@ -1,5 +1,5 @@
 
-import type { Account, Opportunity, Update, User, Lead, LeadStatus, OpportunityStatus, AccountType } from '@/types';
+import type { Account, Opportunity, Update, User, Lead, LeadStatus, OpportunityStatus, AccountType, UpdateType } from '@/types';
 import { DEMO_PIN } from '@/lib/constants';
 import { countries } from '@/lib/countryData'; // Import countries
 
@@ -101,9 +101,9 @@ export let mockOpportunities: Opportunity[] = [ // Made 'let' for modification
     startDate: oneMonthAgo.toISOString(),
     endDate: new Date(new Date().setMonth(today.getMonth() + 2)).toISOString(),
     description: 'Development of a new AI-driven analytics platform for Innovatech.',
-    updateIds: ['upd_001', 'upd_002'],
+    updateIds: ['upd_001', 'upd_002', 'upd_005'],
     createdAt: oneMonthAgo.toISOString(),
-    updatedAt: yesterday.toISOString(),
+    updatedAt: new Date(new Date().setDate(today.getDate() - 3)).toISOString(),
   },
   {
     id: 'opp_002',
@@ -116,7 +116,7 @@ export let mockOpportunities: Opportunity[] = [ // Made 'let' for modification
     description: 'Exploring integration of Iris AI capabilities into Innovatech\'s existing CRM.',
     updateIds: ['upd_004'],
     createdAt: oneWeekAgo.toISOString(),
-    updatedAt: oneWeekAgo.toISOString(),
+    updatedAt: new Date(new Date().setDate(today.getDate() - 2)).toISOString(),
   },
   {
     id: 'opp_003',
@@ -133,7 +133,7 @@ export let mockOpportunities: Opportunity[] = [ // Made 'let' for modification
   },
 ];
 
-export const mockUpdates: Update[] = [
+export let mockUpdates: Update[] = [ // Made 'let' for modification
   {
     id: 'upd_001',
     opportunityId: 'opp_001',
@@ -304,7 +304,7 @@ export const addOpportunity = (opportunityData: Omit<Opportunity, 'id' | 'update
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
-  mockOpportunities.unshift(newOpportunity); // Add to the beginning
+  mockOpportunities.unshift(newOpportunity); 
   
   const account = mockAccounts.find(a => a.id === newOpportunity.accountId);
   if (account) {
@@ -312,6 +312,34 @@ export const addOpportunity = (opportunityData: Omit<Opportunity, 'id' | 'update
     account.updatedAt = new Date().toISOString();
   }
   return newOpportunity;
+};
+
+export const addUpdate = (data: { opportunityId: string; type: UpdateType; content: string; updatedByUserId?: string }): Update => {
+  const newUpdate: Update = {
+    id: `upd_${new Date().getTime()}`,
+    opportunityId: data.opportunityId,
+    type: data.type,
+    content: data.content,
+    updatedByUserId: data.updatedByUserId || 'user_admin_000', // Default to admin if not provided
+    date: new Date().toISOString(),
+    createdAt: new Date().toISOString(),
+  };
+  mockUpdates.unshift(newUpdate);
+
+  // Update associated opportunity
+  const opportunityIndex = mockOpportunities.findIndex(opp => opp.id === data.opportunityId);
+  if (opportunityIndex > -1) {
+    mockOpportunities[opportunityIndex].updateIds.push(newUpdate.id);
+    mockOpportunities[opportunityIndex].updatedAt = new Date().toISOString();
+
+    // Update associated account
+    const accountId = mockOpportunities[opportunityIndex].accountId;
+    const accountIndex = mockAccounts.findIndex(acc => acc.id === accountId);
+    if (accountIndex > -1) {
+      mockAccounts[accountIndex].updatedAt = new Date().toISOString();
+    }
+  }
+  return newUpdate;
 };
 
 
@@ -352,9 +380,8 @@ export const getUnconvertedLeads = (): Lead[] => {
   return mockLeads.filter(lead => lead.status !== 'Converted to Account' && lead.status !== 'Lost').sort((a,b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
 };
 
-export const getRecentUpdates = (limit: number = 3): Update[] => {
+export const getRecentUpdates = (limit: number = 2): Update[] => { // Default to 2 for dashboard
   return [...mockUpdates] 
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
     .slice(0, limit);
 };
-

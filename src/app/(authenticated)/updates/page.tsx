@@ -13,20 +13,27 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {format, parseISO, isValid} from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
-
+import AddUpdateDialog from '@/components/updates/AddUpdateDialog'; // New Import
 
 export default function UpdatesPage() {
+  const [updates, setUpdates] = useState<Update[]>([]);
   const [searchTerm, setSearchTerm] = useState(''); 
   const [typeFilter, setTypeFilter] = useState<UpdateType | 'all'>('all');
   const [opportunityFilter, setOpportunityFilter] = useState<string | 'all'>('all');
   const [dateFilter, setDateFilter] = useState<string>(''); 
+  const [isAddUpdateDialogOpen, setIsAddUpdateDialogOpen] = useState(false); // New state
 
-  const allUpdates = initialMockUpdates.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  useEffect(() => {
+    setUpdates([...initialMockUpdates].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+  }, []);
 
+  const handleUpdateAdded = (newUpdate: Update) => {
+    setUpdates(prevUpdates => [newUpdate, ...prevUpdates].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+  };
 
   const updateTypeOptions: UpdateType[] = ["General", "Call", "Meeting", "Email"];
 
-  const filteredUpdates = allUpdates.filter(update => {
+  const filteredUpdates = updates.filter(update => {
     const matchesSearch = update.content.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesType = typeFilter === 'all' || update.type === typeFilter;
     const matchesOpportunity = opportunityFilter === 'all' || update.opportunityId === opportunityFilter;
@@ -50,7 +57,7 @@ export default function UpdatesPage() {
   return (
     <div className="container mx-auto space-y-6">
       <PageTitle title="Communication Updates" subtitle="Log and review all opportunity-related communications.">
-        <Button disabled> 
+        <Button onClick={() => setIsAddUpdateDialogOpen(true)}> 
           <PlusCircle className="mr-2 h-4 w-4" /> Log New Update
         </Button>
       </PageTitle>
@@ -133,7 +140,11 @@ export default function UpdatesPage() {
           <p className="text-muted-foreground">Try adjusting your search or filter criteria, or log a new update.</p>
         </div>
       )}
+      <AddUpdateDialog
+        open={isAddUpdateDialogOpen}
+        onOpenChange={setIsAddUpdateDialogOpen}
+        onUpdateAdded={handleUpdateAdded}
+      />
     </div>
   );
 }
-
