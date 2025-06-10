@@ -4,16 +4,17 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import PageTitle from '@/components/common/PageTitle';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, TrendingUp, Users, AlertTriangle, Lightbulb, BarChartHorizontalBig, CalendarClock, DollarSign, AlertCircle, CheckCircle } from 'lucide-react';
+import { RefreshCw, TrendingUp, Users, AlertTriangle, Lightbulb, BarChartHorizontalBig, CalendarClock, DollarSign, AlertCircle, CheckCircle, History } from 'lucide-react';
 import { aiPoweredOpportunityForecasting } from '@/ai/flows/ai-powered-opportunity-forecasting';
-import { mockOpportunities, mockLeads } from '@/lib/data';
-import type { Opportunity, OpportunityForecast, Lead, OpportunityStatus } from '@/types';
+import { mockOpportunities, mockLeads, getRecentUpdates } from '@/lib/data';
+import type { Opportunity, OpportunityForecast, Lead, OpportunityStatus, Update } from '@/types';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import Link from 'next/link';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { format, parseISO } from 'date-fns';
+import UpdateItem from '@/components/updates/UpdateItem'; // Import UpdateItem
 
 interface OpportunityWithForecast extends Opportunity {
   forecast?: OpportunityForecast;
@@ -35,6 +36,7 @@ const getStatusBadgeVariant = (status: OpportunityStatus | undefined): "default"
 export default function DashboardPage() {
   const [forecastedOpportunities, setForecastedOpportunities] = useState<OpportunityWithForecast[]>([]);
   const [overallSalesForecast, setOverallSalesForecast] = useState<string | null>(null);
+  const [recentUpdates, setRecentUpdates] = useState<Update[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
 
@@ -43,7 +45,7 @@ export default function DashboardPage() {
     try {
       const activeOpportunities = mockOpportunities.filter(
         opp => opp.status !== 'Completed' && opp.status !== 'Cancelled'
-      ).slice(0, 3); // Limiting to 3 for a cleaner look and faster load
+      ).slice(0, 3); 
 
       const forecastPromises = activeOpportunities.map(async (opp) => {
         try {
@@ -70,7 +72,8 @@ export default function DashboardPage() {
       } else {
         setOverallSalesForecast("No active opportunities to forecast. Add new opportunities to see AI-powered sales predictions.");
       }
-
+      
+      setRecentUpdates(getRecentUpdates(3)); // Fetch 3 most recent updates
       setLastRefreshed(new Date());
     } catch (error) {
       console.error("Failed to fetch dashboard data:", error);
@@ -94,7 +97,7 @@ export default function DashboardPage() {
   }, []);
 
   return (
-    <div className="container mx-auto space-y-6">
+    <div className="container mx-auto space-y-8"> {/* Increased base spacing */}
       <PageTitle title="Intelligent Sales Dashboard">
         <div className="flex items-center gap-2">
           {lastRefreshed && (
@@ -127,72 +130,104 @@ export default function DashboardPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
-          <h2 className="text-2xl font-semibold flex items-center text-foreground">
-            <Lightbulb className="mr-3 h-6 w-6 text-yellow-500" />
-            Key Opportunity Insights
-          </h2>
-          {isLoading && forecastedOpportunities.length === 0 ? (
-            Array.from({ length: 2 }).map((_, i) => (
-              <Card key={i} className="shadow-md animate-pulse">
-                <CardHeader>
-                  <div className="h-6 bg-muted/50 rounded w-3/4 mb-2"></div>
-                  <div className="h-4 bg-muted/50 rounded w-1/2"></div>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  <div className="h-4 bg-muted/50 rounded w-full"></div>
-                  <div className="h-4 bg-muted/50 rounded w-5/6"></div>
-                </CardContent>
-              </Card>
-            ))
-          ) : forecastedOpportunities.length > 0 ? (
-            forecastedOpportunities.map((opp) => (
-              <Card key={opp.id} className="shadow-md hover:shadow-xl transition-shadow duration-300">
-                <CardHeader className="pb-3">
-                  <div className="flex justify-between items-start">
-                    <CardTitle className="text-lg">{opp.name}</CardTitle>
-                    <Badge variant={getStatusBadgeVariant(opp.status)} className={`${opp.status === 'Completed' ? 'bg-green-500 text-white' : ''}`}>
-                        {opp.status}
-                    </Badge>
-                  </div>
-                  <CardDescription className="flex items-center text-sm pt-1">
-                    <DollarSign className="mr-1 h-4 w-4 text-muted-foreground" /> Value: ${opp.value.toLocaleString()}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-2 text-sm">
-                  {opp.forecast ? (
-                    <>
-                      <div className="flex items-center">
-                        <CalendarClock className="mr-2 h-4 w-4 text-muted-foreground" />
-                        <span className="font-medium text-foreground">Est. Completion:</span>
-                        <span className="ml-1 text-muted-foreground">{opp.forecast.completionDateEstimate}</span>
-                      </div>
-                      <div className="flex items-center">
-                        <TrendingUp className="mr-2 h-4 w-4 text-muted-foreground" />
-                        <span className="font-medium text-foreground">Revenue Forecast:</span>
-                        <span className="ml-1 text-muted-foreground">${opp.forecast.revenueForecast.toLocaleString()}</span>
-                      </div>
-                      <div className="flex items-start">
-                         {opp.forecast.bottleneckIdentification && opp.forecast.bottleneckIdentification.toLowerCase() !== "none identified" && opp.forecast.bottleneckIdentification.toLowerCase() !== "none" && opp.forecast.bottleneckIdentification.length > 0 ? <AlertCircle className="mr-2 h-4 w-4 text-destructive mt-0.5 shrink-0" /> : <CheckCircle className="mr-2 h-4 w-4 text-green-500 mt-0.5 shrink-0" />}
-                        <div>
-                            <span className="font-medium text-foreground">Potential Bottlenecks:</span>
-                            <p className="ml-1 text-muted-foreground leading-snug">{opp.forecast.bottleneckIdentification || "None identified"}</p>
+          <div>
+            <h2 className="text-2xl font-semibold flex items-center text-foreground mb-4">
+                <Lightbulb className="mr-3 h-6 w-6 text-yellow-500" />
+                Key Opportunity Insights
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                {isLoading && forecastedOpportunities.length === 0 ? (
+                Array.from({ length: 3 }).map((_, i) => ( // Show 3 skeletons if loading
+                    <Card key={i} className="shadow-md animate-pulse">
+                    <CardHeader>
+                        <div className="h-6 bg-muted/50 rounded w-3/4 mb-2"></div>
+                        <div className="h-4 bg-muted/50 rounded w-1/2"></div>
+                    </CardHeader>
+                    <CardContent className="space-y-2">
+                        <div className="h-4 bg-muted/50 rounded w-full"></div>
+                        <div className="h-4 bg-muted/50 rounded w-5/6"></div>
+                        <div className="h-4 bg-muted/50 rounded w-full mt-2"></div>
+                    </CardContent>
+                    </Card>
+                ))
+                ) : forecastedOpportunities.length > 0 ? (
+                forecastedOpportunities.map((opp) => (
+                    <Card key={opp.id} className="shadow-md hover:shadow-xl transition-shadow duration-300 flex flex-col">
+                    <CardHeader className="pb-3">
+                        <div className="flex justify-between items-start">
+                        <CardTitle className="text-lg">{opp.name}</CardTitle>
+                        <Badge variant={getStatusBadgeVariant(opp.status)} className={`${opp.status === 'Completed' ? 'bg-green-500 text-white' : ''} ${getStatusBadgeVariant(opp.status) === 'default' && opp.status !== 'Completed' ? 'bg-blue-500 text-white' : ''}`}>
+                            {opp.status}
+                        </Badge>
                         </div>
-                      </div>
-                    </>
-                  ) : (
-                    <p className="text-muted-foreground">AI forecast not available.</p>
-                  )}
-                </CardContent>
-                <CardFooter className="pt-4">
-                  <Button variant="outline" size="sm" asChild className="ml-auto">
-                    <Link href={`/opportunities/${opp.id}`}>View Opportunity</Link>
-                  </Button>
-                </CardFooter>
-              </Card>
-            ))
-          ) : (
-            !isLoading && <p className="text-muted-foreground">No active opportunities with forecasts to display.</p>
-          )}
+                        <CardDescription className="flex items-center text-sm pt-1">
+                        <DollarSign className="mr-1 h-4 w-4 text-muted-foreground" /> Value: ${opp.value.toLocaleString()}
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-2 text-sm flex-grow">
+                        {opp.forecast ? (
+                        <>
+                            <div className="flex items-center">
+                            <CalendarClock className="mr-2 h-4 w-4 text-muted-foreground" />
+                            <span className="font-medium text-foreground">Est. Completion:</span>
+                            <span className="ml-1 text-muted-foreground">{opp.forecast.completionDateEstimate}</span>
+                            </div>
+                            <div className="flex items-center">
+                            <TrendingUp className="mr-2 h-4 w-4 text-muted-foreground" />
+                            <span className="font-medium text-foreground">Revenue Forecast:</span>
+                            <span className="ml-1 text-muted-foreground">${opp.forecast.revenueForecast.toLocaleString()}</span>
+                            </div>
+                            <div className="flex items-start">
+                            {opp.forecast.bottleneckIdentification && opp.forecast.bottleneckIdentification.toLowerCase() !== "none identified" && opp.forecast.bottleneckIdentification.toLowerCase() !== "none" && opp.forecast.bottleneckIdentification.length > 0 ? <AlertCircle className="mr-2 h-4 w-4 text-destructive mt-0.5 shrink-0" /> : <CheckCircle className="mr-2 h-4 w-4 text-green-500 mt-0.5 shrink-0" />}
+                            <div>
+                                <span className="font-medium text-foreground">Potential Bottlenecks:</span>
+                                <p className="ml-1 text-muted-foreground leading-snug">{opp.forecast.bottleneckIdentification || "None identified"}</p>
+                            </div>
+                            </div>
+                        </>
+                        ) : (
+                        <p className="text-muted-foreground">AI forecast not available.</p>
+                        )}
+                    </CardContent>
+                    <CardFooter className="pt-4 border-t mt-auto">
+                        <Button variant="outline" size="sm" asChild className="ml-auto">
+                        <Link href={`/opportunities/${opp.id}`}>View Opportunity</Link>
+                        </Button>
+                    </CardFooter>
+                    </Card>
+                ))
+                ) : (
+                !isLoading && <p className="text-muted-foreground md:col-span-2 xl:col-span-3 text-center py-4">No active opportunities with forecasts to display.</p>
+                )}
+            </div>
+          </div>
+
+          <div>
+            <h2 className="text-2xl font-semibold flex items-center text-foreground mb-4 mt-8">
+                <History className="mr-3 h-6 w-6 text-blue-500" />
+                Recent Activity Stream
+            </h2>
+            <div className="space-y-6">
+                {isLoading && recentUpdates.length === 0 ? (
+                    Array.from({ length: 2 }).map((_, i) => (
+                        <Card key={`update-skeleton-${i}`} className="shadow-md animate-pulse">
+                            <CardHeader><div className="h-5 bg-muted/50 rounded w-1/2"></div></CardHeader>
+                            <CardContent className="space-y-2">
+                                <div className="h-4 bg-muted/50 rounded w-full"></div>
+                                <div className="h-4 bg-muted/50 rounded w-3/4"></div>
+                            </CardContent>
+                        </Card>
+                    ))
+                ) : recentUpdates.length > 0 ? (
+                    recentUpdates.map(update => (
+                        <UpdateItem key={update.id} update={update} />
+                    ))
+                ) : (
+                    !isLoading && <p className="text-muted-foreground text-center py-4">No recent updates found.</p>
+                )}
+            </div>
+          </div>
+
         </div>
 
         <div className="lg:col-span-1 space-y-6">
@@ -262,3 +297,4 @@ export default function DashboardPage() {
     </div>
   );
 }
+

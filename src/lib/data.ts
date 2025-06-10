@@ -152,6 +152,22 @@ export const mockUpdates: Update[] = [
     type: 'Email',
     createdAt: new Date().toISOString(),
   },
+  {
+    id: 'upd_004',
+    opportunityId: 'opp_002',
+    date: new Date(new Date().setDate(today.getDate() - 2)).toISOString(),
+    content: 'Conducted detailed needs analysis workshop with Innovatech stakeholders for the AI Integration Initiative. Gathered key requirements and user stories.',
+    type: 'Meeting',
+    createdAt: new Date(new Date().setDate(today.getDate() - 2)).toISOString(),
+  },
+  {
+    id: 'upd_005',
+    opportunityId: 'opp_001',
+    date: new Date(new Date().setDate(today.getDate() - 3)).toISOString(),
+    content: 'Deployed new iteration of Phoenix platform to staging. Innovatech to begin UAT next week. Sent over staging credentials and test plan via email.',
+    type: 'Email',
+    createdAt: new Date(new Date().setDate(today.getDate() - 3)).toISOString(),
+  },
 ];
 
 export let mockUsers: User[] = [
@@ -197,7 +213,7 @@ export const addAccount = (accountData: Omit<Account, 'id' | 'opportunityIds' | 
     convertedFromLeadId: accountData.convertedFromLeadId,
     opportunityIds: [],
     createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(), // Corrected typo here
+    updatedAt: new Date().toISOString(),
   };
   mockAccounts.push(newAccount);
   return newAccount;
@@ -315,4 +331,9 @@ export const getUnconvertedLeads = (): Lead[] => {
   return mockLeads.filter(lead => lead.status !== 'Converted to Account' && lead.status !== 'Lost');
 };
 
+export const getRecentUpdates = (limit: number = 3): Update[] => {
+  return [...mockUpdates] 
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    .slice(0, limit);
+};
     

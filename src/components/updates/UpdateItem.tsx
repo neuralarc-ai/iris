@@ -1,16 +1,15 @@
-
 "use client";
 
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { CalendarDays, Eye, Lightbulb, CheckSquare, Repeat, MessageSquare, Users, Mail, BarChartBig, Brain, Activity, ThumbsUp, ThumbsDown, MessageCircleMore, Briefcase } from 'lucide-react';
-import type { Update, UpdateInsights as AIUpdateInsights, Opportunity } from '@/types';
+import { Eye, Lightbulb, CheckSquare, Repeat, MessageSquare, Users, Mail, BarChartBig, Brain, Activity, ThumbsUp, ThumbsDown, MessageCircleMore, Briefcase } from 'lucide-react';
+import type { Update, UpdateInsights as AIUpdateInsights, Opportunity, Account } from '@/types';
 import {format, parseISO} from 'date-fns';
 import { generateInsights, RelationshipHealthOutput } from '@/ai/flows/intelligent-insights'; // Import RelationshipHealthOutput
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
-import { getOpportunityById } from '@/lib/data';
+import { getOpportunityById, getAccountById } from '@/lib/data';
 import Link from 'next/link';
 
 
@@ -41,9 +40,16 @@ export default function UpdateItem({ update }: UpdateItemProps) {
   const [insights, setInsights] = useState<Partial<AIUpdateInsights> & { relationshipHealth?: RelationshipHealthOutput | null } | null>(null);
   const [isLoadingInsights, setIsLoadingInsights] = useState(false);
   const [opportunity, setOpportunity] = useState<Opportunity | undefined>(undefined);
+  const [account, setAccount] = useState<Account | undefined>(undefined);
 
   useEffect(() => {
-    setOpportunity(getOpportunityById(update.opportunityId));
+    const opp = getOpportunityById(update.opportunityId);
+    setOpportunity(opp);
+    if (opp?.accountId) {
+      setAccount(getAccountById(opp.accountId));
+    } else {
+      setAccount(undefined);
+    }
   }, [update.opportunityId]);
 
   const fetchInsights = async () => {
@@ -83,7 +89,7 @@ export default function UpdateItem({ update }: UpdateItemProps) {
         <div className="flex justify-between items-start mb-1">
           <CardTitle className="text-xl font-headline flex items-center text-foreground">
             {UpdateIcon}
-            <span className="ml-2.5">Update: {format(parseISO(update.date), 'MMM dd, yyyy')}</span>
+            <span className="ml-2.5">Update: {format(parseISO(update.date), 'MMM dd, yyyy, p')}</span>
           </CardTitle>
           <Badge variant="secondary" className="capitalize whitespace-nowrap ml-2 bg-accent text-accent-foreground">
             {update.type}
@@ -91,9 +97,15 @@ export default function UpdateItem({ update }: UpdateItemProps) {
         </div>
         {opportunity && (
           <CardDescription className="text-sm text-muted-foreground flex items-center">
-            <Briefcase className="mr-2 h-4 w-4 shrink-0" /> {/* Changed to Briefcase for opportunity association */}
+            <BarChartBig className="mr-2 h-4 w-4 shrink-0" /> {/* Changed to BarChartBig for opportunity */}
             Opportunity: {opportunity.name}
           </CardDescription>
+        )}
+        {account && (
+            <CardDescription className="text-xs text-muted-foreground flex items-center mt-0.5">
+                <Briefcase className="mr-1.5 h-3.5 w-3.5 shrink-0" />
+                Account: {account.name}
+            </CardDescription>
         )}
       </CardHeader>
       <CardContent className="space-y-3.5 text-sm">
