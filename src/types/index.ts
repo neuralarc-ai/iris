@@ -27,11 +27,10 @@ export interface Lead {
   personName: string;
   phone?: string;
   email: string;
+  linkedinProfileUrl?: string; // New field
+  country?: string; // New field
   status: LeadStatus;
-  // Opportunities are primarily linked to Accounts after conversion.
-  // If a lead has pre-conversion "potential deals", they become opportunities for the Account.
-  // We'll manage opportunity association directly on the Account after conversion.
-  // opportunityIds: string[]; // Keeping this to potentially transfer during conversion
+  opportunityIds: string[];
   createdAt: string;
   updatedAt: string;
 }
@@ -93,4 +92,12 @@ export interface ApiSettings {
   deepSeekModel?: string;
   openRouterApiKey?: string;
   openRouterModel?: string;
+}
+
+// For Business Card OCR
+export interface ExtractedLeadInfo {
+    personName?: string;
+    companyName?: string;
+    email?: string;
+    phone?: string;
 }

@@ -1,6 +1,7 @@
 
 import type { Account, Opportunity, Update, User, Lead, LeadStatus, OpportunityStatus, AccountType } from '@/types';
 import { DEMO_PIN } from '@/lib/constants';
+import { countries } from '@/lib/countryData'; // Import countries
 
 const today = new Date();
 const yesterday = new Date(today);
@@ -20,6 +21,8 @@ export let mockLeads: Lead[] = [ // Made 'let' for modification
     phone: '555-0100',
     status: 'Qualified',
     opportunityIds: [],
+    linkedinProfileUrl: 'https://linkedin.com/in/rintarookabe',
+    country: 'Japan',
     createdAt: oneWeekAgo.toISOString(),
     updatedAt: yesterday.toISOString(),
   },
@@ -31,6 +34,7 @@ export let mockLeads: Lead[] = [ // Made 'let' for modification
     phone: '555-0200',
     status: 'Proposal Sent',
     opportunityIds: [],
+    country: 'United States',
     createdAt: oneMonthAgo.toISOString(),
     updatedAt: oneWeekAgo.toISOString(),
   },
@@ -41,6 +45,8 @@ export let mockLeads: Lead[] = [ // Made 'let' for modification
     email: 'ppotts@stark.com',
     status: 'New',
     opportunityIds: [],
+    linkedinProfileUrl: 'https://linkedin.com/in/pepperpotts',
+    country: 'United States',
     createdAt: today.toISOString(),
     updatedAt: today.toISOString(),
   }
@@ -215,20 +221,25 @@ export const addAccount = (accountData: Omit<Account, 'id' | 'opportunityIds' | 
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
-  mockAccounts.push(newAccount);
+  mockAccounts.unshift(newAccount); // Add to the beginning
   return newAccount;
 };
 
 export const addLead = (leadData: Omit<Lead, 'id' | 'createdAt' | 'updatedAt' | 'status' | 'opportunityIds' >): Lead => {
   const newLead: Lead = {
     id: `lead_${new Date().getTime()}`,
-    ...leadData,
+    companyName: leadData.companyName,
+    personName: leadData.personName,
+    email: leadData.email,
+    phone: leadData.phone,
+    linkedinProfileUrl: leadData.linkedinProfileUrl,
+    country: leadData.country,
     status: 'New' as LeadStatus,
     opportunityIds: [],
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
-  mockLeads.push(newLead);
+  mockLeads.unshift(newLead); // Add to the beginning
   return newLead;
 };
 
@@ -239,11 +250,26 @@ export const convertLeadToAccount = (leadId: string): Account | null => {
   const lead = mockLeads[leadIndex];
   if (lead.status === "Converted to Account" || lead.status === "Lost") return null;
 
+  const existingAccount = mockAccounts.find(acc => acc.convertedFromLeadId === leadId || (acc.name === lead.companyName && acc.contactPersonName === lead.personName));
+  if (existingAccount) {
+     // Update existing account instead of creating a new one
+     existingAccount.status = 'Active';
+     existingAccount.contactEmail = lead.email || existingAccount.contactEmail;
+     existingAccount.contactPhone = lead.phone || existingAccount.contactPhone;
+     // Potentially update other fields if necessary
+     existingAccount.updatedAt = new Date().toISOString();
+     
+     mockLeads[leadIndex].status = "Converted to Account";
+     mockLeads[leadIndex].updatedAt = new Date().toISOString();
+     return existingAccount;
+  }
+
+
   const newAccount = addAccount({
     name: lead.companyName,
     type: 'Client' as AccountType,
     status: 'Active' as AccountStatus,
-    description: `Account converted from lead: ${lead.personName} - ${lead.companyName}`,
+    description: `Account converted from lead: ${lead.personName} - ${lead.companyName}. LinkedIn: ${lead.linkedinProfileUrl || 'N/A'}. Country: ${lead.country || 'N/A'}.`,
     contactPersonName: lead.personName,
     contactEmail: lead.email,
     contactPhone: lead.phone,
@@ -255,17 +281,6 @@ export const convertLeadToAccount = (leadId: string): Account | null => {
   mockLeads[leadIndex].status = "Converted to Account";
   mockLeads[leadIndex].updatedAt = new Date().toISOString();
   
-  // Transfer opportunityIds if any (though current model doesn't add opps to leads directly)
-  // If lead.opportunityIds existed and had items, you'd iterate and update them:
-  // lead.opportunityIds.forEach(oppId => {
-  //   const opp = mockOpportunities.find(o => o.id === oppId);
-  //   if (opp) {
-  //     opp.accountId = newAccount.id; // Re-associate
-  //     // opp.leadId = undefined; // Clear leadId if it existed on Opportunity
-  //     newAccount.opportunityIds.push(oppId);
-  //   }
-  // });
-
   return newAccount;
 };
 
@@ -284,11 +299,12 @@ export const addOpportunity = (opportunityData: Omit<Opportunity, 'id' | 'update
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
-  mockOpportunities.push(newOpportunity);
+  mockOpportunities.unshift(newOpportunity); // Add to the beginning
   
   const account = mockAccounts.find(a => a.id === newOpportunity.accountId);
   if (account) {
     account.opportunityIds.push(newOpportunity.id);
+    account.updatedAt = new Date().toISOString();
   }
   return newOpportunity;
 };
@@ -308,11 +324,11 @@ export const getUserById = (userId: string): User | undefined => {
 };
 
 export const getOpportunitiesByAccount = (accountId: string): Opportunity[] => {
-  return mockOpportunities.filter(o => o.accountId === accountId);
+  return mockOpportunities.filter(o => o.accountId === accountId).sort((a,b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
 };
 
 export const getUpdatesForOpportunity = (opportunityId: string): Update[] => {
-  return mockUpdates.filter(u => u.opportunityId === opportunityId);
+  return mockUpdates.filter(u => u.opportunityId === opportunityId).sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 };
 
 export const getLeadById = (leadId: string): Lead | undefined => {
@@ -328,7 +344,7 @@ export const getOpportunityById = (opportunityId: string): Opportunity | undefin
 }
 
 export const getUnconvertedLeads = (): Lead[] => {
-  return mockLeads.filter(lead => lead.status !== 'Converted to Account' && lead.status !== 'Lost');
+  return mockLeads.filter(lead => lead.status !== 'Converted to Account' && lead.status !== 'Lost').sort((a,b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
 };
 
 export const getRecentUpdates = (limit: number = 3): Update[] => {
@@ -336,4 +352,3 @@ export const getRecentUpdates = (limit: number = 3): Update[] => {
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
     .slice(0, limit);
 };
-    

@@ -7,12 +7,13 @@ import LeadCard from '@/components/leads/LeadCard';
 import { mockLeads as initialMockLeads } from '@/lib/data';
 import type { Lead, LeadStatus } from '@/types';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Search, ListFilter } from 'lucide-react';
+import { PlusCircle, Search, ListFilter, FileUp } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import AddLeadDialog from '@/components/leads/AddLeadDialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
+import { useToast } from '@/hooks/use-toast';
 
 const leadStatusOptions: LeadStatus[] = ["New", "Contacted", "Qualified", "Proposal Sent", "Converted to Account", "Lost"];
 
@@ -21,9 +22,10 @@ export default function LeadsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<LeadStatus | 'all'>('all');
   const [isAddLeadDialogOpen, setIsAddLeadDialogOpen] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
-    setLeads([...initialMockLeads]);
+    setLeads([...initialMockLeads].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()));
   }, []);
 
 
@@ -32,30 +34,45 @@ export default function LeadsPage() {
     const matchesSearch =
       lead.companyName.toLowerCase().includes(searchTermLower) ||
       lead.personName.toLowerCase().includes(searchTermLower) ||
-      (lead.email && lead.email.toLowerCase().includes(searchTermLower));
+      (lead.email && lead.email.toLowerCase().includes(searchTermLower)) ||
+      (lead.country && lead.country.toLowerCase().includes(searchTermLower));
     const matchesStatus = statusFilter === 'all' || lead.status === statusFilter;
     return matchesSearch && matchesStatus;
-  }).sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+  }); // Sorting is now done in useEffect and after add/convert
 
   const handleLeadAdded = (newLead: Lead) => {
-    setLeads(prevLeads => [newLead, ...prevLeads]);
+    setLeads(prevLeads => [newLead, ...prevLeads].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()));
   };
 
   const handleLeadConverted = (convertedLeadId: string) => {
     setLeads(prevLeads =>
       prevLeads.map(lead =>
         lead.id === convertedLeadId ? { ...lead, status: 'Converted to Account', updatedAt: new Date().toISOString() } : lead
-      )
+      ).sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
     );
+  };
+
+  const handleImportCsv = () => {
+    // Placeholder for CSV import functionality
+    toast({
+      title: "Import CSV",
+      description: "CSV import functionality is under development. Please add leads manually or use the business card OCR.",
+      duration: 5000,
+    });
   };
 
 
   return (
     <div className="container mx-auto space-y-6">
       <PageTitle title="Lead Management" subtitle="Track and manage potential clients.">
-        <Button onClick={() => setIsAddLeadDialogOpen(true)}>
-          <PlusCircle className="mr-2 h-4 w-4" /> Add New Lead
-        </Button>
+        <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={handleImportCsv}>
+                <FileUp className="mr-2 h-4 w-4" /> Import CSV
+            </Button>
+            <Button onClick={() => setIsAddLeadDialogOpen(true)}>
+                <PlusCircle className="mr-2 h-4 w-4" /> Add New Lead
+            </Button>
+        </div>
       </PageTitle>
 
       <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
@@ -73,7 +90,7 @@ export default function LeadsPage() {
                 <Input
                     id="search-leads"
                     type="text"
-                    placeholder="Search by company, name, or email..."
+                    placeholder="Search by company, name, email, country..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="pl-9"

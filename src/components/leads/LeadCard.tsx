@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Users, User, Mail, Phone, Eye, CheckSquare, FileWarning, CalendarPlus, History } from 'lucide-react';
+import { Users, User, Mail, Phone, Eye, CheckSquare, FileWarning, CalendarPlus, History, Linkedin, MapPin } from 'lucide-react';
 import type { Lead } from '@/types';
 import { formatDistanceToNow } from 'date-fns';
 import { convertLeadToAccount } from '@/lib/data';
@@ -68,7 +68,7 @@ export default function LeadCard({ lead, onLeadConverted }: LeadCardProps) {
       <CardHeader className="pb-3">
         <div className="flex justify-between items-start mb-1">
           <CardTitle className="text-xl font-headline flex items-center text-foreground">
-            <User className="mr-2 h-5 w-5 text-primary shrink-0" /> {/* Changed Icon */}
+            <User className="mr-2 h-5 w-5 text-primary shrink-0" />
             {lead.companyName}
           </CardTitle>
            <Badge
@@ -86,13 +86,27 @@ export default function LeadCard({ lead, onLeadConverted }: LeadCardProps) {
         {lead.email && (
           <div className="flex items-center text-muted-foreground">
             <Mail className="mr-2 h-4 w-4 shrink-0" />
-            <span>{lead.email}</span>
+            <a href={`mailto:${lead.email}`} className="hover:text-primary hover:underline">{lead.email}</a>
           </div>
         )}
         {lead.phone && (
           <div className="flex items-center text-muted-foreground">
             <Phone className="mr-2 h-4 w-4 shrink-0" />
             <span>{lead.phone}</span>
+          </div>
+        )}
+        {lead.linkedinProfileUrl && (
+          <div className="flex items-center text-muted-foreground">
+            <Linkedin className="mr-2 h-4 w-4 shrink-0" />
+            <a href={lead.linkedinProfileUrl} target="_blank" rel="noopener noreferrer" className="hover:text-primary hover:underline truncate">
+              {lead.linkedinProfileUrl.replace(/^https?:\/\/(www\.)?linkedin\.com\/in\//, '').replace(/\/$/, '')}
+            </a>
+          </div>
+        )}
+        {lead.country && (
+          <div className="flex items-center text-muted-foreground">
+            <MapPin className="mr-2 h-4 w-4 shrink-0" />
+            <span>{lead.country}</span>
           </div>
         )}
         <div className="pt-2 space-y-1">
@@ -106,7 +120,7 @@ export default function LeadCard({ lead, onLeadConverted }: LeadCardProps) {
       </CardContent>
       <CardFooter className="pt-4 border-t mt-auto">
         <Button variant="outline" size="sm" asChild className="mr-auto">
-          <Link href={`/leads?id=${lead.id}#details`}>
+          <Link href={`/leads?id=${lead.id}#details`}> {/* This link might be for a detail view not yet implemented */}
             <Eye className="mr-2 h-4 w-4" />
             View
           </Link>
