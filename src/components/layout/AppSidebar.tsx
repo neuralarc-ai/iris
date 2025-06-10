@@ -14,7 +14,7 @@ import {
   SidebarTrigger,
 } from '@/components/ui/sidebar';
 import Logo from '@/components/common/Logo';
-import { Briefcase, ListChecks, MessageSquare, Settings, LayoutDashboard, PanelLeft } from 'lucide-react';
+import { Briefcase, ListChecks, MessageSquare, Settings, LayoutDashboard, Users2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const navItems = [
@@ -23,6 +23,7 @@ const navItems = [
   { href: '/projects', label: 'Projects', icon: ListChecks },
   { href: '/updates', label: 'Updates', icon: MessageSquare },
   { href: '/settings/api', label: 'API Settings', icon: Settings },
+  { href: '/settings/users', label: 'User Management', icon: Users2 },
 ];
 
 export default function AppSidebar() {

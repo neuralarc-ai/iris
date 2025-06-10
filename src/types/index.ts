@@ -64,3 +64,11 @@ export interface UpdateInsights {
   followUpSuggestions?: string[];
   sentiment?: string; // e.g., "Positive", "Neutral", "Negative"
 }
+
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  pin: string; // 6-digit PIN
+  createdAt: string; // ISO date string
+}
