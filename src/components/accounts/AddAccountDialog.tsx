@@ -18,7 +18,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import type { Account, AccountType, AccountStatus, Lead } from '@/types';
 import { addAccount, getUnconvertedLeads, convertLeadToAccount, mockAccounts } from '@/lib/data';
-import { Loader2, PlusCircle, UserCheck, Users } from 'lucide-react';
+import { Loader2, PlusCircle, UserCheck } from 'lucide-react';
 
 interface AddAccountDialogProps {
   open: boolean;
@@ -26,6 +26,8 @@ interface AddAccountDialogProps {
   onAccountAdded?: (newAccount: Account) => void;
   onLeadConverted?: (leadId: string, newAccountId: string) => void;
 }
+
+const MANUAL_CREATE_VALUE = "_manual_create_";
 
 export default function AddAccountDialog({ open, onOpenChange, onAccountAdded, onLeadConverted }: AddAccountDialogProps) {
   const [name, setName] = useState('');
@@ -45,12 +47,16 @@ export default function AddAccountDialog({ open, onOpenChange, onAccountAdded, o
   useEffect(() => {
     if (open) {
       setAvailableLeads(getUnconvertedLeads());
-      setSelectedLeadToConvert(''); 
+      // Reset form fields when dialog opens if not already reset by onOpenChange
+      // This is particularly important if the dialog was closed without submitting previously
+      if (!selectedLeadToConvert) { // Or a more explicit reset condition if needed
+          resetFormFields();
+      }
     }
   }, [open]);
 
   useEffect(() => {
-    if (selectedLeadToConvert) {
+    if (selectedLeadToConvert && selectedLeadToConvert !== MANUAL_CREATE_VALUE) {
       const lead = availableLeads.find(l => l.id === selectedLeadToConvert);
       if (lead) {
         setName(lead.companyName);
@@ -58,17 +64,28 @@ export default function AddAccountDialog({ open, onOpenChange, onAccountAdded, o
         setContactEmail(lead.email);
         setContactPhone(lead.phone || '');
         setType('Client'); // Default type when converting
-        // Reset other fields that might not be on lead
-        setDescription('');
+        setDescription(''); // Clear fields not on lead or let user decide
         setIndustry('');
       }
-    } else {
-      // If deselected, clear potentially pre-filled fields or reset to default
-      // This depends on desired UX. For now, we can clear them if the user
-      // explicitly deselects "convert lead" and goes back to manual.
-      // Or we can let them keep it. The current resetForm clears on dialog close.
+    } else if (selectedLeadToConvert === MANUAL_CREATE_VALUE) {
+      // If user explicitly selects "Create Manually" after selecting a lead, clear fields
+      resetFormFields(false); // keep selectedLeadToConvert as MANUAL_CREATE_VALUE
     }
+    // If selectedLeadToConvert becomes '', it's handled by resetForm on dialog close or initial state
   }, [selectedLeadToConvert, availableLeads]);
+
+  const resetFormFields = (resetLeadSelection = true) => {
+    setName('');
+    setType('Client');
+    setDescription('');
+    setContactEmail('');
+    setContactPersonName('');
+    setContactPhone('');
+    setIndustry('');
+    if (resetLeadSelection) {
+      setSelectedLeadToConvert('');
+    }
+  };
 
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -79,12 +96,12 @@ export default function AddAccountDialog({ open, onOpenChange, onAccountAdded, o
       await new Promise(resolve => setTimeout(resolve, 1000)); 
       let newAccount: Account | null = null;
 
-      if (selectedLeadToConvert) {
+      if (selectedLeadToConvert && selectedLeadToConvert !== MANUAL_CREATE_VALUE) {
         const convertedAccount = convertLeadToAccount(selectedLeadToConvert);
         if (convertedAccount) {
            newAccount = {
              ...convertedAccount,
-             name: name || convertedAccount.name,
+             name: name || convertedAccount.name, // Allow overriding pre-filled name
              type: type || convertedAccount.type,
              description: description || convertedAccount.description,
              industry: industry || convertedAccount.industry,
@@ -93,7 +110,7 @@ export default function AddAccountDialog({ open, onOpenChange, onAccountAdded, o
              contactPhone: contactPhone || convertedAccount.contactPhone,
              updatedAt: new Date().toISOString()
            };
-           // Update mockAccounts array directly
+           // Update mockAccounts array directly if convertLeadToAccount doesn't handle updates to existing entries (it creates new)
            const accountIndex = mockAccounts.findIndex(acc => acc.id === newAccount!.id);
            if (accountIndex > -1) {
              mockAccounts[accountIndex] = newAccount;
@@ -115,6 +132,7 @@ export default function AddAccountDialog({ open, onOpenChange, onAccountAdded, o
           return;
         }
       } else {
+        // This block handles manual creation (selectedLeadToConvert is '' or MANUAL_CREATE_VALUE)
         if (!name.trim() || !type) {
           toast({ title: "Error", description: "Account Name and Type are required for new accounts.", variant: "destructive" });
           setIsLoading(false);
@@ -130,7 +148,7 @@ export default function AddAccountDialog({ open, onOpenChange, onAccountAdded, o
           contactPhone,
           industry,
         };
-        newAccount = addAccount(newAccountData);
+        newAccount = addAccount(newAccountData); // addAccount adds to mockAccounts
         toast({
           title: "Account Created",
           description: `${newAccount.name} has been successfully added.`,
@@ -140,7 +158,7 @@ export default function AddAccountDialog({ open, onOpenChange, onAccountAdded, o
       if (newAccount) {
         onAccountAdded?.(newAccount);
       }
-      resetForm();
+      resetFormFields(true); // Reset all including lead selection
       onOpenChange(false);
 
     } catch (error) {
@@ -151,20 +169,11 @@ export default function AddAccountDialog({ open, onOpenChange, onAccountAdded, o
     }
   };
 
-  const resetForm = () => {
-    setName('');
-    setType('Client');
-    setDescription('');
-    setContactEmail('');
-    setContactPersonName('');
-    setContactPhone('');
-    setIndustry('');
-    setSelectedLeadToConvert('');
-  };
-
   return (
     <Dialog open={open} onOpenChange={(isOpen) => {
-      if (!isOpen) resetForm();
+      if (!isOpen) {
+          resetFormFields(true); // Full reset when dialog is closed
+      }
       onOpenChange(isOpen);
     }}>
       <DialogContent className="sm:max-w-[525px]">
@@ -181,12 +190,16 @@ export default function AddAccountDialog({ open, onOpenChange, onAccountAdded, o
             <Label htmlFor="convert-lead-select" className="flex items-center text-sm">
               <UserCheck className="mr-2 h-4 w-4 text-primary"/> Convert an Existing Lead (Optional)
             </Label>
-            <Select value={selectedLeadToConvert} onValueChange={(value) => setSelectedLeadToConvert(value)} disabled={isLoading}>
+            <Select 
+              value={selectedLeadToConvert || undefined} // Use undefined if '' to show placeholder
+              onValueChange={(value) => setSelectedLeadToConvert(value || '')} // Ensure '' if value becomes undefined/null from Select
+              disabled={isLoading}
+            >
               <SelectTrigger id="convert-lead-select">
                 <SelectValue placeholder="Select a lead to convert..." />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Create New Account Manually</SelectItem>
+                <SelectItem value={MANUAL_CREATE_VALUE}>Create New Account Manually</SelectItem>
                 {availableLeads.map(lead => (
                   <SelectItem key={lead.id} value={lead.id}>
                     {lead.companyName} ({lead.personName}) - {lead.status}
@@ -194,7 +207,7 @@ export default function AddAccountDialog({ open, onOpenChange, onAccountAdded, o
                 ))}
               </SelectContent>
             </Select>
-             {selectedLeadToConvert && <p className="text-xs text-muted-foreground">Selected lead details will pre-fill the form. You can edit them.</p>}
+             {selectedLeadToConvert && selectedLeadToConvert !== MANUAL_CREATE_VALUE && <p className="text-xs text-muted-foreground">Selected lead details will pre-fill the form. You can edit them.</p>}
           </div>
 
           <fieldset disabled={isLoading} className="space-y-4">
@@ -204,7 +217,7 @@ export default function AddAccountDialog({ open, onOpenChange, onAccountAdded, o
             </div>
             <div>
               <Label htmlFor="account-type">Account Type <span className="text-destructive">*</span></Label>
-              <Select value={type} onValueChange={(value: AccountType) => setType(value)}>
+              <Select value={type || undefined} onValueChange={(value: AccountType | undefined) => setType(value || 'Client')}>
                 <SelectTrigger id="account-type">
                   <SelectValue placeholder="Select account type" />
                 </SelectTrigger>
@@ -246,7 +259,7 @@ export default function AddAccountDialog({ open, onOpenChange, onAccountAdded, o
               Cancel
             </Button>
             <Button type="submit" disabled={isLoading}>
-              {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : (selectedLeadToConvert ? "Convert Lead & Create Account" : "Create Account")}
+              {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : (selectedLeadToConvert && selectedLeadToConvert !== MANUAL_CREATE_VALUE ? "Convert Lead & Create Account" : "Create Account")}
             </Button>
           </DialogFooter>
         </form>
@@ -254,5 +267,3 @@ export default function AddAccountDialog({ open, onOpenChange, onAccountAdded, o
     </Dialog>
   );
 }
-
-    
