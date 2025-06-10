@@ -45,7 +45,7 @@ export default function DashboardPage() {
     try {
       const activeOpportunities = mockOpportunities.filter(
         opp => opp.status !== 'Completed' && opp.status !== 'Cancelled'
-      ).slice(0, 3); 
+      ).slice(0, 2); // Fetch 2 for key insights to fit 2 per row better
 
       const forecastPromises = activeOpportunities.map(async (opp) => {
         try {
@@ -73,7 +73,7 @@ export default function DashboardPage() {
         setOverallSalesForecast("No active opportunities to forecast. Add new opportunities to see AI-powered sales predictions.");
       }
       
-      setRecentUpdates(getRecentUpdates(3)); // Fetch 3 most recent updates
+      setRecentUpdates(getRecentUpdates(2)); // Fetch 2 most recent updates for 2 per row
       setLastRefreshed(new Date());
     } catch (error) {
       console.error("Failed to fetch dashboard data:", error);
@@ -135,9 +135,9 @@ export default function DashboardPage() {
                 <Lightbulb className="mr-3 h-6 w-6 text-yellow-500" />
                 Key Opportunity Insights
             </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6"> {/* Max 2 cards per row */}
                 {isLoading && forecastedOpportunities.length === 0 ? (
-                Array.from({ length: 3 }).map((_, i) => ( // Show 3 skeletons if loading
+                Array.from({ length: 2 }).map((_, i) => ( // Show 2 skeletons if loading
                     <Card key={i} className="shadow-md animate-pulse">
                     <CardHeader>
                         <div className="h-6 bg-muted/50 rounded w-3/4 mb-2"></div>
@@ -197,7 +197,7 @@ export default function DashboardPage() {
                     </Card>
                 ))
                 ) : (
-                !isLoading && <p className="text-muted-foreground md:col-span-2 xl:col-span-3 text-center py-4">No active opportunities with forecasts to display.</p>
+                !isLoading && <p className="text-muted-foreground md:col-span-2 text-center py-4">No active opportunities with forecasts to display.</p>
                 )}
             </div>
           </div>
@@ -207,7 +207,7 @@ export default function DashboardPage() {
                 <History className="mr-3 h-6 w-6 text-blue-500" />
                 Recent Activity Stream
             </h2>
-            <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6"> {/* Max 2 UpdateItems per row */}
                 {isLoading && recentUpdates.length === 0 ? (
                     Array.from({ length: 2 }).map((_, i) => (
                         <Card key={`update-skeleton-${i}`} className="shadow-md animate-pulse">
@@ -223,7 +223,7 @@ export default function DashboardPage() {
                         <UpdateItem key={update.id} update={update} />
                     ))
                 ) : (
-                    !isLoading && <p className="text-muted-foreground text-center py-4">No recent updates found.</p>
+                    !isLoading && <p className="text-muted-foreground text-center py-4 md:col-span-2">No recent updates found.</p>
                 )}
             </div>
           </div>
