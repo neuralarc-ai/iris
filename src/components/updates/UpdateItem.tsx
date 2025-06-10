@@ -5,14 +5,13 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Eye, CheckSquare, Repeat, MessageSquare, Users, Mail, BarChartBig, Brain, Activity, ThumbsUp, ThumbsDown, MessageCircleMore, Briefcase, Sparkles, UserCircle } from 'lucide-react';
-import type { Update, UpdateInsights as AIUpdateInsights, Opportunity, Account, User } from '@/types';
+import { Eye, CheckSquare, Repeat, MessageSquare, Users, Mail, BarChartBig, Brain, Activity, ThumbsUp, ThumbsDown, MessageCircleMore, Briefcase, Sparkles, UserCircle, User as UserIcon } from 'lucide-react';
+import type { Update, UpdateInsights as AIUpdateInsights, Opportunity, Account, User, Lead } from '@/types';
 import {format, parseISO} from 'date-fns';
 import { generateInsights, RelationshipHealthOutput } from '@/ai/flows/intelligent-insights'; 
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
-import { getOpportunityById, getAccountById, getUserById } from '@/lib/data';
+import { getOpportunityById, getAccountById, getUserById, getLeadById } from '@/lib/data';
 import Link from 'next/link';
-import { Separator } from '@/components/ui/separator';
 
 interface UpdateItemProps {
   update: Update;
@@ -41,36 +40,54 @@ export default function UpdateItem({ update }: UpdateItemProps) {
   const [insights, setInsights] = useState<Partial<AIUpdateInsights> & { relationshipHealth?: RelationshipHealthOutput | null } | null>(null);
   const [isLoadingInsights, setIsLoadingInsights] = useState(false);
   const [showAiInsights, setShowAiInsights] = useState(false);
+  
   const [opportunity, setOpportunity] = useState<Opportunity | undefined>(undefined);
   const [account, setAccount] = useState<Account | undefined>(undefined);
+  const [lead, setLead] = useState<Lead | undefined>(undefined);
   const [updatedByUser, setUpdatedByUser] = useState<User | undefined>(undefined);
 
   useEffect(() => {
-    const opp = getOpportunityById(update.opportunityId);
-    setOpportunity(opp);
-    if (opp?.accountId) {
-      setAccount(getAccountById(opp.accountId));
-    } else {
+    if (update.opportunityId) {
+      const opp = getOpportunityById(update.opportunityId);
+      setOpportunity(opp);
+      if (opp?.accountId) {
+        setAccount(getAccountById(opp.accountId));
+      } else {
+        setAccount(undefined); // Should not happen if data is consistent
+      }
+      setLead(undefined); // Clear lead if it's an opportunity update
+    } else if (update.leadId) {
+      setLead(getLeadById(update.leadId));
+      setOpportunity(undefined); // Clear opportunity/account if it's a lead update
       setAccount(undefined);
     }
+
     if (update.updatedByUserId) {
       setUpdatedByUser(getUserById(update.updatedByUserId));
     } else {
       setUpdatedByUser(undefined);
     }
-  }, [update.opportunityId, update.updatedByUserId]);
+  }, [update.opportunityId, update.leadId, update.updatedByUserId]);
 
   const fetchInsights = async () => {
+    if (!update.content || update.content.length < 20) { // Avoid AI call for very short content
+        setInsights({ summary: "Content too short for detailed AI analysis."});
+        setShowAiInsights(true);
+        return;
+    }
     setIsLoadingInsights(true);
-    setShowAiInsights(true); // Show insights section when fetching starts
+    setShowAiInsights(true); 
     try {
+      // For lead updates, communication history might be just the current update.
+      // For opportunity updates, one might ideally gather more context, but for now, use current update content.
       const aiData = await generateInsights({ communicationHistory: update.content });
       setInsights({
         summary: aiData.updateSummary?.summary,
         actionItems: aiData.updateSummary?.actionItems?.split('\n').filter(s => s.trim().length > 0 && !s.trim().startsWith('-')).map(s => s.replace(/^- /, '')),
         followUpSuggestions: aiData.updateSummary?.followUpSuggestions?.split('\n').filter(s => s.trim().length > 0 && !s.trim().startsWith('-')).map(s => s.replace(/^- /, '')),
         sentiment: aiData.communicationAnalysis?.sentimentAnalysis,
-        relationshipHealth: aiData.relationshipHealth,
+        // Relationship health might be less relevant for a single lead update vs. ongoing opportunity communication
+        relationshipHealth: update.opportunityId ? aiData.relationshipHealth : null, 
       });
     } catch (error) {
       console.error(`Failed to fetch insights for update ${update.id}:`, error);
@@ -81,10 +98,10 @@ export default function UpdateItem({ update }: UpdateItemProps) {
   };
 
   const toggleAiInsights = () => {
-    if (!insights && !isLoadingInsights && update.content && update.content.length > 20) {
+    if (!insights && !isLoadingInsights) { // Fetch only if not already fetched or loading
       fetchInsights();
     } else {
-      setShowAiInsights(prev => !prev);
+      setShowAiInsights(prev => !prev); // Just toggle visibility if already fetched
     }
   };
   
@@ -102,13 +119,20 @@ export default function UpdateItem({ update }: UpdateItemProps) {
             {update.type}
           </Badge>
         </div>
+
+        {lead && (
+            <CardDescription className="text-sm text-muted-foreground flex items-center">
+                <UserIcon className="mr-2 h-4 w-4 shrink-0" />
+                Lead: {lead.companyName} ({lead.personName})
+            </CardDescription>
+        )}
         {opportunity && (
           <CardDescription className="text-sm text-muted-foreground flex items-center">
             <BarChartBig className="mr-2 h-4 w-4 shrink-0" />
             Opportunity: {opportunity.name}
           </CardDescription>
         )}
-        {account && (
+        {account && ( // Display account only if an opportunity is linked
             <CardDescription className="text-xs text-muted-foreground flex items-center mt-0.5">
                 <Briefcase className="mr-1.5 h-3.5 w-3.5 shrink-0" />
                 Account: {account.name}
@@ -133,7 +157,7 @@ export default function UpdateItem({ update }: UpdateItemProps) {
             {isLoadingInsights ? (
               <div className="flex items-center space-x-2 h-16">
                 <LoadingSpinner size={16} />
-                <span className="text-xs text-muted-foreground">Analyzing update details...</span>
+                <span className="text-xs text-muted-foreground">Analyzing update...</span>
               </div>
             ) : insights ? (
               <div className="space-y-2 text-xs">
@@ -167,25 +191,27 @@ export default function UpdateItem({ update }: UpdateItemProps) {
                     <span className="text-muted-foreground ml-1">{insights.sentiment}</span>
                     </div>
                  )}
-                 {insights.relationshipHealth && (
+                 {insights.relationshipHealth && update.opportunityId && ( // Show relationship health only for opportunity updates
                     <div className="mt-1.5">
-                        <strong className="text-foreground block mb-0.5">Relationship Health:</strong>
+                        <strong className="text-foreground block mb-0.5">Relationship Health (Opportunity):</strong>
                         <p className="text-muted-foreground ml-1 leading-snug">{insights.relationshipHealth.summary} (Score: {insights.relationshipHealth.healthScore.toFixed(2)})</p>
                     </div>
                  )}
+                 {!insights.summary && !isLoadingInsights && <p className="text-xs text-muted-foreground">No detailed insights generated for this update.</p>}
               </div>
             ) : (
-                <p className="text-xs text-muted-foreground h-16 flex items-center">No AI insights available for this update, or content too short for analysis.</p>
+                <p className="text-xs text-muted-foreground h-16 flex items-center">No AI insights available for this update.</p>
             )}
           </div>
         )}
       </CardContent>
       <CardFooter className="pt-4 border-t mt-auto">
         <Button variant="ghost" size="sm" onClick={toggleAiInsights} className="mr-auto text-muted-foreground hover:text-primary">
-          <Sparkles className={`mr-2 h-4 w-4 ${showAiInsights ? 'text-yellow-500' : ''}`} />
+          <Sparkles className={`mr-2 h-4 w-4 ${showAiInsights && insights ? 'text-yellow-500' : ''}`} />
           {showAiInsights && insights ? 'Hide Insights' : (isLoadingInsights ? 'Loading...' : 'Show AI Insights')}
         </Button>
         <Button variant="outline" size="sm" asChild>
+          {/* Link destination might need to be dynamic based on leadId or opportunityId if a detail view is implemented */}
           <Link href={`/updates?id=${update.id}#details`}> 
             <Eye className="mr-2 h-4 w-4" />
             View Details

@@ -27,10 +27,11 @@ export interface Lead {
   personName: string;
   phone?: string;
   email: string;
-  linkedinProfileUrl?: string; // New field
-  country?: string; // New field
+  linkedinProfileUrl?: string;
+  country?: string;
   status: LeadStatus;
-  opportunityIds: string[];
+  opportunityIds: string[]; // Opportunities that might be associated before conversion
+  updateIds?: string[]; // Direct updates to this lead
   createdAt: string;
   updatedAt: string;
 }
@@ -51,12 +52,14 @@ export interface Opportunity {
 
 export interface Update {
   id: string;
-  opportunityId: string;
+  opportunityId?: string; // Optional: if update is for an opportunity
+  leadId?: string;        // Optional: if update is directly for a lead
+  accountId?: string;     // Optional: context if opportunityId is present
   date: string;
   content: string;
   type: UpdateType;
   createdAt: string;
-  updatedByUserId?: string; // Added field to track who made the update
+  updatedByUserId?: string;
 }
 
 // For AI Generated Content
@@ -102,4 +105,3 @@ export interface ExtractedLeadInfo {
     email?: string;
     phone?: string;
 }
-

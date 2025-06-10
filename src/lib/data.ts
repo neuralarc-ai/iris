@@ -21,6 +21,7 @@ export let mockLeads: Lead[] = [ // Made 'let' for modification
     phone: '555-0100',
     status: 'Qualified',
     opportunityIds: [],
+    updateIds: ['upd_lead_001'],
     linkedinProfileUrl: 'https://linkedin.com/in/rintarookabe',
     country: 'Japan',
     createdAt: oneWeekAgo.toISOString(),
@@ -137,6 +138,7 @@ export let mockUpdates: Update[] = [ // Made 'let' for modification
   {
     id: 'upd_001',
     opportunityId: 'opp_001',
+    accountId: 'acc_001',
     date: yesterday.toISOString(),
     content: 'Weekly sync call with Innovatech team. Discussed progress on module A and upcoming sprint planning. Client expressed satisfaction with current trajectory. Identified a minor scope creep regarding reporting features which needs to be addressed next week. Overall positive sentiment, relationship health is strong.',
     type: 'Call',
@@ -146,6 +148,7 @@ export let mockUpdates: Update[] = [ // Made 'let' for modification
   {
     id: 'upd_002',
     opportunityId: 'opp_001',
+    accountId: 'acc_001',
     date: oneWeekAgo.toISOString(),
     content: 'Initial prototype for analytics dashboard shared with Innovatech. Positive feedback received, minor UI adjustments requested. Client team is excited about the potential. Action items: Schedule follow-up for UI changes, prepare detailed UAT plan.',
     type: 'General',
@@ -155,6 +158,7 @@ export let mockUpdates: Update[] = [ // Made 'let' for modification
   {
     id: 'upd_003',
     opportunityId: 'opp_003',
+    accountId: 'acc_002',
     date: new Date().toISOString(),
     content: 'Received revised proposal from Synergy Partners. Legal team is reviewing the terms. Follow-up meeting scheduled for next week to discuss final points. Relationship health seems okay, but there are some tough negotiation points ahead.',
     type: 'Email',
@@ -164,6 +168,7 @@ export let mockUpdates: Update[] = [ // Made 'let' for modification
   {
     id: 'upd_004',
     opportunityId: 'opp_002',
+    accountId: 'acc_001',
     date: new Date(new Date().setDate(today.getDate() - 2)).toISOString(),
     content: 'Conducted detailed needs analysis workshop with Innovatech stakeholders for the AI Integration Initiative. Gathered key requirements and user stories. Next step is to consolidate findings and present a preliminary scope document. Client is keen to move fast.',
     type: 'Meeting',
@@ -173,12 +178,22 @@ export let mockUpdates: Update[] = [ // Made 'let' for modification
   {
     id: 'upd_005',
     opportunityId: 'opp_001',
+    accountId: 'acc_001',
     date: new Date(new Date().setDate(today.getDate() - 3)).toISOString(),
     content: 'Deployed new iteration of Phoenix platform to staging. Innovatech to begin UAT next week. Sent over staging credentials and test plan via email. Highlighted key areas for testing based on recent feature additions. All seems on track.',
     type: 'Email',
     createdAt: new Date(new Date().setDate(today.getDate() - 3)).toISOString(),
     updatedByUserId: 'user_admin_000',
   },
+  {
+    id: 'upd_lead_001',
+    leadId: 'lead_001',
+    date: new Date(new Date().setDate(today.getDate() - 1)).toISOString(),
+    content: 'Initial contact call with Rintaro Okabe. Discussed their current challenges and potential fit for our solutions. Sent follow-up email with brochure. Seems interested.',
+    type: 'Call',
+    createdAt: new Date(new Date().setDate(today.getDate() - 1)).toISOString(),
+    updatedByUserId: 'user_admin_000',
+  }
 ];
 
 export let mockUsers: User[] = [
@@ -230,7 +245,7 @@ export const addAccount = (accountData: Omit<Account, 'id' | 'opportunityIds' | 
   return newAccount;
 };
 
-export const addLead = (leadData: Omit<Lead, 'id' | 'createdAt' | 'updatedAt' | 'status' | 'opportunityIds' >): Lead => {
+export const addLead = (leadData: Omit<Lead, 'id' | 'createdAt' | 'updatedAt' | 'status' | 'opportunityIds' | 'updateIds' >): Lead => {
   const newLead: Lead = {
     id: `lead_${new Date().getTime()}`,
     companyName: leadData.companyName,
@@ -241,6 +256,7 @@ export const addLead = (leadData: Omit<Lead, 'id' | 'createdAt' | 'updatedAt' | 
     country: leadData.country,
     status: 'New' as LeadStatus,
     opportunityIds: [],
+    updateIds: [],
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
@@ -257,18 +273,15 @@ export const convertLeadToAccount = (leadId: string): Account | null => {
 
   const existingAccount = mockAccounts.find(acc => acc.convertedFromLeadId === leadId || (acc.name === lead.companyName && acc.contactPersonName === lead.personName));
   if (existingAccount) {
-     // Update existing account instead of creating a new one
      existingAccount.status = 'Active';
      existingAccount.contactEmail = lead.email || existingAccount.contactEmail;
      existingAccount.contactPhone = lead.phone || existingAccount.contactPhone;
-     // Potentially update other fields if necessary
      existingAccount.updatedAt = new Date().toISOString();
      
      mockLeads[leadIndex].status = "Converted to Account";
      mockLeads[leadIndex].updatedAt = new Date().toISOString();
      return existingAccount;
   }
-
 
   const newAccount = addAccount({
     name: lead.companyName,
@@ -279,10 +292,8 @@ export const convertLeadToAccount = (leadId: string): Account | null => {
     contactEmail: lead.email,
     contactPhone: lead.phone,
     convertedFromLeadId: lead.id,
-    // industry can be filled post-conversion or if added to lead type
   });
 
-  // Update lead status
   mockLeads[leadIndex].status = "Converted to Account";
   mockLeads[leadIndex].updatedAt = new Date().toISOString();
   
@@ -314,31 +325,59 @@ export const addOpportunity = (opportunityData: Omit<Opportunity, 'id' | 'update
   return newOpportunity;
 };
 
-export const addUpdate = (data: { opportunityId: string; type: UpdateType; content: string; updatedByUserId?: string }): Update => {
-  const newUpdate: Update = {
+type AddUpdateData = {
+  type: UpdateType;
+  content: string;
+  updatedByUserId?: string;
+} & ({ leadId: string; opportunityId?: never; accountId?: never } | { opportunityId: string; accountId: string; leadId?: never });
+
+
+export const addUpdate = (data: AddUpdateData): Update => {
+  const newUpdateBase = {
     id: `upd_${new Date().getTime()}`,
-    opportunityId: data.opportunityId,
     type: data.type,
     content: data.content,
-    updatedByUserId: data.updatedByUserId || 'user_admin_000', // Default to admin if not provided
+    updatedByUserId: data.updatedByUserId || 'user_admin_000',
     date: new Date().toISOString(),
     createdAt: new Date().toISOString(),
   };
-  mockUpdates.unshift(newUpdate);
 
-  // Update associated opportunity
-  const opportunityIndex = mockOpportunities.findIndex(opp => opp.id === data.opportunityId);
-  if (opportunityIndex > -1) {
-    mockOpportunities[opportunityIndex].updateIds.push(newUpdate.id);
-    mockOpportunities[opportunityIndex].updatedAt = new Date().toISOString();
+  let newUpdate: Update;
 
-    // Update associated account
-    const accountId = mockOpportunities[opportunityIndex].accountId;
-    const accountIndex = mockAccounts.findIndex(acc => acc.id === accountId);
-    if (accountIndex > -1) {
-      mockAccounts[accountIndex].updatedAt = new Date().toISOString();
+  if (data.leadId) {
+    newUpdate = {
+      ...newUpdateBase,
+      leadId: data.leadId,
+    };
+    const leadIndex = mockLeads.findIndex(lead => lead.id === data.leadId);
+    if (leadIndex > -1) {
+      if (!mockLeads[leadIndex].updateIds) {
+        mockLeads[leadIndex].updateIds = [];
+      }
+      mockLeads[leadIndex].updateIds!.push(newUpdate.id);
+      mockLeads[leadIndex].updatedAt = new Date().toISOString();
     }
+  } else if (data.opportunityId && data.accountId) {
+    newUpdate = {
+      ...newUpdateBase,
+      opportunityId: data.opportunityId,
+      accountId: data.accountId,
+    };
+    const opportunityIndex = mockOpportunities.findIndex(opp => opp.id === data.opportunityId);
+    if (opportunityIndex > -1) {
+      mockOpportunities[opportunityIndex].updateIds.push(newUpdate.id);
+      mockOpportunities[opportunityIndex].updatedAt = new Date().toISOString();
+
+      const accountIndex = mockAccounts.findIndex(acc => acc.id === data.accountId);
+      if (accountIndex > -1) {
+        mockAccounts[accountIndex].updatedAt = new Date().toISOString();
+      }
+    }
+  } else {
+    throw new Error("Update must be linked to either a Lead or an Opportunity with an Account.");
   }
+
+  mockUpdates.unshift(newUpdate);
   return newUpdate;
 };
 
@@ -380,7 +419,7 @@ export const getUnconvertedLeads = (): Lead[] => {
   return mockLeads.filter(lead => lead.status !== 'Converted to Account' && lead.status !== 'Lost').sort((a,b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
 };
 
-export const getRecentUpdates = (limit: number = 2): Update[] => { // Default to 2 for dashboard
+export const getRecentUpdates = (limit: number = 3): Update[] => { 
   return [...mockUpdates] 
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
     .slice(0, limit);
