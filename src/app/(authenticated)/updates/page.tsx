@@ -1,29 +1,30 @@
+
 "use client";
 
 import React, { useState } from 'react';
 import PageTitle from '@/components/common/PageTitle';
 import UpdateItem from '@/components/updates/UpdateItem';
-import { mockUpdates, mockProjects } from '@/lib/data';
+import { mockUpdates, mockOpportunities } from '@/lib/data'; // Renamed mockProjects to mockOpportunities
 import type { Update, UpdateType } from '@/types';
 import { Button } from '@/components/ui/button';
 import { PlusCircle, Filter } from 'lucide-react';
-import { Input } from '@/components/ui/input'; // Using Input for date, consider DatePicker
+import { Input } from '@/components/ui/input'; 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {format, parseISO, isValid} from 'date-fns';
 
 
 export default function UpdatesPage() {
-  const [searchTerm, setSearchTerm] = useState(''); // For update content
+  const [searchTerm, setSearchTerm] = useState(''); 
   const [typeFilter, setTypeFilter] = useState<UpdateType | 'all'>('all');
-  const [projectFilter, setProjectFilter] = useState<string | 'all'>('all');
-  const [dateFilter, setDateFilter] = useState<string>(''); // YYYY-MM-DD
+  const [opportunityFilter, setOpportunityFilter] = useState<string | 'all'>('all'); // Renamed projectFilter
+  const [dateFilter, setDateFilter] = useState<string>(''); 
 
   const updateTypeOptions: UpdateType[] = ["General", "Call", "Meeting", "Email"];
 
   const filteredUpdates = mockUpdates.filter(update => {
     const matchesSearch = update.content.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesType = typeFilter === 'all' || update.type === typeFilter;
-    const matchesProject = projectFilter === 'all' || update.projectId === projectFilter;
+    const matchesOpportunity = opportunityFilter === 'all' || update.opportunityId === opportunityFilter; // Renamed
     let matchesDate = true;
     if (dateFilter) {
       try {
@@ -32,18 +33,18 @@ export default function UpdatesPage() {
         if (isValid(filterDate) && isValid(updateDate)) {
            matchesDate = format(updateDate, 'yyyy-MM-dd') === format(filterDate, 'yyyy-MM-dd');
         } else {
-            matchesDate = false; // or true if you want to ignore invalid dates
+            matchesDate = false; 
         }
       } catch (e) {
-        matchesDate = true; // Ignore if date parsing fails
+        matchesDate = true; 
       }
     }
-    return matchesSearch && matchesType && matchesProject && matchesDate;
+    return matchesSearch && matchesType && matchesOpportunity && matchesDate; // Renamed
   });
 
   return (
     <div className="container mx-auto">
-      <PageTitle title="Communication Updates" subtitle="Log and review all project-related communications.">
+      <PageTitle title="Communication Updates" subtitle="Log and review all opportunity-related communications."> {/* Renamed */}
         <Button>
           <PlusCircle className="mr-2 h-4 w-4" /> Log New Update
         </Button>
@@ -78,15 +79,15 @@ export default function UpdatesPage() {
               </Select>
             </div>
             <div>
-              <Label htmlFor="project-filter" className="text-sm font-medium">Project</Label>
-              <Select value={projectFilter} onValueChange={(value: string | 'all') => setProjectFilter(value)}>
-                <SelectTrigger id="project-filter" className="w-full mt-1">
-                  <SelectValue placeholder="Filter by project" />
+              <Label htmlFor="opportunity-filter" className="text-sm font-medium">Opportunity</Label> {/* Renamed */}
+              <Select value={opportunityFilter} onValueChange={(value: string | 'all') => setOpportunityFilter(value)}> {/* Renamed */}
+                <SelectTrigger id="opportunity-filter" className="w-full mt-1"> {/* Renamed */}
+                  <SelectValue placeholder="Filter by opportunity" /> {/* Renamed */}
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Projects</SelectItem>
-                  {mockProjects.map(project => (
-                    <SelectItem key={project.id} value={project.id}>{project.name}</SelectItem>
+                  <SelectItem value="all">All Opportunities</SelectItem> {/* Renamed */}
+                  {mockOpportunities.map(opportunity => ( // Renamed
+                    <SelectItem key={opportunity.id} value={opportunity.id}>{opportunity.name}</SelectItem> // Renamed
                   ))}
                 </SelectContent>
               </Select>

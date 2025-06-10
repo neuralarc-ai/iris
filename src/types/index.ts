@@ -1,7 +1,7 @@
 
 export type AccountType = "Client" | "Channel Partner";
 export type AccountStatus = "Active" | "Inactive";
-export type ProjectStatus = "Need Analysis" | "Negotiation" | "In Progress" | "On Hold" | "Completed" | "Cancelled";
+export type OpportunityStatus = "Need Analysis" | "Negotiation" | "In Progress" | "On Hold" | "Completed" | "Cancelled"; // Renamed
 export type UpdateType = "General" | "Call" | "Meeting" | "Email";
 export type LeadStatus = "New" | "Contacted" | "Qualified" | "Proposal Sent" | "Converted to Account" | "Lost";
 
@@ -11,7 +11,7 @@ export interface Account {
   type: AccountType;
   status: AccountStatus;
   description: string;
-  projectIds: string[];
+  opportunityIds: string[]; // Renamed
   createdAt: string; 
   updatedAt: string; 
   contactEmail?: string; 
@@ -28,30 +28,29 @@ export interface Lead {
   phone?: string;
   email: string;
   status: LeadStatus;
-  projectIds: string[];
+  opportunityIds: string[]; // Renamed
   createdAt: string;
   updatedAt: string;
 }
 
-export interface Project {
+export interface Opportunity { // Renamed
   id: string;
   name:string;
-  accountId?: string; // ID of the associated account (if converted/direct account project)
-  leadId?: string; // ID of the associated lead (if project created for a lead)
-  status: ProjectStatus;
-  value: number; // Monetary value / Quoted amount
+  accountId?: string; 
+  leadId?: string; 
+  status: OpportunityStatus; // Renamed
+  value: number; 
   description: string;
   updateIds: string[]; 
   createdAt: string; 
   updatedAt: string; 
-  // startDate and endDate were on ProjectCard but not in type, adding them
-  startDate: string; // ISO date string
-  endDate: string; // ISO date string
+  startDate: string; 
+  endDate: string; 
 }
 
 export interface Update {
   id: string;
-  projectId: string; 
+  opportunityId: string; // Renamed
   date: string; 
   content: string;
   type: UpdateType;
@@ -64,7 +63,7 @@ export interface DailyAccountSummary {
   relationshipHealth: string; 
 }
 
-export interface ProjectForecast {
+export interface OpportunityForecast { // Renamed
   timelinePrediction: string;
   completionDateEstimate: string; 
   revenueForecast: number;

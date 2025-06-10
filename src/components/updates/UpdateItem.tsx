@@ -1,15 +1,16 @@
+
 "use client";
 
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { CalendarDays, Eye, Lightbulb, CheckSquare, Repeat, MessageSquare, Users, Mail } from 'lucide-react';
-import type { Update, UpdateInsights as AIUpdateInsights, Project } from '@/types';
+import { CalendarDays, Eye, Lightbulb, CheckSquare, Repeat, MessageSquare, Users, Mail, BarChartBig } from 'lucide-react'; // Added BarChartBig
+import type { Update, UpdateInsights as AIUpdateInsights, Opportunity } from '@/types'; // Renamed Project to Opportunity
 import {format, parseISO} from 'date-fns';
 import { generateInsights } from '@/ai/flows/intelligent-insights';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
-import { mockProjects } from '@/lib/data'; 
+import { mockOpportunities, getOpportunityById } from '@/lib/data'; // Renamed mockProjects, added getOpportunityById
 import Link from 'next/link';
 
 
@@ -19,10 +20,10 @@ interface UpdateItemProps {
 
 const getUpdateTypeIcon = (type: Update['type']) => {
   switch (type) {
-    case 'Call': return <MessageSquare className="h-4 w-4 text-primary" />; // MessageSquare for calls
+    case 'Call': return <MessageSquare className="h-4 w-4 text-primary" />; 
     case 'Meeting': return <Users className="h-4 w-4 text-primary" />;
     case 'Email': return <Mail className="h-4 w-4 text-primary" />;
-    default: return <MessageSquare className="h-4 w-4 text-primary" />; // Default icon
+    default: return <MessageSquare className="h-4 w-4 text-primary" />; 
   }
 };
 
@@ -30,11 +31,11 @@ const getUpdateTypeIcon = (type: Update['type']) => {
 export default function UpdateItem({ update }: UpdateItemProps) {
   const [insights, setInsights] = useState<Partial<AIUpdateInsights> | null>(null);
   const [isLoadingInsights, setIsLoadingInsights] = useState(false);
-  const [project, setProject] = useState<Project | undefined>(undefined);
+  const [opportunity, setOpportunity] = useState<Opportunity | undefined>(undefined); // Renamed project to opportunity
 
   useEffect(() => {
-    setProject(mockProjects.find(p => p.id === update.projectId));
-  }, [update.projectId]);
+    setOpportunity(getOpportunityById(update.opportunityId)); // Renamed project to opportunity, used getOpportunityById
+  }, [update.opportunityId]); // Renamed
 
   const fetchInsights = async () => {
     setIsLoadingInsights(true);
@@ -54,11 +55,10 @@ export default function UpdateItem({ update }: UpdateItemProps) {
   };
 
   useEffect(() => {
-    // Only fetch insights if content is not trivial
-    if (update.content && update.content.length > 10) { // Arbitrary length check
+    if (update.content && update.content.length > 10) { 
         fetchInsights();
     } else {
-        setInsights(null); // Ensure no old insights are shown
+        setInsights(null); 
     }
   }, [update.id, update.content]);
   
@@ -74,7 +74,12 @@ export default function UpdateItem({ update }: UpdateItemProps) {
           </CardTitle>
           <Badge variant="secondary" className="capitalize bg-opacity-70">{update.type}</Badge>
         </div>
-        {project && <CardDescription>Project: {project.name}</CardDescription>}
+        {opportunity && ( // Renamed
+          <CardDescription className="flex items-center">
+            <BarChartBig className="mr-1 h-4 w-4 text-muted-foreground" /> {/* Added Icon */}
+            Opportunity: {opportunity.name} {/* Renamed */}
+          </CardDescription>
+        )}
       </CardHeader>
       <CardContent className="space-y-3">
         <p className="text-sm text-foreground line-clamp-3">{update.content}</p>

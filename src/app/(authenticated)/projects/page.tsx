@@ -3,61 +3,69 @@
 
 import React, { useState } from 'react';
 import PageTitle from '@/components/common/PageTitle';
-import ProjectCard from '@/components/projects/ProjectCard';
-import { mockProjects, mockAccounts, mockLeads } from '@/lib/data'; // Added mockLeads
-import type { Project, ProjectStatus } from '@/types';
+import OpportunityCard from '@/components/opportunities/OpportunityCard'; // Renamed
+import { mockOpportunities, mockAccounts, mockLeads, addOpportunity as saveNewOpportunity } from '@/lib/data'; // Renamed, added addOpportunity
+import type { Opportunity, OpportunityStatus } from '@/types'; // Renamed
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Filter } from 'lucide-react';
+import { PlusCircle, Filter, BarChartBig } from 'lucide-react'; // Added BarChartBig
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-// Local Card and Label components if not using global ones from ui/card or ui/label
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'; // Added CardHeader, CardTitle
 import { Label } from '@/components/ui/label';
+import AddOpportunityDialog from '@/components/opportunities/AddOpportunityDialog'; // New Dialog
 
-export default function ProjectsPage() {
+export default function OpportunitiesPage() { // Renamed
+  const [opportunities, setOpportunities] = useState<Opportunity[]>(mockOpportunities); // Renamed, state for opportunities
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<ProjectStatus | 'all'>('all');
-  const [entityFilter, setEntityFilter] = useState<string | 'all'>('all'); // Combined filter for leads and accounts
+  const [statusFilter, setStatusFilter] = useState<OpportunityStatus | 'all'>('all'); // Renamed
+  const [entityFilter, setEntityFilter] = useState<string | 'all'>('all'); 
+  const [isAddOpportunityDialogOpen, setIsAddOpportunityDialogOpen] = useState(false); // Renamed
 
-  const projectStatusOptions: ProjectStatus[] = ["Need Analysis", "Negotiation", "In Progress", "On Hold", "Completed", "Cancelled"];
+  const opportunityStatusOptions: OpportunityStatus[] = ["Need Analysis", "Negotiation", "In Progress", "On Hold", "Completed", "Cancelled"]; // Renamed
 
-  // Combine leads and accounts for the filter dropdown
   const entityOptions = [
     ...mockLeads.map(lead => ({ id: `lead_${lead.id}`, name: `${lead.companyName} (Lead)` })),
     ...mockAccounts.map(account => ({ id: `account_${account.id}`, name: `${account.name} (Account)` }))
   ];
 
-  const filteredProjects = mockProjects.filter(project => {
-    const matchesSearch = project.name.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || project.status === statusFilter;
+  const filteredOpportunities = opportunities.filter(opportunity => { // Renamed
+    const matchesSearch = opportunity.name.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = statusFilter === 'all' || opportunity.status === statusFilter;
     
     let matchesEntity = true;
     if (entityFilter !== 'all') {
       const [type, id] = entityFilter.split('_');
       if (type === 'lead') {
-        matchesEntity = project.leadId === id;
+        matchesEntity = opportunity.leadId === id;
       } else if (type === 'account') {
-        matchesEntity = project.accountId === id;
+        matchesEntity = opportunity.accountId === id;
       }
     }
     return matchesSearch && matchesStatus && matchesEntity;
   });
 
+  const handleOpportunityAdded = (newOpportunity: Opportunity) => { // Renamed
+    setOpportunities(prevOpportunities => [newOpportunity, ...prevOpportunities]); // Add to the beginning
+  };
+
   return (
     <div className="container mx-auto">
-      <PageTitle title="Project Management" subtitle="Track and manage all ongoing and upcoming projects.">
-        <Button>
-          <PlusCircle className="mr-2 h-4 w-4" /> Add New Project
+      <PageTitle title="Opportunity Management" subtitle="Track and manage all ongoing and potential sales opportunities."> {/* Renamed */}
+        <Button onClick={() => setIsAddOpportunityDialogOpen(true)}> {/* Renamed */}
+          <PlusCircle className="mr-2 h-4 w-4" /> Add New Opportunity {/* Renamed */}
         </Button>
       </PageTitle>
 
       <Card className="mb-6 p-4 shadow">
+        <CardHeader className="p-0 mb-4"> {/* Added CardHeader for consistency */}
+            <CardTitle className="text-lg">Filter & Search Opportunities</CardTitle> {/* Renamed */}
+        </CardHeader>
         <CardContent className="p-0">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
             <div>
-              <Label htmlFor="search-projects">Search Projects</Label>
+              <Label htmlFor="search-opportunities">Search Opportunities</Label> {/* Renamed */}
               <Input
-                id="search-projects"
+                id="search-opportunities" // Renamed
                 type="text"
                 placeholder="Search by name..."
                 value={searchTerm}
@@ -67,13 +75,13 @@ export default function ProjectsPage() {
             </div>
             <div>
               <Label htmlFor="status-filter">Status</Label>
-              <Select value={statusFilter} onValueChange={(value: ProjectStatus | 'all') => setStatusFilter(value)}>
+              <Select value={statusFilter} onValueChange={(value: OpportunityStatus | 'all') => setStatusFilter(value)}> {/* Renamed */}
                 <SelectTrigger id="status-filter" className="w-full mt-1">
                   <SelectValue placeholder="Filter by status" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Statuses</SelectItem>
-                  {projectStatusOptions.map(status => (
+                  {opportunityStatusOptions.map(status => ( // Renamed
                     <SelectItem key={status} value={status}>{status}</SelectItem>
                   ))}
                 </SelectContent>
@@ -97,19 +105,24 @@ export default function ProjectsPage() {
         </CardContent>
       </Card>
 
-      {filteredProjects.length > 0 ? (
+      {filteredOpportunities.length > 0 ? ( // Renamed
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredProjects.map((project) => (
-            <ProjectCard key={project.id} project={project} />
+          {filteredOpportunities.map((opportunity) => ( // Renamed
+            <OpportunityCard key={opportunity.id} opportunity={opportunity} /> // Renamed
           ))}
         </div>
       ) : (
         <div className="text-center py-10">
-          <Filter className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-          <p className="text-xl font-semibold text-foreground">No Projects Found</p>
-          <p className="text-muted-foreground">Try adjusting your search or filter criteria.</p>
+          <BarChartBig className="mx-auto h-12 w-12 text-muted-foreground mb-4" /> {/* Changed Icon */}
+          <p className="text-xl font-semibold text-foreground">No Opportunities Found</p> {/* Renamed */}
+          <p className="text-muted-foreground">Try adjusting your search or filter criteria, or add a new opportunity.</p> {/* Renamed */}
         </div>
       )}
+      <AddOpportunityDialog  // Renamed
+        open={isAddOpportunityDialogOpen} 
+        onOpenChange={setIsAddOpportunityDialogOpen}
+        onOpportunityAdded={handleOpportunityAdded} 
+      />
     </div>
   );
 }

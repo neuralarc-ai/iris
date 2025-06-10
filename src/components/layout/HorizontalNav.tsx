@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import Logo from '@/components/common/Logo';
 import { Button } from '@/components/ui/button';
-import { Briefcase, ListChecks, MessageSquare, LayoutDashboard, Users2, PlusCircle, Search, Users } from 'lucide-react'; // Added Users for Leads
+import { Briefcase, ListChecks, MessageSquare, LayoutDashboard, Users2, PlusCircle, Search, Users, BarChartBig } from 'lucide-react'; // Added BarChartBig for Opportunities
 import UserProfile from './UserProfile';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
@@ -14,9 +14,9 @@ import AddAccountDialog from '@/components/accounts/AddAccountDialog';
 
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/leads', label: 'Leads', icon: Users }, // Changed icon for Leads
+  { href: '/leads', label: 'Leads', icon: Users }, 
   { href: '/accounts', label: 'Accounts', icon: Briefcase },
-  { href: '/projects', label: 'Projects', icon: ListChecks },
+  { href: '/opportunities', label: 'Opportunities', icon: BarChartBig }, // Renamed Project to Opportunity
   { href: '/updates', label: 'Updates', icon: MessageSquare },
   { href: '/settings/users', label: 'User Management', icon: Users2 },
 ];
@@ -69,7 +69,7 @@ export default function HorizontalNav() {
               variant="default" 
               size="sm" 
               className="h-9"
-              onClick={() => setIsAddAccountDialogOpen(true)} // This remains "Quick Create Account"
+              onClick={() => setIsAddAccountDialogOpen(true)} 
             >
               <PlusCircle className="mr-2 h-4 w-4" />
               Quick Create
@@ -86,7 +86,7 @@ export default function HorizontalNav() {
               size="sm"
               asChild
               className={cn(
-                "flex-1 justify-center text-xs text-muted-foreground px-1 min-w-max", // Allow shrinking
+                "flex-1 justify-center text-xs text-muted-foreground px-1 min-w-max", 
                  (pathname === item.href || (pathname.startsWith(item.href) && item.href !== '/dashboard' && item.href !== '/')) &&
                   "text-primary font-semibold"
               )}
