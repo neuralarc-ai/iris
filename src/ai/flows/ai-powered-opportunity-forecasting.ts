@@ -53,14 +53,47 @@ const prompt = ai.definePrompt({
   `,
 });
 
-const aiPoweredOpportunityForecastingFlow = ai.defineFlow( // Renamed
+const aiPoweredOpportunityForecastingFlow = ai.defineFlow(
   {
-    name: 'aiPoweredOpportunityForecastingFlow', // Renamed
-    inputSchema: AiPoweredOpportunityForecastingInputSchema, // Renamed
-    outputSchema: AiPoweredOpportunityForecastingOutputSchema, // Renamed
+    name: 'aiPoweredOpportunityForecastingFlow',
+    inputSchema: AiPoweredOpportunityForecastingInputSchema,
+    outputSchema: AiPoweredOpportunityForecastingOutputSchema,
   },
-  async input => {
-    const {output} = await prompt(input);
-    return output!;
+  async (input): Promise<AiPoweredOpportunityForecastingOutput> => {
+    try {
+      const {output} = await prompt(input);
+      if (!output) {
+        // This case might happen if the prompt execution completes but yields no structured output.
+        // It's a good practice to handle it, though often an error would be thrown before this.
+        console.warn(`AI prompt for ${input.opportunityName} did not return an output.`);
+        return {
+          timelinePrediction: "N/A - AI could not generate prediction.",
+          completionDateEstimate: "N/A",
+          revenueForecast: input.opportunityValue, // Default to input value or 0
+          bottleneckIdentification: "AI did not provide bottleneck information for this opportunity.",
+        };
+      }
+      return output;
+    } catch (error: any) {
+      console.error(`Error in aiPoweredOpportunityForecastingFlow for ${input.opportunityName}:`, error.message || error);
+      let bottleneckMessage = "Error generating forecast. Please try again later.";
+      
+      if (error.message && typeof error.message === 'string') {
+        if (error.message.includes("429 Too Many Requests") || (error.cause && typeof error.cause === 'string' && error.cause.includes("429"))) {
+          bottleneckMessage = "Rate limit reached. Please wait and try again or check your API plan.";
+        } else if (error.message.includes("AI prompt did not return an output")) {
+          bottleneckMessage = "AI could not generate a forecast for this opportunity at this time.";
+        } else if (error.message.includes("blocked") || error.message.includes("Safety rating violated")) {
+            bottleneckMessage = "Forecast generation blocked due to content safety filters."
+        }
+      }
+      
+      return {
+        timelinePrediction: "N/A",
+        completionDateEstimate: "N/A",
+        revenueForecast: input.opportunityValue, // Defaulting to original value on error
+        bottleneckIdentification: bottleneckMessage,
+      };
+    }
   }
 );
