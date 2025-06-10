@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -38,10 +39,9 @@ const CreateUserForm = ({ onUserCreated, closeDialog }: { onUserCreated: (newUse
   const [isGeneratingPin, setIsGeneratingPin] = useState(false);
   const { toast } = useToast();
   const animationIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const hasAnimatedRef = useRef(false); // To prevent re-animation on re-renders if dialog stays open
+  const hasAnimatedRef = useRef(false); 
 
   useEffect(() => {
-    // Reset when dialog opens/closes or form submits
     if (!isGeneratingPin) {
       setAnimatedPinDisplay(Array(6).fill('-'));
       hasAnimatedRef.current = false;
@@ -51,7 +51,7 @@ const CreateUserForm = ({ onUserCreated, closeDialog }: { onUserCreated: (newUse
         clearInterval(animationIntervalRef.current);
       }
     };
-  }, [isGeneratingPin, closeDialog]);
+  }, [isGeneratingPin]);
 
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -65,12 +65,12 @@ const CreateUserForm = ({ onUserCreated, closeDialog }: { onUserCreated: (newUse
       return;
     }
 
-    if (hasAnimatedRef.current) return; // Don't re-animate if already done for this submission
+    if (hasAnimatedRef.current && isGeneratingPin) return; 
 
     setIsGeneratingPin(true);
     hasAnimatedRef.current = true;
     let animationCount = 0;
-    const totalAnimationFrames = 30; // 3 seconds at 100ms interval
+    const totalAnimationFrames = 30; 
 
     animationIntervalRef.current = setInterval(() => {
       setAnimatedPinDisplay(Array(6).fill(0).map(() => Math.floor(Math.random() * 10).toString()));
@@ -80,7 +80,6 @@ const CreateUserForm = ({ onUserCreated, closeDialog }: { onUserCreated: (newUse
         const finalPin = Math.floor(100000 + Math.random() * 900000).toString();
         setAnimatedPinDisplay(finalPin.split(''));
         
-        // Short delay to allow user to see the final PIN before toast and close
         setTimeout(() => {
           const newUser = addUser(name, email, finalPin);
           toast({
@@ -92,7 +91,7 @@ const CreateUserForm = ({ onUserCreated, closeDialog }: { onUserCreated: (newUse
                 <p className="text-xs text-muted-foreground mt-1">Please ensure the user notes down this PIN.</p>
               </div>
             ),
-            duration: 7000, // Longer duration for PIN visibility
+            duration: 7000, 
           });
           onUserCreated(newUser);
           setName('');
@@ -122,13 +121,14 @@ const CreateUserForm = ({ onUserCreated, closeDialog }: { onUserCreated: (newUse
         
         <div className="space-y-2 pt-2">
           <Label>Generated PIN:</Label>
-          <div className="flex justify-center space-x-2 h-16 items-center bg-muted rounded-md p-3">
+          <div className="flex justify-center space-x-2 h-20 items-center bg-muted rounded-md p-3">
             {animatedPinDisplay.map((digit, index) => (
               <span
                 key={index}
-                className={`w-10 h-12 text-3xl font-mono border-2 flex items-center justify-center rounded-md bg-background shadow-inner transition-all duration-100 ease-in-out
-                  ${isGeneratingPin && index === Math.floor(Math.random() * 6) ? 'animate-pulse border-primary scale-105' : 'border-input'}
-                  ${!isGeneratingPin && animatedPinDisplay.join('') !== '------' ? 'border-green-500' : ''}
+                className={`w-12 h-16 text-5xl font-mono border-2 flex items-center justify-center rounded-md bg-background shadow-inner transition-colors duration-150 ease-in-out
+                  ${isGeneratingPin ? 'border-primary text-primary' : 
+                    (animatedPinDisplay.join('') !== '------' ? 'border-green-500 text-green-600' : 'border-input')
+                  }
                 `}
               >
                 {digit}
@@ -140,7 +140,10 @@ const CreateUserForm = ({ onUserCreated, closeDialog }: { onUserCreated: (newUse
 
         <DialogFooter className="pt-2">
           <DialogClose asChild>
-            <Button type="button" variant="outline" disabled={isGeneratingPin}>Cancel</Button>
+            <Button type="button" variant="outline" onClick={() => {
+              if (animationIntervalRef.current) clearInterval(animationIntervalRef.current);
+              setIsGeneratingPin(false); // Ensure generating state is reset on cancel
+            }} disabled={isGeneratingPin}>Cancel</Button>
           </DialogClose>
           <Button type="submit" disabled={isGeneratingPin}>
             {isGeneratingPin ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Create User"}
@@ -226,7 +229,7 @@ export default function UserManagementPage() {
   useEffect(() => {
     const adminUserIndex = initialMockUsers.findIndex(u => u.email === 'admin@iris.ai');
     if (adminUserIndex !== -1 && initialMockUsers[adminUserIndex].pin !== DEMO_PIN) {
-      initialMockUsers[adminUserIndex].pin = DEMO_PIN; // Ensure admin has demo pin on load if it differs
+      initialMockUsers[adminUserIndex].pin = DEMO_PIN; 
     }
     setUsers([...initialMockUsers]);
   }, []);
@@ -248,11 +251,20 @@ export default function UserManagementPage() {
     setEditingUser(user);
     setIsEditPinDialogOpen(true);
   };
+  
+  const handleCreateUserDialogChange = (open: boolean) => {
+    setIsCreateUserDialogOpen(open);
+    if (!open) {
+      // This will trigger the useEffect in CreateUserForm to clean up if an animation was in progress
+      // No need to manually clear interval here as the form's effect handles it
+    }
+  };
+
 
   return (
     <div className="container mx-auto">
       <PageTitle title="User Management" subtitle="Create and manage user accounts and PINs.">
-        <Dialog open={isCreateUserDialogOpen} onOpenChange={setIsCreateUserDialogOpen}>
+        <Dialog open={isCreateUserDialogOpen} onOpenChange={handleCreateUserDialogChange}>
           <DialogTrigger asChild>
             <Button>
               <PlusCircle className="mr-2 h-4 w-4" /> Add New User
@@ -311,3 +323,6 @@ export default function UserManagementPage() {
     </div>
   );
 }
+
+
+    
