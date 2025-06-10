@@ -1,6 +1,7 @@
+
 "use client";
 
-import React, { useState, useRef, ChangeEvent, KeyboardEvent } from 'react';
+import React, { useState, useRef, ChangeEvent, KeyboardEvent, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from '@/hooks/use-auth';
@@ -16,32 +17,54 @@ export default function PinLoginForm() {
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const { login } = useAuth();
   const { toast } = useToast();
+  const formRef = useRef<HTMLFormElement>(null); // Ref for the form
 
   const handleChange = (e: ChangeEvent<HTMLInputElement>, index: number) => {
     const { value } = e.target;
     const newPin = [...pin];
-    
-    // Allow only single digit numeric input
+
     if (/^[0-9]$/.test(value) || value === '') {
       newPin[index] = value;
       setPin(newPin);
       setError(null);
 
-      // Move to next input if a digit is entered
       if (value && index < PIN_LENGTH - 1) {
         inputRefs.current[index + 1]?.focus();
+      } else if (value && index === PIN_LENGTH - 1) {
+        // If it's the last digit and it's filled, try to submit
+        // We need to ensure the state is updated before calling handleSubmit
+        // So we use a microtask (setTimeout with 0ms) or useEffect
       }
     }
   };
+
+  useEffect(() => {
+    const currentPin = pin.join('');
+    if (currentPin.length === PIN_LENGTH && !isLoading) {
+      // Check if all inputs are filled and not already loading
+      handleSubmit();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pin]); // Rerun when pin state changes
+
 
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>, index: number) => {
     if (e.key === 'Backspace' && !pin[index] && index > 0) {
       inputRefs.current[index - 1]?.focus();
     }
+    // Allow navigation with arrow keys
+    if (e.key === 'ArrowLeft' && index > 0) {
+      inputRefs.current[index - 1]?.focus();
+    }
+    if (e.key === 'ArrowRight' && index < PIN_LENGTH - 1) {
+      inputRefs.current[index + 1]?.focus();
+    }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault(); // Prevent default if called by form submission
+    if (isLoading) return; // Prevent multiple submissions
+
     setError(null);
     setIsLoading(true);
 
@@ -60,28 +83,53 @@ export default function PinLoginForm() {
         description: "Invalid PIN. Please try again.",
         variant: "destructive",
       });
-      setPin(Array(PIN_LENGTH).fill('')); // Reset PIN input
-      inputRefs.current[0]?.focus(); // Focus on the first input
+      setPin(Array(PIN_LENGTH).fill('')); 
+      inputRefs.current[0]?.focus(); 
     }
+    // On success, the useAuth hook handles navigation, so we just need to ensure loading is false
     setIsLoading(false);
   };
+  
+  const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    e.preventDefault();
+    const pasteData = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, PIN_LENGTH);
+    if (pasteData.length > 0) {
+      const newPin = Array(PIN_LENGTH).fill('');
+      for (let i = 0; i < pasteData.length; i++) {
+        newPin[i] = pasteData[i];
+      }
+      setPin(newPin);
+      // Focus on the next empty input or the last input if paste filled them all
+      const firstEmptyIndex = newPin.findIndex(digit => digit === '');
+      const focusIndex = (firstEmptyIndex === -1 || firstEmptyIndex >= PIN_LENGTH) ? PIN_LENGTH - 1 : firstEmptyIndex;
+      
+      // Delay focus slightly to allow state to update and inputs to re-render
+      setTimeout(() => {
+         inputRefs.current[Math.min(focusIndex, PIN_LENGTH -1)]?.focus();
+      }, 0);
+    }
+  };
+
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="flex justify-center space-x-2">
+    <form onSubmit={handleSubmit} className="space-y-6" ref={formRef}>
+      <div className="flex justify-center space-x-1 sm:space-x-2">
         {pin.map((digit, index) => (
           <Input
             key={index}
-            type="text" // Using text to better control input, but could be "tel" or "password"
+            type="tel" // Use "tel" for numeric keypad on mobile
             inputMode="numeric"
+            pattern="[0-9]*"
             maxLength={1}
             value={digit}
             onChange={(e) => handleChange(e, index)}
             onKeyDown={(e) => handleKeyDown(e, index)}
+            onPaste={index === 0 ? handlePaste : undefined} // Allow paste only on the first input
             ref={(el) => (inputRefs.current[index] = el)}
-            className="w-12 h-14 text-center text-2xl font-mono border-2 focus:border-primary focus:ring-primary rounded-md shadow-sm"
+            className="w-12 h-14 sm:w-14 sm:h-16 text-center text-2xl font-mono border-2 focus:border-primary focus:ring-primary rounded-md shadow-sm"
             aria-label={`PIN digit ${index + 1}`}
             disabled={isLoading}
+            autoComplete="off"
           />
         ))}
       </div>
@@ -92,3 +140,5 @@ export default function PinLoginForm() {
     </form>
   );
 }
+
+    

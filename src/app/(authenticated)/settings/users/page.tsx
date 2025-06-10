@@ -35,23 +35,82 @@ import { DEMO_PIN } from '@/lib/constants';
 const CreateUserForm = ({ onUserCreated, closeDialog }: { onUserCreated: (newUser: User) => void, closeDialog: () => void }) => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
-  const [animatedPinDisplay, setAnimatedPinDisplay] = useState<string[]>(Array(6).fill('-'));
+  const [animatedPinDisplay, setAnimatedPinDisplay] = useState<string[]>(Array(6).fill('')); // Initial empty
   const [isGeneratingPin, setIsGeneratingPin] = useState(false);
   const { toast } = useToast();
   const animationIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const hasAnimatedRef = useRef(false); 
+  const finalPinRef = useRef<string | null>(null);
+
 
   useEffect(() => {
-    if (!isGeneratingPin) {
-      setAnimatedPinDisplay(Array(6).fill('-'));
-      hasAnimatedRef.current = false;
-    }
-    return () => {
+    return () => { // Cleanup on unmount
       if (animationIntervalRef.current) {
         clearInterval(animationIntervalRef.current);
       }
     };
-  }, [isGeneratingPin]);
+  }, []);
+
+  const startPinAnimation = () => {
+    setIsGeneratingPin(true);
+    finalPinRef.current = Math.floor(100000 + Math.random() * 900000).toString();
+    let animationCount = 0;
+    const totalAnimationFramesPerDigit = 5; // How many times each digit "flips"
+    const totalCycles = 6 * totalAnimationFramesPerDigit; // Total "flips" across all digits
+    let currentDigitAnimating = 0;
+
+    animationIntervalRef.current = setInterval(() => {
+      const newPinDisplay = [...animatedPinDisplay];
+      
+      // Animate current digit
+      newPinDisplay[currentDigitAnimating] = Math.floor(Math.random() * 10).toString();
+      
+      // Move to next digit or cycle
+      animationCount++;
+      if (animationCount % totalAnimationFramesPerDigit === 0) {
+        // Set the real digit for the one that just finished animating
+        if (finalPinRef.current) {
+          newPinDisplay[currentDigitAnimating] = finalPinRef.current[currentDigitAnimating];
+        }
+        currentDigitAnimating++;
+      }
+
+      setAnimatedPinDisplay(newPinDisplay);
+
+      if (currentDigitAnimating >= 6) { // All digits have revealed their final number
+        if (animationIntervalRef.current) clearInterval(animationIntervalRef.current);
+        setAnimatedPinDisplay(finalPinRef.current!.split('')); // Ensure final PIN is displayed
+
+        setTimeout(() => {
+          const newUser = addUser(name, email, finalPinRef.current!);
+          toast({
+            title: "User Created Successfully!",
+            description: (
+              <div>
+                <p>{newUser.name} has been added to the system.</p>
+                <p className="font-semibold">Generated PIN: <span className="font-mono text-base">{finalPinRef.current}</span></p>
+                <p className="text-xs text-muted-foreground mt-1">Please ensure the user notes down this PIN.</p>
+              </div>
+            ),
+            duration: 7000,
+          });
+          onUserCreated(newUser);
+          resetFormAndAnimation();
+          closeDialog();
+        }, 800); // Short delay to appreciate the final PIN
+      }
+    }, 75); // Speed of individual digit "flips"
+  };
+  
+  const resetFormAndAnimation = () => {
+    setName('');
+    setEmail('');
+    setAnimatedPinDisplay(Array(6).fill(''));
+    setIsGeneratingPin(false);
+    if (animationIntervalRef.current) {
+      clearInterval(animationIntervalRef.current);
+    }
+    finalPinRef.current = null;
+  };
 
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -64,43 +123,8 @@ const CreateUserForm = ({ onUserCreated, closeDialog }: { onUserCreated: (newUse
       toast({ title: "Error", description: "Please enter a valid email address.", variant: "destructive" });
       return;
     }
-
-    if (hasAnimatedRef.current && isGeneratingPin) return; 
-
-    setIsGeneratingPin(true);
-    hasAnimatedRef.current = true;
-    let animationCount = 0;
-    const totalAnimationFrames = 30; 
-
-    animationIntervalRef.current = setInterval(() => {
-      setAnimatedPinDisplay(Array(6).fill(0).map(() => Math.floor(Math.random() * 10).toString()));
-      animationCount++;
-      if (animationCount >= totalAnimationFrames) {
-        if (animationIntervalRef.current) clearInterval(animationIntervalRef.current);
-        const finalPin = Math.floor(100000 + Math.random() * 900000).toString();
-        setAnimatedPinDisplay(finalPin.split(''));
-        
-        setTimeout(() => {
-          const newUser = addUser(name, email, finalPin);
-          toast({
-            title: "User Created Successfully!",
-            description: (
-              <div>
-                <p>{newUser.name} has been added to the system.</p>
-                <p className="font-semibold">Generated PIN: <span className="font-mono text-base">{finalPin}</span></p>
-                <p className="text-xs text-muted-foreground mt-1">Please ensure the user notes down this PIN.</p>
-              </div>
-            ),
-            duration: 7000, 
-          });
-          onUserCreated(newUser);
-          setName('');
-          setEmail('');
-          setIsGeneratingPin(false); 
-          closeDialog();
-        }, 500);
-      }
-    }, 100);
+    if (isGeneratingPin) return;
+    startPinAnimation();
   };
 
   return (
@@ -118,20 +142,21 @@ const CreateUserForm = ({ onUserCreated, closeDialog }: { onUserCreated: (newUse
           <Label htmlFor="create-email">Email</Label>
           <Input id="create-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Enter user's email" disabled={isGeneratingPin} />
         </div>
-        
+
         <div className="space-y-2 pt-2">
           <Label>Generated PIN:</Label>
-          <div className="flex justify-center space-x-2 h-20 items-center bg-muted rounded-md p-3">
+          <div className="flex justify-center space-x-1 sm:space-x-2 h-20 items-center rounded-md p-1 sm:p-2">
             {animatedPinDisplay.map((digit, index) => (
               <span
                 key={index}
-                className={`w-12 h-16 text-5xl font-mono border-2 flex items-center justify-center rounded-md bg-background shadow-inner transition-colors duration-150 ease-in-out
-                  ${isGeneratingPin ? 'border-primary text-primary' : 
-                    (animatedPinDisplay.join('') !== '------' ? 'border-green-500 text-green-600' : 'border-input')
+                className={`w-10 h-14 sm:w-12 sm:h-16 text-4xl sm:text-5xl font-mono border-2 flex items-center justify-center rounded-md bg-background shadow-inner 
+                  transition-colors duration-100 ease-in-out
+                  ${isGeneratingPin && (!finalPinRef.current || index >= (finalPinRef.current?.length || 0) || animatedPinDisplay[index] !== finalPinRef.current?.[index]) ? 'border-primary text-primary animate-pulse' : 
+                    (finalPinRef.current && animatedPinDisplay.join('') === finalPinRef.current ? 'border-green-500 text-green-600' : 'border-input')
                   }
                 `}
               >
-                {digit}
+                {digit || (isGeneratingPin ? '0' : '')} 
               </span>
             ))}
           </div>
@@ -141,8 +166,8 @@ const CreateUserForm = ({ onUserCreated, closeDialog }: { onUserCreated: (newUse
         <DialogFooter className="pt-2">
           <DialogClose asChild>
             <Button type="button" variant="outline" onClick={() => {
-              if (animationIntervalRef.current) clearInterval(animationIntervalRef.current);
-              setIsGeneratingPin(false); // Ensure generating state is reset on cancel
+              resetFormAndAnimation();
+              closeDialog();
             }} disabled={isGeneratingPin}>Cancel</Button>
           </DialogClose>
           <Button type="submit" disabled={isGeneratingPin}>
@@ -161,7 +186,7 @@ const EditPinDialog = ({ user, onPinUpdated, open, onOpenChange }: { user: User 
 
   useEffect(() => {
     if (user) {
-      setNewPin(''); 
+      setNewPin('');
     }
   }, [user, open]);
 
@@ -200,11 +225,11 @@ const EditPinDialog = ({ user, onPinUpdated, open, onOpenChange }: { user: User 
           </div>
           <div>
             <Label htmlFor="edit-newPin">New 6-Digit PIN</Label>
-            <Input 
-              id="edit-newPin" 
-              value={newPin} 
-              onChange={(e) => setNewPin(e.target.value.replace(/\D/g, '').slice(0,6))} 
-              placeholder="Enter new 6-digit PIN" 
+            <Input
+              id="edit-newPin"
+              value={newPin}
+              onChange={(e) => setNewPin(e.target.value.replace(/\D/g, '').slice(0,6))}
+              placeholder="Enter new 6-digit PIN"
               maxLength={6}
               className="font-mono tracking-widest"
             />
@@ -229,13 +254,13 @@ export default function UserManagementPage() {
   useEffect(() => {
     const adminUserIndex = initialMockUsers.findIndex(u => u.email === 'admin@iris.ai');
     if (adminUserIndex !== -1 && initialMockUsers[adminUserIndex].pin !== DEMO_PIN) {
-      initialMockUsers[adminUserIndex].pin = DEMO_PIN; 
+      initialMockUsers[adminUserIndex].pin = DEMO_PIN;
     }
     setUsers([...initialMockUsers]);
   }, []);
-  
+
   const refreshUsersState = () => {
-    setUsers([...initialMockUsers]); 
+    setUsers([...initialMockUsers]);
   };
 
   const handleUserCreated = (newUser: User) => {
@@ -244,20 +269,18 @@ export default function UserManagementPage() {
 
   const handlePinUpdated = () => {
     refreshUsersState();
-    setEditingUser(null); 
+    setEditingUser(null);
   };
-  
+
   const handleOpenEditDialog = (user: User) => {
     setEditingUser(user);
     setIsEditPinDialogOpen(true);
   };
-  
+
   const handleCreateUserDialogChange = (open: boolean) => {
     setIsCreateUserDialogOpen(open);
-    if (!open) {
-      // This will trigger the useEffect in CreateUserForm to clean up if an animation was in progress
-      // No need to manually clear interval here as the form's effect handles it
-    }
+    // If dialog is closed, ensure any running animation in CreateUserForm is reset
+    // CreateUserForm has its own reset for animation state via its resetFormAndAnimation
   };
 
 
@@ -270,9 +293,9 @@ export default function UserManagementPage() {
               <PlusCircle className="mr-2 h-4 w-4" /> Add New User
             </Button>
           </DialogTrigger>
-          <CreateUserForm 
-            onUserCreated={handleUserCreated} 
-            closeDialog={() => setIsCreateUserDialogOpen(false)} 
+          <CreateUserForm
+            onUserCreated={handleUserCreated}
+            closeDialog={() => setIsCreateUserDialogOpen(false)}
           />
         </Dialog>
       </PageTitle>
@@ -313,16 +336,15 @@ export default function UserManagementPage() {
           )}
         </CardContent>
       </Card>
-      
-      <EditPinDialog 
-        user={editingUser} 
-        onPinUpdated={handlePinUpdated} 
+
+      <EditPinDialog
+        user={editingUser}
+        onPinUpdated={handlePinUpdated}
         open={isEditPinDialogOpen}
         onOpenChange={setIsEditPinDialogOpen}
       />
     </div>
   );
 }
-
 
     
