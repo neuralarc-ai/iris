@@ -12,6 +12,8 @@ export interface Account {
   projectIds: string[]; // Store IDs of associated projects
   createdAt: string; // ISO date string
   updatedAt: string; // ISO date string
+  contactEmail?: string; // Optional: Added for AddAccountDialog
+  industry?: string;    // Optional: Added for AddAccountDialog
 }
 
 export interface Project {
@@ -37,12 +39,13 @@ export interface Update {
   createdAt: string; // ISO date string
 }
 
-export interface ApiSettings {
-  deepSeekApiKey?: string;
-  deepSeekModel?: string;
-  openRouterApiKey?: string;
-  openRouterModel?: string;
-}
+// This type will be removed as the API settings page is being removed.
+// export interface ApiSettings {
+//   deepSeekApiKey?: string;
+//   deepSeekModel?: string;
+//   openRouterApiKey?: string;
+//   openRouterModel?: string;
+// }
 
 // For AI Generated Content
 export interface DailyAccountSummary {

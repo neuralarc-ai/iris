@@ -2,9 +2,7 @@
 import React, { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
-import AppHeader from '@/components/layout/AppHeader';
-import AppSidebar from '@/components/layout/AppSidebar';
-import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
+import HorizontalNav from '@/components/layout/HorizontalNav';
 import { Loader2 } from 'lucide-react';
 
 export default function AuthenticatedLayout({
@@ -30,14 +28,11 @@ export default function AuthenticatedLayout({
   }
 
   return (
-    <SidebarProvider defaultOpen={true}>
-      <AppSidebar />
-      <SidebarInset className="flex flex-col min-h-screen">
-        <AppHeader />
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 bg-secondary/30">
-          {children}
-        </main>
-      </SidebarInset>
-    </SidebarProvider>
+    <div className="flex flex-col min-h-screen bg-background">
+      <HorizontalNav />
+      <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 pt-20 sm:pt-24 lg:pt-28"> {/* Added padding-top to account for fixed HorizontalNav */}
+        {children}
+      </main>
+    </div>
   );
 }

@@ -19,6 +19,9 @@ export const mockAccounts: Account[] = [
     projectIds: ['proj_001', 'proj_002'],
     createdAt: oneMonthAgo.toISOString(),
     updatedAt: yesterday.toISOString(),
+    // Add a placeholder for contactEmail and industry for the new AddAccountDialog
+    contactEmail: 'contact@innovatech.com',
+    industry: 'Technology',
   },
   {
     id: 'acc_002',
@@ -29,6 +32,8 @@ export const mockAccounts: Account[] = [
     projectIds: ['proj_003'],
     createdAt: new Date(new Date().setDate(today.getDate() - 60)).toISOString(),
     updatedAt: oneWeekAgo.toISOString(),
+    contactEmail: 'partner@synergy.com',
+    industry: 'Consulting',
   },
   {
     id: 'acc_003',
@@ -39,6 +44,8 @@ export const mockAccounts: Account[] = [
     projectIds: [],
     createdAt: new Date(new Date().setDate(today.getDate() - 120)).toISOString(),
     updatedAt: new Date(new Date().setDate(today.getDate() - 30)).toISOString(),
+    contactEmail: 'info@globalcorp.com',
+    industry: 'Manufacturing',
   },
 ];
 
@@ -128,25 +135,37 @@ export let mockUsers: User[] = [
   },
 ];
 
-export const addUser = (name: string, email: string): User => {
+// Modified to accept PIN
+export const addUser = (name: string, email: string, pin: string): User => {
   const newUser: User = {
     id: `user_${new Date().getTime()}`,
     name,
     email,
-    pin: Math.floor(100000 + Math.random() * 900000).toString(),
+    pin, // Use provided PIN
     createdAt: new Date().toISOString(),
   };
   mockUsers.push(newUser);
   return newUser;
 };
 
+// Add a function to add new accounts for the "Quick Create" dialog
+export const addAccount = (accountData: Omit<Account, 'id' | 'projectIds' | 'createdAt' | 'updatedAt'>): Account => {
+  const newAccount: Account = {
+    id: `acc_${new Date().getTime()}`,
+    ...accountData,
+    projectIds: [],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+  mockAccounts.push(newAccount);
+  return newAccount;
+};
+
+
 export const updateUserPin = (userId: string, newPin: string): boolean => {
   const userIndex = mockUsers.findIndex(user => user.id === userId);
   if (userIndex > -1) {
     mockUsers[userIndex].pin = newPin;
-    // If updating the admin user, also update the DEMO_PIN in constants (not really, but for this mock setup)
-    // This part is tricky with mock data. For a real app, DEMO_PIN is a fallback, not the live admin PIN.
-    // For this exercise, we'll assume the admin PIN in mockUsers is the source of truth after initial load.
     return true;
   }
   return false;

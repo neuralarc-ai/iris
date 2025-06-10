@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import PageTitle from '@/components/common/PageTitle';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit, Eye, EyeOff as EyeOffIcon, Users2 } from 'lucide-react';
+import { PlusCircle, Edit, Eye, EyeOff as EyeOffIcon, Users2, Loader2 } from 'lucide-react';
 import { mockUsers as initialMockUsers, addUser, updateUserPin } from '@/lib/data';
 import type { User } from '@/types';
 import {
@@ -34,9 +34,27 @@ import { DEMO_PIN } from '@/lib/constants';
 const CreateUserForm = ({ onUserCreated, closeDialog }: { onUserCreated: (newUser: User) => void, closeDialog: () => void }) => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [animatedPinDisplay, setAnimatedPinDisplay] = useState<string[]>(Array(6).fill('-'));
+  const [isGeneratingPin, setIsGeneratingPin] = useState(false);
   const { toast } = useToast();
+  const animationIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const hasAnimatedRef = useRef(false); // To prevent re-animation on re-renders if dialog stays open
 
-  const handleSubmit = (e: React.FormEvent) => {
+  useEffect(() => {
+    // Reset when dialog opens/closes or form submits
+    if (!isGeneratingPin) {
+      setAnimatedPinDisplay(Array(6).fill('-'));
+      hasAnimatedRef.current = false;
+    }
+    return () => {
+      if (animationIntervalRef.current) {
+        clearInterval(animationIntervalRef.current);
+      }
+    };
+  }, [isGeneratingPin, closeDialog]);
+
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim() || !email.trim()) {
       toast({ title: "Error", description: "Name and email are required.", variant: "destructive" });
@@ -46,39 +64,90 @@ const CreateUserForm = ({ onUserCreated, closeDialog }: { onUserCreated: (newUse
       toast({ title: "Error", description: "Please enter a valid email address.", variant: "destructive" });
       return;
     }
-    const newUser = addUser(name, email);
-    toast({ 
-      title: "User Created", 
-      description: (
-        <div>
-          <p>{newUser.name} has been added.</p>
-          <p className="font-mono">Generated PIN: {newUser.pin}</p>
-        </div>
-      )
-    });
-    onUserCreated(newUser);
-    setName('');
-    setEmail('');
-    closeDialog();
+
+    if (hasAnimatedRef.current) return; // Don't re-animate if already done for this submission
+
+    setIsGeneratingPin(true);
+    hasAnimatedRef.current = true;
+    let animationCount = 0;
+    const totalAnimationFrames = 30; // 3 seconds at 100ms interval
+
+    animationIntervalRef.current = setInterval(() => {
+      setAnimatedPinDisplay(Array(6).fill(0).map(() => Math.floor(Math.random() * 10).toString()));
+      animationCount++;
+      if (animationCount >= totalAnimationFrames) {
+        if (animationIntervalRef.current) clearInterval(animationIntervalRef.current);
+        const finalPin = Math.floor(100000 + Math.random() * 900000).toString();
+        setAnimatedPinDisplay(finalPin.split(''));
+        
+        // Short delay to allow user to see the final PIN before toast and close
+        setTimeout(() => {
+          const newUser = addUser(name, email, finalPin);
+          toast({
+            title: "User Created Successfully!",
+            description: (
+              <div>
+                <p>{newUser.name} has been added to the system.</p>
+                <p className="font-semibold">Generated PIN: <span className="font-mono text-base">{finalPin}</span></p>
+                <p className="text-xs text-muted-foreground mt-1">Please ensure the user notes down this PIN.</p>
+              </div>
+            ),
+            duration: 7000, // Longer duration for PIN visibility
+          });
+          onUserCreated(newUser);
+          setName('');
+          setEmail('');
+          setIsGeneratingPin(false); 
+          closeDialog();
+        }, 500);
+      }
+    }, 100);
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 pt-4">
-      <div>
-        <Label htmlFor="create-name">Name</Label>
-        <Input id="create-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Enter user's name" />
-      </div>
-      <div>
-        <Label htmlFor="create-email">Email</Label>
-        <Input id="create-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Enter user's email" />
-      </div>
-      <DialogFooter>
-        <DialogClose asChild>
-          <Button type="button" variant="outline">Cancel</Button>
-        </DialogClose>
-        <Button type="submit">Create User</Button>
-      </DialogFooter>
-    </form>
+    <DialogContent>
+      <DialogHeader>
+        <DialogTitle>Create New User</DialogTitle>
+        <DialogDescription>Enter the user's details. A 6-digit PIN will be automatically generated.</DialogDescription>
+      </DialogHeader>
+      <form onSubmit={handleSubmit} className="space-y-4 pt-4">
+        <div>
+          <Label htmlFor="create-name">Name</Label>
+          <Input id="create-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Enter user's name" disabled={isGeneratingPin} />
+        </div>
+        <div>
+          <Label htmlFor="create-email">Email</Label>
+          <Input id="create-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Enter user's email" disabled={isGeneratingPin} />
+        </div>
+        
+        <div className="space-y-2 pt-2">
+          <Label>Generated PIN:</Label>
+          <div className="flex justify-center space-x-2 h-16 items-center bg-muted rounded-md p-3">
+            {animatedPinDisplay.map((digit, index) => (
+              <span
+                key={index}
+                className={`w-10 h-12 text-3xl font-mono border-2 flex items-center justify-center rounded-md bg-background shadow-inner transition-all duration-100 ease-in-out
+                  ${isGeneratingPin && index === Math.floor(Math.random() * 6) ? 'animate-pulse border-primary scale-105' : 'border-input'}
+                  ${!isGeneratingPin && animatedPinDisplay.join('') !== '------' ? 'border-green-500' : ''}
+                `}
+              >
+                {digit}
+              </span>
+            ))}
+          </div>
+          {isGeneratingPin && <p className="text-xs text-center text-muted-foreground">Generating secure PIN...</p>}
+        </div>
+
+        <DialogFooter className="pt-2">
+          <DialogClose asChild>
+            <Button type="button" variant="outline" disabled={isGeneratingPin}>Cancel</Button>
+          </DialogClose>
+          <Button type="submit" disabled={isGeneratingPin}>
+            {isGeneratingPin ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Create User"}
+          </Button>
+        </DialogFooter>
+      </form>
+    </DialogContent>
   );
 };
 
@@ -155,10 +224,9 @@ export default function UserManagementPage() {
   const [isEditPinDialogOpen, setIsEditPinDialogOpen] = useState(false);
 
   useEffect(() => {
-    // Ensure admin user has the latest DEMO_PIN from constants on initial load
     const adminUserIndex = initialMockUsers.findIndex(u => u.email === 'admin@iris.ai');
-    if (adminUserIndex !== -1) {
-      initialMockUsers[adminUserIndex].pin = DEMO_PIN;
+    if (adminUserIndex !== -1 && initialMockUsers[adminUserIndex].pin !== DEMO_PIN) {
+      initialMockUsers[adminUserIndex].pin = DEMO_PIN; // Ensure admin has demo pin on load if it differs
     }
     setUsers([...initialMockUsers]);
   }, []);
