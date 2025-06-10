@@ -16,56 +16,54 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import type { Opportunity, Lead } from '@/types'; // Renamed Project to Opportunity
-import { addOpportunity, mockLeads } from '@/lib/data'; // Renamed addProject, imported mockLeads
-import { Loader2, BarChartBig, User } from 'lucide-react'; // Changed icon
+import type { Opportunity, Account } from '@/types';
+import { addOpportunity, mockAccounts } from '@/lib/data';
+import { Loader2, BarChartBig, Briefcase } from 'lucide-react';
 
-interface AddOpportunityDialogProps { // Renamed
+interface AddOpportunityDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onOpportunityAdded?: (newOpportunity: Opportunity) => void; // Renamed
+  onOpportunityAdded?: (newOpportunity: Opportunity) => void;
 }
 
-export default function AddOpportunityDialog({ open, onOpenChange, onOpportunityAdded }: AddOpportunityDialogProps) { // Renamed
+export default function AddOpportunityDialog({ open, onOpenChange, onOpportunityAdded }: AddOpportunityDialogProps) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [value, setValue] = useState<number | string>(''); // Can be string during input
-  const [selectedLeadId, setSelectedLeadId] = useState<string | ''>('');
+  const [value, setValue] = useState<number | string>('');
+  const [selectedAccountId, setSelectedAccountId] = useState<string | ''>('');
 
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !selectedLeadId || value === '' || Number(value) <= 0) {
-      toast({ title: "Error", description: "Opportunity Name, selected Lead, and a valid positive Quoted Amount are required.", variant: "destructive" });
+    if (!name.trim() || !selectedAccountId || value === '' || Number(value) <= 0) {
+      toast({ title: "Error", description: "Opportunity Name, associated Account, and a valid positive Quoted Amount are required.", variant: "destructive" });
       return;
     }
     setIsLoading(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 1000));
       
       const newOpportunityData = {
         name,
         description,
         value: Number(value),
-        leadId: selectedLeadId,
+        accountId: selectedAccountId,
       };
-      // For now, we are creating opportunities linked to leads.
-      // Account linking can be added if a lead is converted or if direct account opportunities are needed.
-      const newOpportunity = addOpportunity(newOpportunityData); 
+      const newOpportunity = addOpportunity(newOpportunityData);
       
       toast({
         title: "Opportunity Created",
-        description: `Opportunity "${name}" has been successfully added for lead ${mockLeads.find(l => l.id === selectedLeadId)?.companyName}.`,
+        description: `Opportunity "${name}" has been successfully added for account ${mockAccounts.find(a => a.id === selectedAccountId)?.name}.`,
       });
       
-      onOpportunityAdded?.(newOpportunity); // Renamed
+      onOpportunityAdded?.(newOpportunity);
       resetForm();
       onOpenChange(false);
     } catch (error) {
-      console.error("Failed to create opportunity:", error); // Renamed
-      toast({ title: "Error", description: "Failed to create opportunity. Please try again.", variant: "destructive" }); // Renamed
+      console.error("Failed to create opportunity:", error);
+      toast({ title: "Error", description: "Failed to create opportunity. Please try again.", variant: "destructive" });
     } finally {
       setIsLoading(false);
     }
@@ -75,7 +73,7 @@ export default function AddOpportunityDialog({ open, onOpenChange, onOpportunity
     setName('');
     setDescription('');
     setValue('');
-    setSelectedLeadId('');
+    setSelectedAccountId('');
   };
 
   return (
@@ -86,30 +84,30 @@ export default function AddOpportunityDialog({ open, onOpenChange, onOpportunity
       <DialogContent className="sm:max-w-[525px]">
         <DialogHeader>
           <DialogTitle className="flex items-center">
-            <BarChartBig className="mr-2 h-5 w-5" /> Add New Opportunity {/* Renamed */}
+            <BarChartBig className="mr-2 h-5 w-5" /> Add New Opportunity
           </DialogTitle>
           <DialogDescription>
-            Fill in the details below to create a new sales opportunity.
+            Fill in the details below to create a new sales opportunity for an existing account.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 py-4">
           <div>
-            <Label htmlFor="opportunity-name">Opportunity Name <span className="text-destructive">*</span></Label> {/* Renamed */}
-            <Input id="opportunity-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g., Q4 Enterprise Deal" disabled={isLoading} /> {/* Renamed */}
+            <Label htmlFor="opportunity-name">Opportunity Name <span className="text-destructive">*</span></Label>
+            <Input id="opportunity-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g., Q4 Enterprise Deal" disabled={isLoading} />
           </div>
           
           <div>
-            <Label htmlFor="opportunity-lead">Associated Lead <span className="text-destructive">*</span></Label>
-            <Select value={selectedLeadId} onValueChange={(value: string) => setSelectedLeadId(value)} disabled={isLoading}>
-              <SelectTrigger id="opportunity-lead">
-                <SelectValue placeholder="Select a lead" />
+            <Label htmlFor="opportunity-account">Associated Account <span className="text-destructive">*</span></Label>
+            <Select value={selectedAccountId} onValueChange={(value: string) => setSelectedAccountId(value)} disabled={isLoading}>
+              <SelectTrigger id="opportunity-account">
+                <SelectValue placeholder="Select an account" />
               </SelectTrigger>
               <SelectContent>
-                {mockLeads.filter(lead => lead.status !== 'Converted to Account' && lead.status !== 'Lost').map(lead => (
-                  <SelectItem key={lead.id} value={lead.id}>
+                {mockAccounts.filter(account => account.status === 'Active').map(account => (
+                  <SelectItem key={account.id} value={account.id}>
                     <div className="flex items-center">
-                      <User className="mr-2 h-4 w-4 text-muted-foreground" />
-                      {lead.companyName} ({lead.personName})
+                      <Briefcase className="mr-2 h-4 w-4 text-muted-foreground" />
+                      {account.name} ({account.type})
                     </div>
                   </SelectItem>
                 ))}
@@ -118,25 +116,25 @@ export default function AddOpportunityDialog({ open, onOpenChange, onOpportunity
           </div>
 
           <div>
-            <Label htmlFor="opportunity-description">Description</Label> {/* Renamed */}
-            <Textarea 
-              id="opportunity-description" // Renamed
-              value={description} 
-              onChange={(e) => setDescription(e.target.value)} 
-              placeholder="Brief overview of the opportunity, client needs, etc." 
+            <Label htmlFor="opportunity-description">Description</Label>
+            <Textarea
+              id="opportunity-description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Brief overview of the opportunity, client needs, etc."
               disabled={isLoading}
               rows={3}
             />
           </div>
           <div>
-            <Label htmlFor="opportunity-value">Quoted Amount <span className="text-destructive">*</span></Label> {/* Renamed */}
-            <Input 
-              id="opportunity-value" // Renamed
-              type="number" 
-              value={value} 
-              onChange={(e) => setValue(e.target.value)} 
-              placeholder="e.g., 50000" 
-              disabled={isLoading} 
+            <Label htmlFor="opportunity-value">Quoted Amount <span className="text-destructive">*</span></Label>
+            <Input
+              id="opportunity-value"
+              type="number"
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              placeholder="e.g., 50000"
+              disabled={isLoading}
               min="0"
             />
           </div>
@@ -145,7 +143,7 @@ export default function AddOpportunityDialog({ open, onOpenChange, onOpportunity
               Cancel
             </Button>
             <Button type="submit" disabled={isLoading}>
-              {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Create Opportunity"} {/* Renamed */}
+              {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Create Opportunity"}
             </Button>
           </DialogFooter>
         </form>

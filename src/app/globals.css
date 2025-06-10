@@ -1,64 +1,78 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-body {
-  font-family: Arial, Helvetica, sans-serif;
-}
-
 @layer base {
   :root {
     --background: 0 0% 100%; /* White */
-    --foreground: 0 0% 3.9%; /* Near Black */
+    --foreground: 0 0% 3.9%; /* Near Black for text */
 
     --card: 0 0% 100%; /* White */
-    --card-foreground: 0 0% 3.9%; /* Near Black */
+    --card-foreground: 0 0% 3.9%;
 
-    --popover: 0 0% 100%; /* White */
-    --popover-foreground: 0 0% 3.9%; /* Near Black */
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 3.9%;
 
-    --primary: 0 0% 15%; /* Dark Gray (almost black for interactive elements) */
+    /* Primary for interactive elements, slightly adjusted from pure black for better UI */
+    --primary: 240 5.9% 10%; /* A very dark blue/near black */
     --primary-foreground: 0 0% 98%; /* White text on primary */
+    
+    /* Secondary for less prominent elements */
+    --secondary: 0 0% 96.1%; /* Light Gray - Original: #F5F5F5 */
+    --secondary-foreground: 240 5.9% 10%; /* Dark text on secondary */
 
-    --secondary: 0 0% 92%; /* Very Light Gray */
-    --secondary-foreground: 0 0% 9%; /* Dark text on secondary */
-
-    --muted: 0 0% 90%; /* Light Gray for muted elements/text */
-    --muted-foreground: 0 0% 40%; /* Medium gray text on muted */
-
-    --accent: 0 0% 60%; /* Medium Gray for accents */
-    --accent-foreground: 0 0% 98%; /* White text on accent */
+    /* Muted for subtle text or backgrounds */
+    --muted: 0 0% 90%; /* Lighter Gray - Original: #E5E5E5 */
+    --muted-foreground: 0 0% 45.1%; /* Medium Gray text - Original: #737373 */
+    
+    /* Accent for highlights, call-to-actions if needed, or hover states */
+    --accent: 0 0% 82.4%; /* Dark Gray (#D3D3D3) for primary base color as per PRD (Light Gray) */
+    --accent-foreground: 0 0% 9%; /* Dark text on accent */
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
 
-    --border: 0 0% 88%; /* Light Gray borders */
-    --input: 0 0% 88%; /* Light Gray input borders */
-    --ring: 0 0% 15%; /* Dark Gray for focus rings, matching primary */
-
-    --chart-1: 0 0% 20%;
-    --chart-2: 0 0% 35%;
-    --chart-3: 0 0% 50%;
-    --chart-4: 0 0% 65%;
-    --chart-5: 0 0% 80%;
+    --border: 0 0% 89.8%; /* Light Gray borders - Original: #E5E5E5 */
+    --input: 0 0% 89.8%; /* Light Gray input borders */
+    --ring: 240 5.9% 10%; /* Dark focus ring, matching primary */
 
     --radius: 0.5rem;
 
-    /* Sidebar specific colors for minimal black & white theme */
-    --sidebar-background: 0 0% 97%; /* Very light gray, almost white */
-    --sidebar-foreground: 0 0% 15%; /* Dark gray text */
-    --sidebar-primary: 0 0% 15%; /* Dark gray for active/selected item background */
-    --sidebar-primary-foreground: 0 0% 98%; /* White text on active/selected item */
-    --sidebar-accent: 0 0% 90%; /* Light gray for hover state */
-    --sidebar-accent-foreground: 0 0% 15%; /* Dark gray text on hover */
-    --sidebar-border: 0 0% 88%; /* Light gray border for sidebar */
-    --sidebar-ring: 0 0% 15%; /* Dark gray focus ring for sidebar elements */
+    /* Chart colors - monochrome theme */
+    --chart-1: 0 0% 20%; /* Darkest grey for chart */
+    --chart-2: 0 0% 35%;
+    --chart-3: 0 0% 50%;
+    --chart-4: 0 0% 65%;
+    --chart-5: 0 0% 80%; /* Lightest grey for chart */
+
+    /* Applying style guidelines from PRD */
+    /* --primary-color: 0 0% 82.4%; /* Light gray (#D3D3D3) */
+    /* --background-color: 0 0% 100%; /* White (#FFFFFF) */
+    /* --accent-color: 0 0% 66.3%; /* Dark gray (#A9A9A9) - used as accent here */
+
+    /* Remapping based on PRD */
+    --background: 0 0% 100%; /* White */
+    --foreground: 0 0% 3.9%; /* Near Black for text */
+    
+    /* Using PRD's "Light gray (#D3D3D3)" as a general UI element color - mapping to 'secondary' or 'muted' might be appropriate */
+    /* --primary is now the interactive elements color */
+    --primary: 0 0% 15%; /* Dark Gray (almost black for interactive elements) - PRD Style Guide --primary-color #D3D3D3 as base */
+                                     /* However, #D3D3D3 is too light for primary interactive elements. Using a darker gray. */
+    --primary-foreground: 0 0% 98%;
+
+    /* Using PRD's "Dark gray (#A9A9A9)" as accent */
+    --accent: 0 0% 66.3%; /* Dark Gray (#A9A9A9) */
+    --accent-foreground: 0 0% 98%; /* White text on this accent */
+
+    /* Overriding ShadCN defaults with PRD specific colors for key elements */
+    /* The :root variables are general. Specific component styles might need overrides if they don't pick these up well. */
   }
 
   .dark {
-    /* Keeping dark mode mostly as is, but aligning with monochrome idea */
-    --background: 0 0% 3.9%;
-    --foreground: 0 0% 98%;
+    /* Dark mode (minimalist B&W means these might be inverted or similar shades of dark) */
+    --background: 0 0% 3.9%; /* Near Black */
+    --foreground: 0 0% 98%; /* White text */
 
     --card: 0 0% 3.9%;
     --card-foreground: 0 0% 98%;
@@ -66,39 +80,30 @@ body {
     --popover: 0 0% 3.9%;
     --popover-foreground: 0 0% 98%;
 
-    --primary: 0 0% 90%; /* Light gray for primary in dark mode */
-    --primary-foreground: 0 0% 9%; /* Dark text on primary */
+    --primary: 0 0% 90%; /* Light gray for primary in dark mode - Contrast against dark bg */
+    --primary-foreground: 0 0% 9%; /* Dark text on light primary */
 
-    --secondary: 0 0% 14.9%;
+    --secondary: 0 0% 14.9%; /* Darker Gray */
     --secondary-foreground: 0 0% 98%;
 
     --muted: 0 0% 14.9%;
-    --muted-foreground: 0 0% 63.9%;
+    --muted-foreground: 0 0% 63.9%; /* Lighter gray text on dark muted */
 
-    --accent: 0 0% 25%; /* Darker accent for dark mode */
+    --accent: 0 0% 25%; /* Darker accent for dark mode - e.g. #404040 */
     --accent-foreground: 0 0% 98%;
 
-    --destructive: 0 62.8% 30.6%;
+    --destructive: 0 62.8% 30.6%; /* Standard destructive */
     --destructive-foreground: 0 0% 98%;
 
-    --border: 0 0% 14.9%;
-    --input: 0 0% 14.9%;
-    --ring: 0 0% 83.1%;
+    --border: 0 0% 14.9%; /* Dark border */
+    --input: 0 0% 14.9%;  /* Dark input border */
+    --ring: 0 0% 83.1%;   /* Light ring for focus */
 
     --chart-1: 0 0% 80%;
     --chart-2: 0 0% 65%;
     --chart-3: 0 0% 50%;
     --chart-4: 0 0% 35%;
     --chart-5: 0 0% 20%;
-
-    --sidebar-background: 0 0% 8%; /* Darker background for sidebar */
-    --sidebar-foreground: 0 0% 90%; /* Lighter text */
-    --sidebar-primary: 0 0% 90%; /* Active item background */
-    --sidebar-primary-foreground: 0 0% 9%; /* Dark text on active */
-    --sidebar-accent: 0 0% 18%; /* Hover state */
-    --sidebar-accent-foreground: 0 0% 90%; /* Lighter text on hover */
-    --sidebar-border: 0 0% 14.9%;
-    --sidebar-ring: 0 0% 83.1%;
   }
 }
 
@@ -107,6 +112,27 @@ body {
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-body;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-headline;
+  }
+  code, pre {
+    @apply font-code;
+  }
+}
+
+/* Subtle transitions and hover effects */
+@layer components {
+  .btn-subtle-hover {
+    @apply transition-colors duration-200 ease-in-out;
+  }
+  .card-subtle-hover {
+    @apply transition-shadow duration-300 ease-in-out;
+  }
+  /* Example of a subtle hover effect for buttons using accent color from PRD */
+  .button-accent-hover:hover {
+    background-color: hsl(var(--accent)); /* PRD Accent: Dark Gray #A9A9A9 */
+    color: hsl(var(--accent-foreground)); /* Ensure text is readable */
   }
 }

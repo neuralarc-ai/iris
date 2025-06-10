@@ -1,5 +1,5 @@
 
-import type { Account, Opportunity, Update, User, Lead, LeadStatus, OpportunityStatus } from '@/types'; // Renamed Project to Opportunity
+import type { Account, Opportunity, Update, User, Lead, LeadStatus, OpportunityStatus, AccountType } from '@/types';
 import { DEMO_PIN } from '@/lib/constants';
 
 const today = new Date();
@@ -11,7 +11,7 @@ const oneMonthAgo = new Date(today);
 oneMonthAgo.setMonth(today.getMonth() - 1);
 
 
-export const mockLeads: Lead[] = [
+export let mockLeads: Lead[] = [ // Made 'let' for modification
   {
     id: 'lead_001',
     companyName: 'Future Gadgets Co.',
@@ -19,7 +19,7 @@ export const mockLeads: Lead[] = [
     email: 'okabe@futuregadgets.com',
     phone: '555-0100',
     status: 'Qualified',
-    opportunityIds: ['opp_lead_001'], // Renamed
+    // opportunityIds: ['opp_lead_001'], // Opportunities will be on Account
     createdAt: oneWeekAgo.toISOString(),
     updatedAt: yesterday.toISOString(),
   },
@@ -30,7 +30,7 @@ export const mockLeads: Lead[] = [
     email: 'mdyson@cyberdyne.com',
     phone: '555-0200',
     status: 'Proposal Sent',
-    opportunityIds: [], // Renamed
+    // opportunityIds: [],
     createdAt: oneMonthAgo.toISOString(),
     updatedAt: oneWeekAgo.toISOString(),
   },
@@ -40,20 +40,20 @@ export const mockLeads: Lead[] = [
     personName: 'Pepper Potts',
     email: 'ppotts@stark.com',
     status: 'New',
-    opportunityIds: [], // Renamed
+    // opportunityIds: [],
     createdAt: today.toISOString(),
     updatedAt: today.toISOString(),
   }
 ];
 
-export const mockAccounts: Account[] = [
+export let mockAccounts: Account[] = [ // Made 'let' for modification
   {
     id: 'acc_001',
     name: 'Innovatech Solutions',
     type: 'Client',
     status: 'Active',
     description: 'Leading provider of cloud-based AI solutions. Key focus on enterprise software.',
-    opportunityIds: ['opp_001', 'opp_002'], // Renamed
+    opportunityIds: ['opp_001', 'opp_002'],
     createdAt: oneMonthAgo.toISOString(),
     updatedAt: yesterday.toISOString(),
     contactEmail: 'contact@innovatech.com',
@@ -65,7 +65,7 @@ export const mockAccounts: Account[] = [
     type: 'Channel Partner',
     status: 'Active',
     description: 'Strategic partner for market expansion in the APAC region. Strong reseller network.',
-    opportunityIds: ['opp_003'], // Renamed
+    opportunityIds: ['opp_003'],
     createdAt: new Date(new Date().setDate(today.getDate() - 60)).toISOString(),
     updatedAt: oneWeekAgo.toISOString(),
     contactEmail: 'partner@synergy.com',
@@ -77,7 +77,7 @@ export const mockAccounts: Account[] = [
     type: 'Client',
     status: 'Inactive',
     description: 'Large multinational corporation. Previous engagement completed, exploring new opportunities.',
-    opportunityIds: [], // Renamed
+    opportunityIds: [],
     createdAt: new Date(new Date().setDate(today.getDate() - 120)).toISOString(),
     updatedAt: new Date(new Date().setDate(today.getDate() - 30)).toISOString(),
     contactEmail: 'info@globalcorp.com',
@@ -85,10 +85,10 @@ export const mockAccounts: Account[] = [
   },
 ];
 
-export const mockOpportunities: Opportunity[] = [ // Renamed
+export let mockOpportunities: Opportunity[] = [ // Made 'let' for modification
   {
-    id: 'opp_001', // Renamed
-    name: 'Opportunity Phoenix', // Renamed
+    id: 'opp_001',
+    name: 'Opportunity Phoenix',
     accountId: 'acc_001',
     status: 'In Progress' as OpportunityStatus,
     value: 150000,
@@ -100,8 +100,8 @@ export const mockOpportunities: Opportunity[] = [ // Renamed
     updatedAt: yesterday.toISOString(),
   },
   {
-    id: 'opp_002', // Renamed
-    name: 'AI Integration Initiative', // Renamed
+    id: 'opp_002',
+    name: 'AI Integration Initiative',
     accountId: 'acc_001',
     status: 'Need Analysis' as OpportunityStatus,
     value: 75000,
@@ -113,8 +113,8 @@ export const mockOpportunities: Opportunity[] = [ // Renamed
     updatedAt: oneWeekAgo.toISOString(),
   },
   {
-    id: 'opp_003', // Renamed
-    name: 'APAC Market Entry', // Renamed
+    id: 'opp_003',
+    name: 'APAC Market Entry',
     accountId: 'acc_002',
     status: 'Negotiation' as OpportunityStatus,
     value: 250000,
@@ -125,25 +125,15 @@ export const mockOpportunities: Opportunity[] = [ // Renamed
     createdAt: new Date(new Date().setDate(today.getDate() - 10)).toISOString(),
     updatedAt: new Date().toISOString(),
   },
-  {
-    id: 'opp_lead_001', // Renamed
-    name: 'Time Leap Machine Feasibility', // Renamed
-    leadId: 'lead_001', 
-    status: 'Need Analysis' as OpportunityStatus,
-    value: 50000, 
-    startDate: today.toISOString(),
-    endDate: new Date(new Date().setMonth(today.getMonth() + 1)).toISOString(),
-    description: 'Initial feasibility study for a temporal displacement device.',
-    updateIds: ['upd_lead_001'],
-    createdAt: today.toISOString(),
-    updatedAt: today.toISOString(),
-  },
+  // Example: opp_lead_001 is now associated with an account that lead_001 would convert to.
+  // Let's assume lead_001 converts to an account like 'Future Gadgets Solutions'
+  // We'll create this account during conversion. For now, removing direct opportunity-to-lead mock data.
 ];
 
 export const mockUpdates: Update[] = [
   {
     id: 'upd_001',
-    opportunityId: 'opp_001', // Renamed
+    opportunityId: 'opp_001',
     date: yesterday.toISOString(),
     content: 'Weekly sync call with Innovatech team. Discussed progress on module A and upcoming sprint planning. Client expressed satisfaction with current trajectory.',
     type: 'Call',
@@ -151,7 +141,7 @@ export const mockUpdates: Update[] = [
   },
   {
     id: 'upd_002',
-    opportunityId: 'opp_001', // Renamed
+    opportunityId: 'opp_001',
     date: oneWeekAgo.toISOString(),
     content: 'Initial prototype for analytics dashboard shared with Innovatech. Positive feedback received, minor UI adjustments requested.',
     type: 'General',
@@ -159,20 +149,12 @@ export const mockUpdates: Update[] = [
   },
   {
     id: 'upd_003',
-    opportunityId: 'opp_003', // Renamed
+    opportunityId: 'opp_003',
     date: new Date().toISOString(),
     content: 'Received revised proposal from Synergy Partners. Legal team is reviewing the terms. Follow-up meeting scheduled for next week.',
     type: 'Email',
     createdAt: new Date().toISOString(),
   },
-  {
-    id: 'upd_lead_001',
-    opportunityId: 'opp_lead_001', // Renamed
-    date: yesterday.toISOString(),
-    content: 'Met with Okabe-san. He seems very enthusiastic but some of his ideas are... unconventional. Requested a preliminary budget.',
-    type: 'Meeting',
-    createdAt: yesterday.toISOString(),
-  }
 ];
 
 export let mockUsers: User[] = [
@@ -187,7 +169,7 @@ export let mockUsers: User[] = [
     id: 'user_jane_001',
     name: 'Jane Doe',
     email: 'jane.doe@example.com',
-    pin: '654321', // This PIN is static as per previous behavior
+    pin: '654321',
     createdAt: oneWeekAgo.toISOString(),
   },
 ];
@@ -197,18 +179,26 @@ export const addUser = (name: string, email: string, pin: string): User => {
     id: `user_${new Date().getTime()}`,
     name,
     email,
-    pin, 
+    pin,
     createdAt: new Date().toISOString(),
   };
   mockUsers.push(newUser);
   return newUser;
 };
 
-export const addAccount = (accountData: Omit<Account, 'id' | 'opportunityIds' | 'createdAt' | 'updatedAt'>): Account => { // Renamed
+export const addAccount = (accountData: Omit<Account, 'id' | 'opportunityIds' | 'createdAt' | 'updatedAt' | 'status' | 'type'> & { type: AccountType, status?: AccountStatus }): Account => {
   const newAccount: Account = {
     id: `acc_${new Date().getTime()}`,
-    ...accountData,
-    opportunityIds: [], // Renamed
+    name: accountData.name,
+    type: accountData.type,
+    status: accountData.status || 'Active',
+    description: accountData.description,
+    contactEmail: accountData.contactEmail,
+    industry: accountData.industry,
+    contactPersonName: accountData.contactPersonName,
+    contactPhone: accountData.contactPhone,
+    convertedFromLeadId: accountData.convertedFromLeadId,
+    opportunityIds: [],
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
@@ -216,12 +206,11 @@ export const addAccount = (accountData: Omit<Account, 'id' | 'opportunityIds' | 
   return newAccount;
 };
 
-export const addLead = (leadData: Omit<Lead, 'id' | 'opportunityIds' | 'createdAt' | 'updatedAt' | 'status'>): Lead => { // Renamed
+export const addLead = (leadData: Omit<Lead, 'id' | 'createdAt' | 'updatedAt' | 'status' >): Lead => {
   const newLead: Lead = {
     id: `lead_${new Date().getTime()}`,
     ...leadData,
     status: 'New' as LeadStatus,
-    opportunityIds: [], // Renamed
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
@@ -229,37 +218,55 @@ export const addLead = (leadData: Omit<Lead, 'id' | 'opportunityIds' | 'createdA
   return newLead;
 };
 
-// Function to add an opportunity (newly added based on user request)
-export const addOpportunity = (opportunityData: Omit<Opportunity, 'id' | 'updateIds' | 'createdAt' | 'updatedAt' | 'status' | 'startDate' | 'endDate'> & {leadId?: string, accountId?: string}): Opportunity => {
+export const convertLeadToAccount = (leadId: string): Account | null => {
+  const leadIndex = mockLeads.findIndex(l => l.id === leadId);
+  if (leadIndex === -1) return null;
+
+  const lead = mockLeads[leadIndex];
+  if (lead.status === "Converted to Account" || lead.status === "Lost") return null; // Cannot convert already converted/lost lead
+
+  const newAccount = addAccount({
+    name: lead.companyName,
+    type: 'Client' as AccountType, // Default to Client
+    status: 'Active' as AccountStatus,
+    description: `Account converted from lead: ${lead.personName} - ${lead.companyName}`,
+    contactPersonName: lead.personName,
+    contactEmail: lead.email,
+    contactPhone: lead.phone,
+    convertedFromLeadId: lead.id,
+    // industry: undefined, // Can be added later or during a more detailed conversion step
+  });
+
+  // Update lead status
+  mockLeads[leadIndex].status = "Converted to Account";
+  mockLeads[leadIndex].updatedAt = new Date().toISOString();
+  
+  // Potentially transfer any "pre-opportunities" if that logic existed
+  // For now, opportunities are created against accounts.
+
+  return newAccount;
+};
+
+
+export const addOpportunity = (opportunityData: Omit<Opportunity, 'id' | 'updateIds' | 'createdAt' | 'updatedAt' | 'status' | 'startDate' | 'endDate'> & { accountId: string }): Opportunity => {
   const newOpportunity: Opportunity = {
     id: `opp_${new Date().getTime()}`,
     name: opportunityData.name,
+    accountId: opportunityData.accountId, // Must be linked to an account
     description: opportunityData.description,
     value: opportunityData.value,
-    leadId: opportunityData.leadId,
-    accountId: opportunityData.accountId,
-    status: 'Need Analysis' as OpportunityStatus, // Default status
+    status: 'Need Analysis' as OpportunityStatus,
     updateIds: [],
-    // For simplicity, using today and a month from now for new opportunities
     startDate: today.toISOString(),
     endDate: new Date(new Date().setMonth(today.getMonth() + 1)).toISOString(),
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
   mockOpportunities.push(newOpportunity);
-  // Link opportunity to lead if leadId is provided
-  if (newOpportunity.leadId) {
-    const lead = mockLeads.find(l => l.id === newOpportunity.leadId);
-    if (lead) {
-      lead.opportunityIds.push(newOpportunity.id);
-    }
-  }
-  // Link opportunity to account if accountId is provided (though current flow is lead first)
-  if (newOpportunity.accountId) {
-     const account = mockAccounts.find(a => a.id === newOpportunity.accountId);
-    if (account) {
-      account.opportunityIds.push(newOpportunity.id);
-    }
+  
+  const account = mockAccounts.find(a => a.id === newOpportunity.accountId);
+  if (account) {
+    account.opportunityIds.push(newOpportunity.id);
   }
   return newOpportunity;
 };
@@ -278,16 +285,17 @@ export const getUserById = (userId: string): User | undefined => {
   return mockUsers.find(user => user.id === userId);
 };
 
-export const getOpportunitiesByAccount = (accountId: string): Opportunity[] => { // Renamed
-  return mockOpportunities.filter(o => o.accountId === accountId); // Renamed
+export const getOpportunitiesByAccount = (accountId: string): Opportunity[] => {
+  return mockOpportunities.filter(o => o.accountId === accountId);
 };
 
-export const getOpportunitiesByLead = (leadId: string): Opportunity[] => { // Renamed
-  return mockOpportunities.filter(o => o.leadId === leadId); // Renamed
-};
+// No longer needed as opportunities are directly on accounts for this primary flow
+// export const getOpportunitiesByLead = (leadId: string): Opportunity[] => {
+//   return mockOpportunities.filter(o => o.leadId === leadId);
+// };
 
-export const getUpdatesForOpportunity = (opportunityId: string): Update[] => { // Renamed
-  return mockUpdates.filter(u => u.opportunityId === opportunityId); // Renamed
+export const getUpdatesForOpportunity = (opportunityId: string): Update[] => {
+  return mockUpdates.filter(u => u.opportunityId === opportunityId);
 };
 
 export const getLeadById = (leadId: string): Lead | undefined => {
@@ -298,6 +306,11 @@ export const getAccountById = (accountId: string): Account | undefined => {
   return mockAccounts.find(account => account.id === accountId);
 }
 
-export const getOpportunityById = (opportunityId: string): Opportunity | undefined => { // New helper
+export const getOpportunityById = (opportunityId: string): Opportunity | undefined => {
     return mockOpportunities.find(opp => opp.id === opportunityId);
 }
+
+// Helper to get all unconverted leads
+export const getUnconvertedLeads = (): Lead[] => {
+  return mockLeads.filter(lead => lead.status !== 'Converted to Account' && lead.status !== 'Lost');
+};

@@ -1,32 +1,37 @@
 
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import PageTitle from '@/components/common/PageTitle';
 import LeadCard from '@/components/leads/LeadCard';
-import { mockLeads, addLead as saveNewLead } from '@/lib/data'; 
+import { mockLeads as initialMockLeads, addLead as saveNewLead } from '@/lib/data';
 import type { Lead, LeadStatus } from '@/types';
 import { Button } from '@/components/ui/button';
 import { PlusCircle, Filter } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import AddLeadDialog from '@/components/leads/AddLeadDialog';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'; // Re-importing Card components locally for filter section
-import { Label } from '@/components/ui/label'; // Re-importing Label locally
-
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
 
 const leadStatusOptions: LeadStatus[] = ["New", "Contacted", "Qualified", "Proposal Sent", "Converted to Account", "Lost"];
 
 export default function LeadsPage() {
-  const [leads, setLeads] = useState<Lead[]>(mockLeads);
+  const [leads, setLeads] = useState<Lead[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<LeadStatus | 'all'>('all');
   const [isAddLeadDialogOpen, setIsAddLeadDialogOpen] = useState(false);
 
+  useEffect(() => {
+    // Initialize with a copy to allow local modification
+    setLeads([...initialMockLeads]);
+  }, []);
+
+
   const filteredLeads = leads.filter(lead => {
     const searchTermLower = searchTerm.toLowerCase();
-    const matchesSearch = 
-      lead.companyName.toLowerCase().includes(searchTermLower) || 
+    const matchesSearch =
+      lead.companyName.toLowerCase().includes(searchTermLower) ||
       lead.personName.toLowerCase().includes(searchTermLower) ||
       (lead.email && lead.email.toLowerCase().includes(searchTermLower));
     const matchesStatus = statusFilter === 'all' || lead.status === statusFilter;
@@ -36,6 +41,18 @@ export default function LeadsPage() {
   const handleLeadAdded = (newLead: Lead) => {
     setLeads(prevLeads => [newLead, ...prevLeads]); // Add to the beginning of the list
   };
+
+  const handleLeadConverted = (convertedLeadId: string) => {
+    // Update the status of the converted lead in the local state
+    setLeads(prevLeads =>
+      prevLeads.map(lead =>
+        lead.id === convertedLeadId ? { ...lead, status: 'Converted to Account', updatedAt: new Date().toISOString() } : lead
+      )
+    );
+    // Note: The actual account creation is handled in lib/data.ts
+    // If you needed to also update an accounts list on this page, you'd do it here.
+  };
+
 
   return (
     <div className="container mx-auto">
@@ -83,7 +100,7 @@ export default function LeadsPage() {
       {filteredLeads.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredLeads.map((lead) => (
-            <LeadCard key={lead.id} lead={lead} />
+            <LeadCard key={lead.id} lead={lead} onLeadConverted={handleLeadConverted} />
           ))}
         </div>
       ) : (
@@ -93,10 +110,10 @@ export default function LeadsPage() {
           <p className="text-muted-foreground">Try adjusting your search or filter criteria, or add a new lead.</p>
         </div>
       )}
-      <AddLeadDialog 
-        open={isAddLeadDialogOpen} 
+      <AddLeadDialog
+        open={isAddLeadDialogOpen}
         onOpenChange={setIsAddLeadDialogOpen}
-        onLeadAdded={handleLeadAdded} 
+        onLeadAdded={handleLeadAdded}
       />
     </div>
   );
