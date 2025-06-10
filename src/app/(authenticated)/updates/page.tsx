@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {format, parseISO, isValid} from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
-import AddUpdateDialog from '@/components/updates/AddUpdateDialog'; // New Import
+import AddUpdateDialog from '@/components/updates/AddUpdateDialog';
 
 export default function UpdatesPage() {
   const [updates, setUpdates] = useState<Update[]>([]);
@@ -21,7 +21,7 @@ export default function UpdatesPage() {
   const [typeFilter, setTypeFilter] = useState<UpdateType | 'all'>('all');
   const [opportunityFilter, setOpportunityFilter] = useState<string | 'all'>('all');
   const [dateFilter, setDateFilter] = useState<string>(''); 
-  const [isAddUpdateDialogOpen, setIsAddUpdateDialogOpen] = useState(false); // New state
+  const [isAddUpdateDialogOpen, setIsAddUpdateDialogOpen] = useState(false);
 
   useEffect(() => {
     setUpdates([...initialMockUpdates].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));

@@ -40,7 +40,7 @@ export default function AddUpdateDialog({ open, onOpenChange, onUpdateAdded }: A
   useEffect(() => {
     if (selectedAccountId) {
       setAvailableOpportunities(getOpportunitiesByAccount(selectedAccountId));
-      setSelectedOpportunityId(''); // Reset opportunity when account changes
+      setSelectedOpportunityId(''); 
     } else {
       setAvailableOpportunities([]);
       setSelectedOpportunityId('');
@@ -63,7 +63,6 @@ export default function AddUpdateDialog({ open, onOpenChange, onUpdateAdded }: A
     }
     setIsLoading(true);
     try {
-      // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 700));
 
       const newUpdate = addUpdate({
@@ -141,9 +140,9 @@ export default function AddUpdateDialog({ open, onOpenChange, onUpdateAdded }: A
                   ))}
                 </SelectContent>
               </Select>
-              {availableOpportunities.length === 0 && selectedAccountId && (
+              {availableOpportunities.length === 0 && selectedAccountId && !isLoading && (
                 <p className="text-xs text-muted-foreground mt-1">
-                  This account has no active opportunities. Please create an opportunity first.
+                  This account has no active opportunities. Please create an opportunity for this account first.
                 </p>
               )}
             </div>
@@ -178,7 +177,7 @@ export default function AddUpdateDialog({ open, onOpenChange, onUpdateAdded }: A
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isLoading}>
               Cancel
             </Button>
-            <Button type="submit" disabled={isLoading || !selectedOpportunityId || availableOpportunities.length === 0}>
+            <Button type="submit" disabled={isLoading || !selectedOpportunityId || (availableOpportunities.length === 0 && !!selectedAccountId) }>
               {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Log Update"}
             </Button>
           </DialogFooter>
