@@ -17,20 +17,19 @@ import {
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import type { Account, AccountType, AccountStatus, Lead } from '@/types';
-import { addAccount, getUnconvertedLeads, convertLeadToAccount } from '@/lib/data';
+import { addAccount, getUnconvertedLeads, convertLeadToAccount, mockAccounts } from '@/lib/data';
 import { Loader2, PlusCircle, UserCheck, Users } from 'lucide-react';
 
 interface AddAccountDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onAccountAdded?: (newAccount: Account) => void;
-  // To refresh leads if one is converted via this dialog
   onLeadConverted?: (leadId: string, newAccountId: string) => void;
 }
 
 export default function AddAccountDialog({ open, onOpenChange, onAccountAdded, onLeadConverted }: AddAccountDialogProps) {
   const [name, setName] = useState('');
-  const [type, setType] = useState<AccountType | ''>('Client'); // Default to Client
+  const [type, setType] = useState<AccountType | ''>('Client');
   const [description, setDescription] = useState('');
   const [contactEmail, setContactEmail] = useState('');
   const [contactPersonName, setContactPersonName] = useState('');
@@ -46,7 +45,7 @@ export default function AddAccountDialog({ open, onOpenChange, onAccountAdded, o
   useEffect(() => {
     if (open) {
       setAvailableLeads(getUnconvertedLeads());
-      setSelectedLeadToConvert(''); // Reset on open
+      setSelectedLeadToConvert(''); 
     }
   }, [open]);
 
@@ -58,11 +57,16 @@ export default function AddAccountDialog({ open, onOpenChange, onAccountAdded, o
         setContactPersonName(lead.personName);
         setContactEmail(lead.email);
         setContactPhone(lead.phone || '');
-        // Optionally set description or industry if available on lead
+        setType('Client'); // Default type when converting
+        // Reset other fields that might not be on lead
+        setDescription('');
+        setIndustry('');
       }
     } else {
-      // If no lead is selected for conversion, clear fields that might have been auto-filled
-      // or allow manual entry (current behavior)
+      // If deselected, clear potentially pre-filled fields or reset to default
+      // This depends on desired UX. For now, we can clear them if the user
+      // explicitly deselects "convert lead" and goes back to manual.
+      // Or we can let them keep it. The current resetForm clears on dialog close.
     }
   }, [selectedLeadToConvert, availableLeads]);
 
@@ -72,35 +76,41 @@ export default function AddAccountDialog({ open, onOpenChange, onAccountAdded, o
     setIsLoading(true);
 
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API
+      await new Promise(resolve => setTimeout(resolve, 1000)); 
       let newAccount: Account | null = null;
 
       if (selectedLeadToConvert) {
-        newAccount = convertLeadToAccount(selectedLeadToConvert);
-        if (newAccount) {
-           // If lead conversion also involves updating type/desc/industry directly, do it here
-           // For now, convertLeadToAccount uses defaults, then these fields from the form could override.
-           // This part might need refinement based on exact desired behavior for overrides.
-           newAccount.name = name || newAccount.name;
-           newAccount.type = type || newAccount.type;
-           newAccount.description = description || newAccount.description;
-           newAccount.industry = industry || newAccount.industry;
-           newAccount.contactEmail = contactEmail || newAccount.contactEmail;
-           newAccount.contactPersonName = contactPersonName || newAccount.contactPersonName;
-           newAccount.contactPhone = contactPhone || newAccount.contactPhone;
-           // Update mockAccounts array directly (or ideally use a state management solution)
+        const convertedAccount = convertLeadToAccount(selectedLeadToConvert);
+        if (convertedAccount) {
+           newAccount = {
+             ...convertedAccount,
+             name: name || convertedAccount.name,
+             type: type || convertedAccount.type,
+             description: description || convertedAccount.description,
+             industry: industry || convertedAccount.industry,
+             contactEmail: contactEmail || convertedAccount.contactEmail,
+             contactPersonName: contactPersonName || convertedAccount.contactPersonName,
+             contactPhone: contactPhone || convertedAccount.contactPhone,
+             updatedAt: new Date().toISOString()
+           };
+           // Update mockAccounts array directly
            const accountIndex = mockAccounts.findIndex(acc => acc.id === newAccount!.id);
-           if (accountIndex > -1) mockAccounts[accountIndex] = newAccount;
+           if (accountIndex > -1) {
+             mockAccounts[accountIndex] = newAccount;
+           } else {
+              // This case should ideally not happen if convertLeadToAccount adds it via addAccount
+              mockAccounts.push(newAccount); 
+           }
 
 
           toast({
             title: "Lead Converted to Account",
-            description: `${newAccount.name} has been successfully created from lead.`,
+            description: `${newAccount.name} has been successfully created and updated.`,
             className: "bg-green-100 dark:bg-green-900 border-green-500"
           });
           onLeadConverted?.(selectedLeadToConvert, newAccount.id);
         } else {
-          toast({ title: "Error", description: "Failed to convert selected lead.", variant: "destructive" });
+          toast({ title: "Error", description: "Failed to convert selected lead. It might already be converted or lost.", variant: "destructive" });
           setIsLoading(false);
           return;
         }
@@ -113,7 +123,7 @@ export default function AddAccountDialog({ open, onOpenChange, onAccountAdded, o
         const newAccountData = {
           name,
           type,
-          status: 'Active' as AccountStatus,
+          status: 'Active' as AccountStatus, // Default to Active
           description,
           contactEmail,
           contactPersonName,
@@ -244,3 +254,5 @@ export default function AddAccountDialog({ open, onOpenChange, onAccountAdded, o
     </Dialog>
   );
 }
+
+    

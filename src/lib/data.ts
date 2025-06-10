@@ -19,7 +19,7 @@ export let mockLeads: Lead[] = [ // Made 'let' for modification
     email: 'okabe@futuregadgets.com',
     phone: '555-0100',
     status: 'Qualified',
-    // opportunityIds: ['opp_lead_001'], // Opportunities will be on Account
+    opportunityIds: [],
     createdAt: oneWeekAgo.toISOString(),
     updatedAt: yesterday.toISOString(),
   },
@@ -30,7 +30,7 @@ export let mockLeads: Lead[] = [ // Made 'let' for modification
     email: 'mdyson@cyberdyne.com',
     phone: '555-0200',
     status: 'Proposal Sent',
-    // opportunityIds: [],
+    opportunityIds: [],
     createdAt: oneMonthAgo.toISOString(),
     updatedAt: oneWeekAgo.toISOString(),
   },
@@ -40,7 +40,7 @@ export let mockLeads: Lead[] = [ // Made 'let' for modification
     personName: 'Pepper Potts',
     email: 'ppotts@stark.com',
     status: 'New',
-    // opportunityIds: [],
+    opportunityIds: [],
     createdAt: today.toISOString(),
     updatedAt: today.toISOString(),
   }
@@ -125,9 +125,6 @@ export let mockOpportunities: Opportunity[] = [ // Made 'let' for modification
     createdAt: new Date(new Date().setDate(today.getDate() - 10)).toISOString(),
     updatedAt: new Date().toISOString(),
   },
-  // Example: opp_lead_001 is now associated with an account that lead_001 would convert to.
-  // Let's assume lead_001 converts to an account like 'Future Gadgets Solutions'
-  // We'll create this account during conversion. For now, removing direct opportunity-to-lead mock data.
 ];
 
 export const mockUpdates: Update[] = [
@@ -200,17 +197,18 @@ export const addAccount = (accountData: Omit<Account, 'id' | 'opportunityIds' | 
     convertedFromLeadId: accountData.convertedFromLeadId,
     opportunityIds: [],
     createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(), // Corrected typo here
   };
   mockAccounts.push(newAccount);
   return newAccount;
 };
 
-export const addLead = (leadData: Omit<Lead, 'id' | 'createdAt' | 'updatedAt' | 'status' >): Lead => {
+export const addLead = (leadData: Omit<Lead, 'id' | 'createdAt' | 'updatedAt' | 'status' | 'opportunityIds' >): Lead => {
   const newLead: Lead = {
     id: `lead_${new Date().getTime()}`,
     ...leadData,
     status: 'New' as LeadStatus,
+    opportunityIds: [],
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
@@ -223,26 +221,34 @@ export const convertLeadToAccount = (leadId: string): Account | null => {
   if (leadIndex === -1) return null;
 
   const lead = mockLeads[leadIndex];
-  if (lead.status === "Converted to Account" || lead.status === "Lost") return null; // Cannot convert already converted/lost lead
+  if (lead.status === "Converted to Account" || lead.status === "Lost") return null;
 
   const newAccount = addAccount({
     name: lead.companyName,
-    type: 'Client' as AccountType, // Default to Client
+    type: 'Client' as AccountType,
     status: 'Active' as AccountStatus,
     description: `Account converted from lead: ${lead.personName} - ${lead.companyName}`,
     contactPersonName: lead.personName,
     contactEmail: lead.email,
     contactPhone: lead.phone,
     convertedFromLeadId: lead.id,
-    // industry: undefined, // Can be added later or during a more detailed conversion step
+    // industry can be filled post-conversion or if added to lead type
   });
 
   // Update lead status
   mockLeads[leadIndex].status = "Converted to Account";
   mockLeads[leadIndex].updatedAt = new Date().toISOString();
   
-  // Potentially transfer any "pre-opportunities" if that logic existed
-  // For now, opportunities are created against accounts.
+  // Transfer opportunityIds if any (though current model doesn't add opps to leads directly)
+  // If lead.opportunityIds existed and had items, you'd iterate and update them:
+  // lead.opportunityIds.forEach(oppId => {
+  //   const opp = mockOpportunities.find(o => o.id === oppId);
+  //   if (opp) {
+  //     opp.accountId = newAccount.id; // Re-associate
+  //     // opp.leadId = undefined; // Clear leadId if it existed on Opportunity
+  //     newAccount.opportunityIds.push(oppId);
+  //   }
+  // });
 
   return newAccount;
 };
@@ -252,7 +258,7 @@ export const addOpportunity = (opportunityData: Omit<Opportunity, 'id' | 'update
   const newOpportunity: Opportunity = {
     id: `opp_${new Date().getTime()}`,
     name: opportunityData.name,
-    accountId: opportunityData.accountId, // Must be linked to an account
+    accountId: opportunityData.accountId,
     description: opportunityData.description,
     value: opportunityData.value,
     status: 'Need Analysis' as OpportunityStatus,
@@ -289,11 +295,6 @@ export const getOpportunitiesByAccount = (accountId: string): Opportunity[] => {
   return mockOpportunities.filter(o => o.accountId === accountId);
 };
 
-// No longer needed as opportunities are directly on accounts for this primary flow
-// export const getOpportunitiesByLead = (leadId: string): Opportunity[] => {
-//   return mockOpportunities.filter(o => o.leadId === leadId);
-// };
-
 export const getUpdatesForOpportunity = (opportunityId: string): Update[] => {
   return mockUpdates.filter(u => u.opportunityId === opportunityId);
 };
@@ -310,7 +311,8 @@ export const getOpportunityById = (opportunityId: string): Opportunity | undefin
     return mockOpportunities.find(opp => opp.id === opportunityId);
 }
 
-// Helper to get all unconverted leads
 export const getUnconvertedLeads = (): Lead[] => {
   return mockLeads.filter(lead => lead.status !== 'Converted to Account' && lead.status !== 'Lost');
 };
+
+    

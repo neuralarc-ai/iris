@@ -64,8 +64,8 @@ export default function LeadCard({ lead, onLeadConverted }: LeadCardProps) {
               <User className="mr-1 h-4 w-4 text-muted-foreground" /> {lead.personName}
             </CardDescription>
           </div>
-          <Badge 
-            variant={getStatusBadgeVariant(lead.status)} 
+          <Badge
+            variant={getStatusBadgeVariant(lead.status)}
             className={`capitalize ${lead.status === "Converted to Account" ? 'bg-green-600 text-white' : ''} ${lead.status === "Qualified" || lead.status === "Proposal Sent" ? 'bg-primary text-primary-foreground' : ''}`}
           >
             {lead.status}
@@ -111,3 +111,5 @@ export default function LeadCard({ lead, onLeadConverted }: LeadCardProps) {
     </Card>
   );
 }
+
+    
