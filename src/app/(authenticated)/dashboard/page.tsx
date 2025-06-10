@@ -138,7 +138,7 @@ export default function DashboardPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6"> 
                 {isLoading && recentUpdates.length === 0 ? (
                     Array.from({ length: 2 }).map((_, i) => (
-                        <Card key={`update-skeleton-${i}`} className="shadow-md animate-pulse">
+                        <Card key={`update-skeleton-${i}`} className="shadow-md animate-pulse h-full">
                             <CardHeader><div className="h-5 bg-muted/50 rounded w-1/2"></div></CardHeader>
                             <CardContent className="space-y-2">
                                 <div className="h-4 bg-muted/50 rounded w-full"></div>
@@ -164,7 +164,7 @@ export default function DashboardPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6"> 
                 {isLoading && forecastedOpportunities.length === 0 ? (
                 Array.from({ length: 2 }).map((_, i) => ( 
-                    <Card key={i} className="shadow-md animate-pulse">
+                    <Card key={i} className="shadow-md animate-pulse h-full">
                     <CardHeader>
                         <div className="h-6 bg-muted/50 rounded w-3/4 mb-2"></div>
                         <div className="h-4 bg-muted/50 rounded w-1/2"></div>
@@ -178,7 +178,7 @@ export default function DashboardPage() {
                 ))
                 ) : forecastedOpportunities.length > 0 ? (
                 forecastedOpportunities.map((opp) => (
-                    <Card key={opp.id} className="shadow-md hover:shadow-xl transition-shadow duration-300 flex flex-col">
+                    <Card key={opp.id} className="shadow-md hover:shadow-xl transition-shadow duration-300 flex flex-col h-full">
                     <CardHeader className="pb-3">
                         <div className="flex justify-between items-start">
                         <CardTitle className="text-lg">{opp.name}</CardTitle>
@@ -204,7 +204,7 @@ export default function DashboardPage() {
                             <span className="ml-1 text-muted-foreground">${opp.forecast.revenueForecast.toLocaleString()}</span>
                             </div>
                             <div className="flex items-start">
-                            {opp.forecast.bottleneckIdentification && opp.forecast.bottleneckIdentification.toLowerCase() !== "none identified" && opp.forecast.bottleneckIdentification.toLowerCase() !== "none" && opp.forecast.bottleneckIdentification.length > 0 ? <AlertCircle className="mr-2 h-4 w-4 text-destructive mt-0.5 shrink-0" /> : <CheckCircle className="mr-2 h-4 w-4 text-green-500 mt-0.5 shrink-0" />}
+                            {opp.forecast.bottleneckIdentification && opp.forecast.bottleneckIdentification.toLowerCase() !== "none identified" && opp.forecast.bottleneckIdentification.toLowerCase() !== "none" && opp.forecast.bottleneckIdentification.length > 0 && !opp.forecast.bottleneckIdentification.startsWith("Error") && !opp.forecast.bottleneckIdentification.startsWith("AI could not generate") && !opp.forecast.bottleneckIdentification.startsWith("Rate limit") ? <AlertCircle className="mr-2 h-4 w-4 text-destructive mt-0.5 shrink-0" /> : <CheckCircle className="mr-2 h-4 w-4 text-green-500 mt-0.5 shrink-0" />}
                             <div>
                                 <span className="font-medium text-foreground">Potential Bottlenecks:</span>
                                 <p className="ml-1 text-muted-foreground leading-snug">{opp.forecast.bottleneckIdentification || "None identified"}</p>
@@ -229,15 +229,15 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div className="lg:col-span-1 space-y-6">
-           <Card className="shadow-md hover:shadow-xl transition-shadow duration-300">
+        <div className="lg:col-span-1 space-y-6 flex flex-col">
+           <Card className="shadow-md hover:shadow-xl transition-shadow duration-300 h-full flex flex-col bg-slate-100 dark:bg-slate-800">
             <CardHeader>
               <CardTitle className="text-lg flex items-center">
                 <BarChartHorizontalBig className="mr-3 h-5 w-5 text-primary" />
                 Opportunities Pipeline
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="flex-grow">
               {isLoading && opportunityStatusData.length === 0 ? (
                 <div className="h-64 bg-muted/50 rounded animate-pulse"></div>
               ) : opportunityStatusData.length > 0 ? (
@@ -266,14 +266,14 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
 
-          <Card className="shadow-md hover:shadow-xl transition-shadow duration-300">
+          <Card className="shadow-md hover:shadow-xl transition-shadow duration-300 h-full flex flex-col bg-stone-100 dark:bg-stone-700">
             <CardHeader>
               <CardTitle className="text-lg flex items-center">
                 <Users className="mr-3 h-5 w-5 text-primary" />
                 Lead Engagement (Simulated)
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-2">
+            <CardContent className="space-y-2 flex-grow">
               <p className="text-sm text-muted-foreground">
                 This section would display real-time insights from lead activities. Direct social media tracking is a complex integration.
               </p>
@@ -285,7 +285,7 @@ export default function DashboardPage() {
                 ))}
               </ul>
             </CardContent>
-             <CardFooter className="pt-4">
+             <CardFooter className="pt-4 mt-auto">
                 <Button variant="outline" size="sm" asChild className="ml-auto">
                     <Link href="/leads">View All Leads</Link>
                 </Button>
