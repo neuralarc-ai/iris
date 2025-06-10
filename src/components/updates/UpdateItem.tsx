@@ -1,17 +1,18 @@
+
 "use client";
 
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Eye, Lightbulb, CheckSquare, Repeat, MessageSquare, Users, Mail, BarChartBig, Brain, Activity, ThumbsUp, ThumbsDown, MessageCircleMore, Briefcase } from 'lucide-react';
-import type { Update, UpdateInsights as AIUpdateInsights, Opportunity, Account } from '@/types';
+import { Eye, CheckSquare, Repeat, MessageSquare, Users, Mail, BarChartBig, Brain, Activity, ThumbsUp, ThumbsDown, MessageCircleMore, Briefcase, Sparkles, UserCircle } from 'lucide-react';
+import type { Update, UpdateInsights as AIUpdateInsights, Opportunity, Account, User } from '@/types';
 import {format, parseISO} from 'date-fns';
-import { generateInsights, RelationshipHealthOutput } from '@/ai/flows/intelligent-insights'; // Import RelationshipHealthOutput
+import { generateInsights, RelationshipHealthOutput } from '@/ai/flows/intelligent-insights'; 
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
-import { getOpportunityById, getAccountById } from '@/lib/data';
+import { getOpportunityById, getAccountById, getUserById } from '@/lib/data';
 import Link from 'next/link';
-
+import { Separator } from '@/components/ui/separator';
 
 interface UpdateItemProps {
   update: Update;
@@ -27,20 +28,22 @@ const getUpdateTypeIcon = (type: Update['type']) => {
 };
 
 const getSentimentIcon = (sentiment?: string) => {
-    if (!sentiment) return <Activity className="h-3.5 w-3.5"/>;
+    if (!sentiment) return <Activity className="h-4 w-4"/>;
     const lowerSentiment = sentiment.toLowerCase();
-    if (lowerSentiment.includes("positive")) return <ThumbsUp className="h-3.5 w-3.5 text-green-500"/>;
-    if (lowerSentiment.includes("negative")) return <ThumbsDown className="h-3.5 w-3.5 text-red-500"/>;
-    if (lowerSentiment.includes("neutral")) return <Activity className="h-3.5 w-3.5 text-yellow-500"/>;
-    return <Activity className="h-3.5 w-3.5"/>;
+    if (lowerSentiment.includes("positive")) return <ThumbsUp className="h-4 w-4 text-green-500"/>;
+    if (lowerSentiment.includes("negative")) return <ThumbsDown className="h-4 w-4 text-red-500"/>;
+    if (lowerSentiment.includes("neutral")) return <Activity className="h-4 w-4 text-yellow-500"/>;
+    return <Activity className="h-4 w-4"/>;
 }
 
 
 export default function UpdateItem({ update }: UpdateItemProps) {
   const [insights, setInsights] = useState<Partial<AIUpdateInsights> & { relationshipHealth?: RelationshipHealthOutput | null } | null>(null);
   const [isLoadingInsights, setIsLoadingInsights] = useState(false);
+  const [showAiInsights, setShowAiInsights] = useState(false);
   const [opportunity, setOpportunity] = useState<Opportunity | undefined>(undefined);
   const [account, setAccount] = useState<Account | undefined>(undefined);
+  const [updatedByUser, setUpdatedByUser] = useState<User | undefined>(undefined);
 
   useEffect(() => {
     const opp = getOpportunityById(update.opportunityId);
@@ -50,10 +53,16 @@ export default function UpdateItem({ update }: UpdateItemProps) {
     } else {
       setAccount(undefined);
     }
-  }, [update.opportunityId]);
+    if (update.updatedByUserId) {
+      setUpdatedByUser(getUserById(update.updatedByUserId));
+    } else {
+      setUpdatedByUser(undefined);
+    }
+  }, [update.opportunityId, update.updatedByUserId]);
 
   const fetchInsights = async () => {
     setIsLoadingInsights(true);
+    setShowAiInsights(true); // Show insights section when fetching starts
     try {
       const aiData = await generateInsights({ communicationHistory: update.content });
       setInsights({
@@ -71,20 +80,18 @@ export default function UpdateItem({ update }: UpdateItemProps) {
     }
   };
 
-  useEffect(() => {
-    if (update.content && update.content.length > 20) { // Only fetch for substantial content
-        fetchInsights();
+  const toggleAiInsights = () => {
+    if (!insights && !isLoadingInsights && update.content && update.content.length > 20) {
+      fetchInsights();
     } else {
-        setInsights(null); 
+      setShowAiInsights(prev => !prev);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [update.id, update.content]);
+  };
   
   const UpdateIcon = getUpdateTypeIcon(update.type);
-  const SentimentIcon = getSentimentIcon(insights?.sentiment);
 
   return (
-    <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300 bg-card">
+    <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300 bg-card flex flex-col h-full">
       <CardHeader className="pb-3">
         <div className="flex justify-between items-start mb-1">
           <CardTitle className="text-xl font-headline flex items-center text-foreground">
@@ -97,7 +104,7 @@ export default function UpdateItem({ update }: UpdateItemProps) {
         </div>
         {opportunity && (
           <CardDescription className="text-sm text-muted-foreground flex items-center">
-            <BarChartBig className="mr-2 h-4 w-4 shrink-0" /> {/* Changed to BarChartBig for opportunity */}
+            <BarChartBig className="mr-2 h-4 w-4 shrink-0" />
             Opportunity: {opportunity.name}
           </CardDescription>
         )}
@@ -107,16 +114,22 @@ export default function UpdateItem({ update }: UpdateItemProps) {
                 Account: {account.name}
             </CardDescription>
         )}
+         {updatedByUser && (
+            <CardDescription className="text-xs text-muted-foreground flex items-center mt-0.5">
+                <UserCircle className="mr-1.5 h-3.5 w-3.5 shrink-0" />
+                Updated by: {updatedByUser.name}
+            </CardDescription>
+        )}
       </CardHeader>
-      <CardContent className="space-y-3.5 text-sm">
+      <CardContent className="space-y-3.5 text-sm flex-grow">
         <p className="text-foreground leading-relaxed line-clamp-4">{update.content}</p>
         
-        {(isLoadingInsights || insights) && (
-          <div className="pt-3.5 border-t mt-3.5 space-y-2">
-            <div className="flex items-center text-muted-foreground">
-              <Brain className="mr-2 h-4 w-4 text-primary" /> {/* Changed Icon */}
-              <h4 className="font-semibold uppercase text-xs">AI-Powered Insights</h4>
-            </div>
+        {showAiInsights && (
+          <div className="pt-3.5 border-t mt-3.5 space-y-3">
+            <h4 className="font-semibold text-foreground text-sm flex items-center">
+              <Sparkles className="mr-2 h-4 w-4 text-yellow-500" />
+              AI-Powered Insights
+            </h4>
             {isLoadingInsights ? (
               <div className="flex items-center space-x-2 h-16">
                 <LoadingSpinner size={16} />
@@ -126,44 +139,53 @@ export default function UpdateItem({ update }: UpdateItemProps) {
               <div className="space-y-2 text-xs">
                 {insights.summary && (
                   <div>
-                    <strong className="text-foreground">Summary:</strong>
-                    <p className="text-muted-foreground ml-1 line-clamp-2 leading-snug">{insights.summary}</p>
+                    <strong className="text-foreground block mb-0.5">Summary:</strong>
+                    <p className="text-muted-foreground ml-1 leading-snug">{insights.summary}</p>
                   </div>
                 )}
                 {insights.actionItems && insights.actionItems.length > 0 && (
-                  <div>
-                    <strong className="text-foreground flex items-center"><CheckSquare className="mr-1.5 h-3.5 w-3.5 shrink-0" />Action Items:</strong>
-                    <ul className="list-disc list-inside ml-2 space-y-0.5">
-                      {insights.actionItems.slice(0,2).map((item, idx) => <li key={idx} className="text-muted-foreground line-clamp-1">{item}</li>)}
-                      {insights.actionItems.length > 2 && <li className="text-muted-foreground text-xs">...and more</li>}
+                  <div className="mt-1.5">
+                    <strong className="text-foreground flex items-center mb-0.5"><CheckSquare className="mr-1.5 h-4 w-4 shrink-0" />Action Items:</strong>
+                    <ul className="list-disc list-inside ml-3 space-y-0.5">
+                      {insights.actionItems.slice(0,3).map((item, idx) => <li key={idx} className="text-muted-foreground">{item}</li>)}
+                      {insights.actionItems.length > 3 && <li className="text-muted-foreground text-xs">...and more</li>}
                     </ul>
                   </div>
                 )}
                 {insights.followUpSuggestions && insights.followUpSuggestions.length > 0 && (
-                   <div>
-                    <strong className="text-foreground flex items-center"><Repeat className="mr-1.5 h-3.5 w-3.5 shrink-0" />Follow-up:</strong>
-                     <p className="text-muted-foreground ml-1 line-clamp-1">{insights.followUpSuggestions[0]}</p>
+                   <div className="mt-1.5">
+                    <strong className="text-foreground flex items-center mb-0.5"><Repeat className="mr-1.5 h-4 w-4 shrink-0" />Follow-up Suggestions:</strong>
+                     <ul className="list-disc list-inside ml-3 space-y-0.5">
+                      {insights.followUpSuggestions.slice(0,2).map((item, idx) => <li key={idx} className="text-muted-foreground">{item}</li>)}
+                     </ul>
                    </div>
                 )}
-                <div className="flex items-center">
-                  <strong className="text-foreground flex items-center">{SentimentIcon}<span className="ml-1">Sentiment:</span></strong>
-                  <span className="text-muted-foreground ml-1.5">{insights.sentiment || "Not analyzed"}</span>
-                </div>
+                 {insights.sentiment && (
+                    <div className="flex items-center mt-1.5">
+                    {getSentimentIcon(insights.sentiment)}
+                    <strong className="text-foreground ml-1.5">Sentiment:</strong>
+                    <span className="text-muted-foreground ml-1">{insights.sentiment}</span>
+                    </div>
+                 )}
                  {insights.relationshipHealth && (
-                    <div>
-                        <strong className="text-foreground">Relationship Health:</strong>
-                        <p className="text-muted-foreground ml-1 line-clamp-2 leading-snug">{insights.relationshipHealth.summary} (Score: {insights.relationshipHealth.healthScore.toFixed(2)})</p>
+                    <div className="mt-1.5">
+                        <strong className="text-foreground block mb-0.5">Relationship Health:</strong>
+                        <p className="text-muted-foreground ml-1 leading-snug">{insights.relationshipHealth.summary} (Score: {insights.relationshipHealth.healthScore.toFixed(2)})</p>
                     </div>
                  )}
               </div>
             ) : (
-                <p className="text-xs text-muted-foreground h-16 flex items-center">No specific AI insights for this update.</p>
+                <p className="text-xs text-muted-foreground h-16 flex items-center">No AI insights available for this update, or content too short for analysis.</p>
             )}
           </div>
         )}
       </CardContent>
       <CardFooter className="pt-4 border-t mt-auto">
-        <Button variant="outline" size="sm" asChild className="ml-auto">
+        <Button variant="ghost" size="sm" onClick={toggleAiInsights} className="mr-auto text-muted-foreground hover:text-primary">
+          <Sparkles className={`mr-2 h-4 w-4 ${showAiInsights ? 'text-yellow-500' : ''}`} />
+          {showAiInsights && insights ? 'Hide Insights' : (isLoadingInsights ? 'Loading...' : 'Show AI Insights')}
+        </Button>
+        <Button variant="outline" size="sm" asChild>
           <Link href={`/updates?id=${update.id}#details`}> 
             <Eye className="mr-2 h-4 w-4" />
             View Details

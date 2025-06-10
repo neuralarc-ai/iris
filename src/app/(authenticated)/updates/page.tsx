@@ -21,8 +21,6 @@ export default function UpdatesPage() {
   const [opportunityFilter, setOpportunityFilter] = useState<string | 'all'>('all');
   const [dateFilter, setDateFilter] = useState<string>(''); 
 
-  // Assuming mockUpdates is kept up-to-date if new updates are added elsewhere
-  // For a real app, this would be fetched or managed via global state
   const allUpdates = initialMockUpdates.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
 
@@ -43,8 +41,7 @@ export default function UpdatesPage() {
             matchesDate = false; 
         }
       } catch (e) {
-        // If date parsing fails, don't filter by date (or treat as no match)
-        matchesDate = true; // Or false, depending on desired behavior for invalid filter date
+        matchesDate = true; 
       }
     }
     return matchesSearch && matchesType && matchesOpportunity && matchesDate;
@@ -53,7 +50,7 @@ export default function UpdatesPage() {
   return (
     <div className="container mx-auto space-y-6">
       <PageTitle title="Communication Updates" subtitle="Log and review all opportunity-related communications.">
-        <Button disabled> {/* Add Update Dialog not implemented yet */}
+        <Button disabled> 
           <PlusCircle className="mr-2 h-4 w-4" /> Log New Update
         </Button>
       </PageTitle>
@@ -124,7 +121,7 @@ export default function UpdatesPage() {
 
 
       {filteredUpdates.length > 0 ? (
-        <div className="space-y-6 pb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-8">
           {filteredUpdates.map((update) => (
             <UpdateItem key={update.id} update={update} />
           ))}
@@ -139,3 +136,4 @@ export default function UpdatesPage() {
     </div>
   );
 }
+

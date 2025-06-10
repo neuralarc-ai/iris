@@ -56,6 +56,7 @@ export interface Update {
   content: string;
   type: UpdateType;
   createdAt: string;
+  updatedByUserId?: string; // Added field to track who made the update
 }
 
 // For AI Generated Content
@@ -101,3 +102,4 @@ export interface ExtractedLeadInfo {
     email?: string;
     phone?: string;
 }
+

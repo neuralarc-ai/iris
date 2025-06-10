@@ -14,7 +14,7 @@ import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import Link from 'next/link';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { format, parseISO } from 'date-fns';
-import UpdateItem from '@/components/updates/UpdateItem'; // Import UpdateItem
+import UpdateItem from '@/components/updates/UpdateItem';
 
 interface OpportunityWithForecast extends Opportunity {
   forecast?: OpportunityForecast;
@@ -45,7 +45,7 @@ export default function DashboardPage() {
     try {
       const activeOpportunities = mockOpportunities.filter(
         opp => opp.status !== 'Completed' && opp.status !== 'Cancelled'
-      ).slice(0, 2); // Fetch 2 for key insights to fit 2 per row better
+      ).slice(0, 2); 
 
       const forecastPromises = activeOpportunities.map(async (opp) => {
         try {
@@ -73,7 +73,7 @@ export default function DashboardPage() {
         setOverallSalesForecast("No active opportunities to forecast. Add new opportunities to see AI-powered sales predictions.");
       }
       
-      setRecentUpdates(getRecentUpdates(2)); // Fetch 2 most recent updates for 2 per row
+      setRecentUpdates(getRecentUpdates(2)); 
       setLastRefreshed(new Date());
     } catch (error) {
       console.error("Failed to fetch dashboard data:", error);
@@ -97,7 +97,7 @@ export default function DashboardPage() {
   }, []);
 
   return (
-    <div className="container mx-auto space-y-8"> {/* Increased base spacing */}
+    <div className="container mx-auto space-y-8"> 
       <PageTitle title="Intelligent Sales Dashboard">
         <div className="flex items-center gap-2">
           {lastRefreshed && (
@@ -132,12 +132,38 @@ export default function DashboardPage() {
         <div className="lg:col-span-2 space-y-6">
           <div>
             <h2 className="text-2xl font-semibold flex items-center text-foreground mb-4">
+                <History className="mr-3 h-6 w-6 text-blue-500" />
+                Recent Activity Stream
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6"> 
+                {isLoading && recentUpdates.length === 0 ? (
+                    Array.from({ length: 2 }).map((_, i) => (
+                        <Card key={`update-skeleton-${i}`} className="shadow-md animate-pulse">
+                            <CardHeader><div className="h-5 bg-muted/50 rounded w-1/2"></div></CardHeader>
+                            <CardContent className="space-y-2">
+                                <div className="h-4 bg-muted/50 rounded w-full"></div>
+                                <div className="h-4 bg-muted/50 rounded w-3/4"></div>
+                            </CardContent>
+                        </Card>
+                    ))
+                ) : recentUpdates.length > 0 ? (
+                    recentUpdates.map(update => (
+                        <UpdateItem key={update.id} update={update} />
+                    ))
+                ) : (
+                    !isLoading && <p className="text-muted-foreground text-center py-4 md:col-span-2">No recent updates found.</p>
+                )}
+            </div>
+          </div>
+
+          <div>
+            <h2 className="text-2xl font-semibold flex items-center text-foreground mb-4 mt-8">
                 <Lightbulb className="mr-3 h-6 w-6 text-yellow-500" />
                 Key Opportunity Insights
             </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6"> {/* Max 2 cards per row */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6"> 
                 {isLoading && forecastedOpportunities.length === 0 ? (
-                Array.from({ length: 2 }).map((_, i) => ( // Show 2 skeletons if loading
+                Array.from({ length: 2 }).map((_, i) => ( 
                     <Card key={i} className="shadow-md animate-pulse">
                     <CardHeader>
                         <div className="h-6 bg-muted/50 rounded w-3/4 mb-2"></div>
@@ -201,33 +227,6 @@ export default function DashboardPage() {
                 )}
             </div>
           </div>
-
-          <div>
-            <h2 className="text-2xl font-semibold flex items-center text-foreground mb-4 mt-8">
-                <History className="mr-3 h-6 w-6 text-blue-500" />
-                Recent Activity Stream
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6"> {/* Max 2 UpdateItems per row */}
-                {isLoading && recentUpdates.length === 0 ? (
-                    Array.from({ length: 2 }).map((_, i) => (
-                        <Card key={`update-skeleton-${i}`} className="shadow-md animate-pulse">
-                            <CardHeader><div className="h-5 bg-muted/50 rounded w-1/2"></div></CardHeader>
-                            <CardContent className="space-y-2">
-                                <div className="h-4 bg-muted/50 rounded w-full"></div>
-                                <div className="h-4 bg-muted/50 rounded w-3/4"></div>
-                            </CardContent>
-                        </Card>
-                    ))
-                ) : recentUpdates.length > 0 ? (
-                    recentUpdates.map(update => (
-                        <UpdateItem key={update.id} update={update} />
-                    ))
-                ) : (
-                    !isLoading && <p className="text-muted-foreground text-center py-4 md:col-span-2">No recent updates found.</p>
-                )}
-            </div>
-          </div>
-
         </div>
 
         <div className="lg:col-span-1 space-y-6">

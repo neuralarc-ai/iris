@@ -114,7 +114,7 @@ export let mockOpportunities: Opportunity[] = [ // Made 'let' for modification
     startDate: new Date(new Date().setDate(today.getDate() + 7)).toISOString(),
     endDate: new Date(new Date().setMonth(today.getMonth() + 1)).toISOString(),
     description: 'Exploring integration of Iris AI capabilities into Innovatech\'s existing CRM.',
-    updateIds: [],
+    updateIds: ['upd_004'],
     createdAt: oneWeekAgo.toISOString(),
     updatedAt: oneWeekAgo.toISOString(),
   },
@@ -138,41 +138,46 @@ export const mockUpdates: Update[] = [
     id: 'upd_001',
     opportunityId: 'opp_001',
     date: yesterday.toISOString(),
-    content: 'Weekly sync call with Innovatech team. Discussed progress on module A and upcoming sprint planning. Client expressed satisfaction with current trajectory.',
+    content: 'Weekly sync call with Innovatech team. Discussed progress on module A and upcoming sprint planning. Client expressed satisfaction with current trajectory. Identified a minor scope creep regarding reporting features which needs to be addressed next week. Overall positive sentiment, relationship health is strong.',
     type: 'Call',
     createdAt: yesterday.toISOString(),
+    updatedByUserId: 'user_admin_000',
   },
   {
     id: 'upd_002',
     opportunityId: 'opp_001',
     date: oneWeekAgo.toISOString(),
-    content: 'Initial prototype for analytics dashboard shared with Innovatech. Positive feedback received, minor UI adjustments requested.',
+    content: 'Initial prototype for analytics dashboard shared with Innovatech. Positive feedback received, minor UI adjustments requested. Client team is excited about the potential. Action items: Schedule follow-up for UI changes, prepare detailed UAT plan.',
     type: 'General',
     createdAt: oneWeekAgo.toISOString(),
+    updatedByUserId: 'user_jane_001',
   },
   {
     id: 'upd_003',
     opportunityId: 'opp_003',
     date: new Date().toISOString(),
-    content: 'Received revised proposal from Synergy Partners. Legal team is reviewing the terms. Follow-up meeting scheduled for next week.',
+    content: 'Received revised proposal from Synergy Partners. Legal team is reviewing the terms. Follow-up meeting scheduled for next week to discuss final points. Relationship health seems okay, but there are some tough negotiation points ahead.',
     type: 'Email',
     createdAt: new Date().toISOString(),
+    updatedByUserId: 'user_admin_000',
   },
   {
     id: 'upd_004',
     opportunityId: 'opp_002',
     date: new Date(new Date().setDate(today.getDate() - 2)).toISOString(),
-    content: 'Conducted detailed needs analysis workshop with Innovatech stakeholders for the AI Integration Initiative. Gathered key requirements and user stories.',
+    content: 'Conducted detailed needs analysis workshop with Innovatech stakeholders for the AI Integration Initiative. Gathered key requirements and user stories. Next step is to consolidate findings and present a preliminary scope document. Client is keen to move fast.',
     type: 'Meeting',
     createdAt: new Date(new Date().setDate(today.getDate() - 2)).toISOString(),
+    updatedByUserId: 'user_jane_001',
   },
   {
     id: 'upd_005',
     opportunityId: 'opp_001',
     date: new Date(new Date().setDate(today.getDate() - 3)).toISOString(),
-    content: 'Deployed new iteration of Phoenix platform to staging. Innovatech to begin UAT next week. Sent over staging credentials and test plan via email.',
+    content: 'Deployed new iteration of Phoenix platform to staging. Innovatech to begin UAT next week. Sent over staging credentials and test plan via email. Highlighted key areas for testing based on recent feature additions. All seems on track.',
     type: 'Email',
     createdAt: new Date(new Date().setDate(today.getDate() - 3)).toISOString(),
+    updatedByUserId: 'user_admin_000',
   },
 ];
 
@@ -352,3 +357,4 @@ export const getRecentUpdates = (limit: number = 3): Update[] => {
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
     .slice(0, limit);
 };
+
