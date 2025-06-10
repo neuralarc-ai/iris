@@ -5,12 +5,12 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { CalendarDays, Eye, Lightbulb, CheckSquare, Repeat, MessageSquare, Users, Mail, BarChartBig } from 'lucide-react'; // Added BarChartBig
-import type { Update, UpdateInsights as AIUpdateInsights, Opportunity } from '@/types'; // Renamed Project to Opportunity
+import { CalendarDays, Eye, Lightbulb, CheckSquare, Repeat, MessageSquare, Users, Mail, BarChartBig, Brain, Activity, ThumbsUp, ThumbsDown, MessageCircleMore, Briefcase } from 'lucide-react';
+import type { Update, UpdateInsights as AIUpdateInsights, Opportunity } from '@/types';
 import {format, parseISO} from 'date-fns';
-import { generateInsights } from '@/ai/flows/intelligent-insights';
+import { generateInsights, RelationshipHealthOutput } from '@/ai/flows/intelligent-insights'; // Import RelationshipHealthOutput
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
-import { mockOpportunities, getOpportunityById } from '@/lib/data'; // Renamed mockProjects, added getOpportunityById
+import { getOpportunityById } from '@/lib/data';
 import Link from 'next/link';
 
 
@@ -20,22 +20,31 @@ interface UpdateItemProps {
 
 const getUpdateTypeIcon = (type: Update['type']) => {
   switch (type) {
-    case 'Call': return <MessageSquare className="h-4 w-4 text-primary" />; 
-    case 'Meeting': return <Users className="h-4 w-4 text-primary" />;
-    case 'Email': return <Mail className="h-4 w-4 text-primary" />;
-    default: return <MessageSquare className="h-4 w-4 text-primary" />; 
+    case 'Call': return <MessageCircleMore className="h-5 w-5 text-primary shrink-0" />; 
+    case 'Meeting': return <Users className="h-5 w-5 text-primary shrink-0" />;
+    case 'Email': return <Mail className="h-5 w-5 text-primary shrink-0" />;
+    default: return <MessageSquare className="h-5 w-5 text-primary shrink-0" />; 
   }
 };
 
+const getSentimentIcon = (sentiment?: string) => {
+    if (!sentiment) return <Activity className="h-3.5 w-3.5"/>;
+    const lowerSentiment = sentiment.toLowerCase();
+    if (lowerSentiment.includes("positive")) return <ThumbsUp className="h-3.5 w-3.5 text-green-500"/>;
+    if (lowerSentiment.includes("negative")) return <ThumbsDown className="h-3.5 w-3.5 text-red-500"/>;
+    if (lowerSentiment.includes("neutral")) return <Activity className="h-3.5 w-3.5 text-yellow-500"/>;
+    return <Activity className="h-3.5 w-3.5"/>;
+}
+
 
 export default function UpdateItem({ update }: UpdateItemProps) {
-  const [insights, setInsights] = useState<Partial<AIUpdateInsights> | null>(null);
+  const [insights, setInsights] = useState<Partial<AIUpdateInsights> & { relationshipHealth?: RelationshipHealthOutput | null } | null>(null);
   const [isLoadingInsights, setIsLoadingInsights] = useState(false);
-  const [opportunity, setOpportunity] = useState<Opportunity | undefined>(undefined); // Renamed project to opportunity
+  const [opportunity, setOpportunity] = useState<Opportunity | undefined>(undefined);
 
   useEffect(() => {
-    setOpportunity(getOpportunityById(update.opportunityId)); // Renamed project to opportunity, used getOpportunityById
-  }, [update.opportunityId]); // Renamed
+    setOpportunity(getOpportunityById(update.opportunityId));
+  }, [update.opportunityId]);
 
   const fetchInsights = async () => {
     setIsLoadingInsights(true);
@@ -43,93 +52,106 @@ export default function UpdateItem({ update }: UpdateItemProps) {
       const aiData = await generateInsights({ communicationHistory: update.content });
       setInsights({
         summary: aiData.updateSummary?.summary,
-        actionItems: aiData.updateSummary?.actionItems?.split('\n').filter(Boolean),
-        followUpSuggestions: aiData.updateSummary?.followUpSuggestions?.split('\n').filter(Boolean),
+        actionItems: aiData.updateSummary?.actionItems?.split('\n').filter(s => s.trim().length > 0 && !s.trim().startsWith('-')).map(s => s.replace(/^- /, '')),
+        followUpSuggestions: aiData.updateSummary?.followUpSuggestions?.split('\n').filter(s => s.trim().length > 0 && !s.trim().startsWith('-')).map(s => s.replace(/^- /, '')),
         sentiment: aiData.communicationAnalysis?.sentimentAnalysis,
+        relationshipHealth: aiData.relationshipHealth,
       });
     } catch (error) {
       console.error(`Failed to fetch insights for update ${update.id}:`, error);
+      setInsights({ summary: "Could not load AI insights.", sentiment: "Unknown" });
     } finally {
       setIsLoadingInsights(false);
     }
   };
 
   useEffect(() => {
-    if (update.content && update.content.length > 10) { 
+    if (update.content && update.content.length > 20) { // Only fetch for substantial content
         fetchInsights();
     } else {
         setInsights(null); 
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [update.id, update.content]);
   
   const UpdateIcon = getUpdateTypeIcon(update.type);
+  const SentimentIcon = getSentimentIcon(insights?.sentiment);
 
   return (
-    <Card className="shadow-md hover:shadow-lg transition-shadow duration-300">
-      <CardHeader>
-        <div className="flex justify-between items-start">
-          <CardTitle className="text-lg font-headline flex items-center">
+    <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300 bg-card">
+      <CardHeader className="pb-3">
+        <div className="flex justify-between items-start mb-1">
+          <CardTitle className="text-xl font-headline flex items-center text-foreground">
             {UpdateIcon}
-            <span className="ml-2">Update: {format(parseISO(update.date), 'MMM dd, yyyy')}</span>
+            <span className="ml-2.5">Update: {format(parseISO(update.date), 'MMM dd, yyyy')}</span>
           </CardTitle>
-          <Badge variant="secondary" className="capitalize bg-opacity-70">{update.type}</Badge>
+          <Badge variant="secondary" className="capitalize whitespace-nowrap ml-2 bg-accent text-accent-foreground">
+            {update.type}
+          </Badge>
         </div>
-        {opportunity && ( // Renamed
-          <CardDescription className="flex items-center">
-            <BarChartBig className="mr-1 h-4 w-4 text-muted-foreground" /> {/* Added Icon */}
-            Opportunity: {opportunity.name} {/* Renamed */}
+        {opportunity && (
+          <CardDescription className="text-sm text-muted-foreground flex items-center">
+            <Briefcase className="mr-2 h-4 w-4 shrink-0" /> {/* Changed to Briefcase for opportunity association */}
+            Opportunity: {opportunity.name}
           </CardDescription>
         )}
       </CardHeader>
-      <CardContent className="space-y-3">
-        <p className="text-sm text-foreground line-clamp-3">{update.content}</p>
+      <CardContent className="space-y-3.5 text-sm">
+        <p className="text-foreground leading-relaxed line-clamp-4">{update.content}</p>
         
-        {isLoadingInsights ? (
-          <div className="flex items-center space-x-2 pt-2 border-t mt-3">
-            <LoadingSpinner size={16} />
-            <span className="text-xs text-muted-foreground">Analyzing update...</span>
-          </div>
-        ) : insights && (insights.summary || (insights.actionItems && insights.actionItems.length > 0) || (insights.followUpSuggestions && insights.followUpSuggestions.length > 0)) ? (
-          <div className="pt-3 border-t mt-3 space-y-2 text-xs">
+        {(isLoadingInsights || insights) && (
+          <div className="pt-3.5 border-t mt-3.5 space-y-2">
             <div className="flex items-center text-muted-foreground">
-              <Lightbulb className="mr-2 h-4 w-4 text-yellow-500" />
-              <h4 className="font-semibold uppercase">AI Insights</h4>
+              <Brain className="mr-2 h-4 w-4 text-primary" /> {/* Changed Icon */}
+              <h4 className="font-semibold uppercase text-xs">AI-Powered Insights</h4>
             </div>
-            {insights.summary && (
-              <div>
-                <strong className="text-foreground">Summary:</strong>
-                <p className="text-muted-foreground ml-1 line-clamp-2">{insights.summary}</p>
+            {isLoadingInsights ? (
+              <div className="flex items-center space-x-2 h-16">
+                <LoadingSpinner size={16} />
+                <span className="text-xs text-muted-foreground">Analyzing update details...</span>
               </div>
-            )}
-            {insights.actionItems && insights.actionItems.length > 0 && (
-              <div>
-                <strong className="text-foreground flex items-center"><CheckSquare className="mr-1 h-3 w-3" />Action Items:</strong>
-                <ul className="list-disc list-inside ml-1">
-                  {insights.actionItems.slice(0,2).map((item, idx) => <li key={idx} className="text-muted-foreground line-clamp-1">{item}</li>)}
-                  {insights.actionItems.length > 2 && <li className="text-muted-foreground">...and more</li>}
-                </ul>
+            ) : insights ? (
+              <div className="space-y-2 text-xs">
+                {insights.summary && (
+                  <div>
+                    <strong className="text-foreground">Summary:</strong>
+                    <p className="text-muted-foreground ml-1 line-clamp-2 leading-snug">{insights.summary}</p>
+                  </div>
+                )}
+                {insights.actionItems && insights.actionItems.length > 0 && (
+                  <div>
+                    <strong className="text-foreground flex items-center"><CheckSquare className="mr-1.5 h-3.5 w-3.5 shrink-0" />Action Items:</strong>
+                    <ul className="list-disc list-inside ml-2 space-y-0.5">
+                      {insights.actionItems.slice(0,2).map((item, idx) => <li key={idx} className="text-muted-foreground line-clamp-1">{item}</li>)}
+                      {insights.actionItems.length > 2 && <li className="text-muted-foreground text-xs">...and more</li>}
+                    </ul>
+                  </div>
+                )}
+                {insights.followUpSuggestions && insights.followUpSuggestions.length > 0 && (
+                   <div>
+                    <strong className="text-foreground flex items-center"><Repeat className="mr-1.5 h-3.5 w-3.5 shrink-0" />Follow-up:</strong>
+                     <p className="text-muted-foreground ml-1 line-clamp-1">{insights.followUpSuggestions[0]}</p>
+                   </div>
+                )}
+                <div className="flex items-center">
+                  <strong className="text-foreground flex items-center">{SentimentIcon}<span className="ml-1">Sentiment:</span></strong>
+                  <span className="text-muted-foreground ml-1.5">{insights.sentiment || "Not analyzed"}</span>
+                </div>
+                 {insights.relationshipHealth && (
+                    <div>
+                        <strong className="text-foreground">Relationship Health:</strong>
+                        <p className="text-muted-foreground ml-1 line-clamp-2 leading-snug">{insights.relationshipHealth.summary} (Score: {insights.relationshipHealth.healthScore.toFixed(2)})</p>
+                    </div>
+                 )}
               </div>
-            )}
-            {insights.followUpSuggestions && insights.followUpSuggestions.length > 0 && (
-               <div>
-                <strong className="text-foreground flex items-center"><Repeat className="mr-1 h-3 w-3" />Follow-up:</strong>
-                 <p className="text-muted-foreground ml-1 line-clamp-1">{insights.followUpSuggestions[0]}</p>
-               </div>
-            )}
-            {insights.sentiment && (
-              <div>
-                <strong className="text-foreground">Sentiment:</strong>
-                <span className="text-muted-foreground ml-1">{insights.sentiment}</span>
-              </div>
+            ) : (
+                <p className="text-xs text-muted-foreground h-16 flex items-center">No specific AI insights for this update.</p>
             )}
           </div>
-        ) : (
-          !isLoadingInsights && update.content && update.content.length > 10 && 
-          <p className="text-xs text-muted-foreground pt-2 border-t mt-3">No specific AI insights generated for this update.</p>
         )}
       </CardContent>
-      <CardFooter className="flex justify-end pt-4">
-        <Button variant="outline" size="sm" asChild>
+      <CardFooter className="pt-4 border-t mt-auto">
+        <Button variant="outline" size="sm" asChild className="ml-auto">
           <Link href={`/updates?id=${update.id}#details`}> 
             <Eye className="mr-2 h-4 w-4" />
             View Details

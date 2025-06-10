@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import PageTitle from '@/components/common/PageTitle';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, TrendingUp, Users, AlertTriangle, Lightbulb, BarChartHorizontalBig } from 'lucide-react';
+import { RefreshCw, TrendingUp, Users, AlertTriangle, Lightbulb, BarChartHorizontalBig, CalendarClock, DollarSign, AlertCircle, CheckCircle } from 'lucide-react';
 import { aiPoweredOpportunityForecasting } from '@/ai/flows/ai-powered-opportunity-forecasting';
 import { mockOpportunities, mockLeads } from '@/lib/data';
 import type { Opportunity, OpportunityForecast, Lead, OpportunityStatus } from '@/types';
@@ -17,7 +17,6 @@ import { format, parseISO } from 'date-fns';
 
 interface OpportunityWithForecast extends Opportunity {
   forecast?: OpportunityForecast;
-  accountName?: string; // Assuming we might want to show account name later
 }
 
 const getStatusBadgeVariant = (status: OpportunityStatus | undefined): "default" | "secondary" | "destructive" | "outline" => {
@@ -25,7 +24,7 @@ const getStatusBadgeVariant = (status: OpportunityStatus | undefined): "default"
     case 'Need Analysis': return 'outline';
     case 'Negotiation': return 'secondary';
     case 'In Progress': return 'default';
-    case 'Completed': return 'default'; // Success style for completed
+    case 'Completed': return 'default';
     case 'On Hold': return 'secondary';
     case 'Cancelled': return 'destructive';
     default: return 'secondary';
@@ -42,10 +41,9 @@ export default function DashboardPage() {
   const fetchDashboardData = async () => {
     setIsLoading(true);
     try {
-      // Fetch forecasts for active opportunities (e.g., not 'Completed' or 'Cancelled')
       const activeOpportunities = mockOpportunities.filter(
         opp => opp.status !== 'Completed' && opp.status !== 'Cancelled'
-      ).slice(0, 5); // Limit for demo purposes
+      ).slice(0, 3); // Limiting to 3 for a cleaner look and faster load
 
       const forecastPromises = activeOpportunities.map(async (opp) => {
         try {
@@ -55,23 +53,19 @@ export default function DashboardPage() {
             opportunityTimeline: `Start: ${format(parseISO(opp.startDate), 'MMM dd, yyyy')}, End: ${format(parseISO(opp.endDate), 'MMM dd, yyyy')}`,
             opportunityValue: opp.value,
             opportunityStatus: opp.status,
-            recentUpdates: "Recent updates indicate steady progress and positive client feedback.", // Placeholder
+            recentUpdates: "Recent updates indicate steady progress and positive client feedback.",
           });
           return { ...opp, forecast };
         } catch (e) {
           console.error(`Failed to get forecast for ${opp.name}`, e);
-          return { ...opp, forecast: undefined }; // Handle individual forecast failure
+          return { ...opp, forecast: undefined };
         }
       });
 
       const results = await Promise.all(forecastPromises);
       setForecastedOpportunities(results);
 
-      // Generate an overall sales forecast summary (simplified AI call for demo)
       if (results.length > 0) {
-        // In a real app, this would be a more sophisticated prompt considering all forecasts
-        const forecastSummaryPrompt = `Based on the following opportunities and their forecasts, provide a brief (1-2 sentences) optimistic sales outlook for the next quarter: ${results.map(r => `${r.name} (Value: ${r.value}, Est. Completion: ${r.forecast?.completionDateEstimate || 'N/A'})`).join(', ')}`;
-        // This is a mock AI call for brevity. Replace with actual Genkit flow if needed.
         setOverallSalesForecast(`Optimistic outlook for next quarter with strong potential from key deals like ${results[0]?.name}. Predicted revenue growth is positive, with several opportunities nearing completion.`);
       } else {
         setOverallSalesForecast("No active opportunities to forecast. Add new opportunities to see AI-powered sales predictions.");
@@ -92,21 +86,15 @@ export default function DashboardPage() {
 
   const opportunityStatusData = useMemo(() => {
     const counts: Record<OpportunityStatus, number> = {
-      "Need Analysis": 0,
-      "Negotiation": 0,
-      "In Progress": 0,
-      "On Hold": 0,
-      "Completed": 0,
-      "Cancelled": 0,
+      "Need Analysis": 0, "Negotiation": 0, "In Progress": 0,
+      "On Hold": 0, "Completed": 0, "Cancelled": 0,
     };
-    mockOpportunities.forEach(opp => {
-      counts[opp.status]++;
-    });
+    mockOpportunities.forEach(opp => { counts[opp.status]++; });
     return Object.entries(counts).map(([name, value]) => ({ name, count: value })).filter(item => item.count > 0);
-  }, [mockOpportunities]); // Recompute only if mockOpportunities change
+  }, []);
 
   return (
-    <div className="container mx-auto">
+    <div className="container mx-auto space-y-6">
       <PageTitle title="Intelligent Sales Dashboard">
         <div className="flex items-center gap-2">
           {lastRefreshed && (
@@ -121,68 +109,82 @@ export default function DashboardPage() {
         </div>
       </PageTitle>
 
-      {/* Overall AI Sales Forecast */}
-      <Card className="mb-6 shadow-lg bg-gradient-to-r from-primary/5 via-background to-background">
+      <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
         <CardHeader>
-          <CardTitle className="text-xl font-headline flex items-center">
-            <TrendingUp className="mr-2 h-6 w-6 text-primary" />
+          <CardTitle className="text-xl flex items-center">
+            <TrendingUp className="mr-3 h-6 w-6 text-primary" />
             AI Sales Forecast Overview
           </CardTitle>
         </CardHeader>
         <CardContent>
           {isLoading && !overallSalesForecast ? (
-            <div className="h-10 bg-muted rounded animate-pulse w-3/4"></div>
+            <div className="h-10 bg-muted/50 rounded animate-pulse w-3/4"></div>
           ) : (
-            <p className="text-foreground text-base">{overallSalesForecast || "No forecast available."}</p>
+            <p className="text-foreground text-base leading-relaxed">{overallSalesForecast || "No forecast available."}</p>
           )}
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-        {/* Key Opportunity Forecasts Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
-          <h2 className="text-2xl font-headline font-semibold flex items-center">
-            <Lightbulb className="mr-2 h-6 w-6 text-yellow-500" />
+          <h2 className="text-2xl font-semibold flex items-center text-foreground">
+            <Lightbulb className="mr-3 h-6 w-6 text-yellow-500" />
             Key Opportunity Insights
           </h2>
           {isLoading && forecastedOpportunities.length === 0 ? (
-            [1,2].map(i => (
+            Array.from({ length: 2 }).map((_, i) => (
               <Card key={i} className="shadow-md animate-pulse">
                 <CardHeader>
-                  <div className="h-6 bg-muted rounded w-3/4 mb-2"></div>
-                  <div className="h-4 bg-muted rounded w-1/2 "></div>
+                  <div className="h-6 bg-muted/50 rounded w-3/4 mb-2"></div>
+                  <div className="h-4 bg-muted/50 rounded w-1/2"></div>
                 </CardHeader>
-                <CardContent>
-                  <div className="h-4 bg-muted rounded w-full mb-2"></div>
-                  <div className="h-4 bg-muted rounded w-5/6"></div>
+                <CardContent className="space-y-2">
+                  <div className="h-4 bg-muted/50 rounded w-full"></div>
+                  <div className="h-4 bg-muted/50 rounded w-5/6"></div>
                 </CardContent>
               </Card>
             ))
           ) : forecastedOpportunities.length > 0 ? (
             forecastedOpportunities.map((opp) => (
-              <Card key={opp.id} className="shadow-md hover:shadow-lg transition-shadow">
-                <CardHeader>
+              <Card key={opp.id} className="shadow-md hover:shadow-xl transition-shadow duration-300">
+                <CardHeader className="pb-3">
                   <div className="flex justify-between items-start">
-                    <CardTitle className="text-lg font-headline">{opp.name}</CardTitle>
+                    <CardTitle className="text-lg">{opp.name}</CardTitle>
                     <Badge variant={getStatusBadgeVariant(opp.status)} className={`${opp.status === 'Completed' ? 'bg-green-500 text-white' : ''}`}>
                         {opp.status}
                     </Badge>
                   </div>
-                  <CardDescription>Value: ${opp.value.toLocaleString()}</CardDescription>
+                  <CardDescription className="flex items-center text-sm pt-1">
+                    <DollarSign className="mr-1 h-4 w-4 text-muted-foreground" /> Value: ${opp.value.toLocaleString()}
+                  </CardDescription>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="space-y-2 text-sm">
                   {opp.forecast ? (
                     <>
-                      <p className="text-sm mb-1"><span className="font-semibold">Est. Completion:</span> {opp.forecast.completionDateEstimate}</p>
-                      <p className="text-sm mb-1"><span className="font-semibold">Revenue Forecast:</span> ${opp.forecast.revenueForecast.toLocaleString()}</p>
-                      <p className="text-sm"><span className="font-semibold">Potential Bottlenecks:</span> {opp.forecast.bottleneckIdentification || "None identified"}</p>
+                      <div className="flex items-center">
+                        <CalendarClock className="mr-2 h-4 w-4 text-muted-foreground" />
+                        <span className="font-medium text-foreground">Est. Completion:</span>
+                        <span className="ml-1 text-muted-foreground">{opp.forecast.completionDateEstimate}</span>
+                      </div>
+                      <div className="flex items-center">
+                        <TrendingUp className="mr-2 h-4 w-4 text-muted-foreground" />
+                        <span className="font-medium text-foreground">Revenue Forecast:</span>
+                        <span className="ml-1 text-muted-foreground">${opp.forecast.revenueForecast.toLocaleString()}</span>
+                      </div>
+                      <div className="flex items-start">
+                         {opp.forecast.bottleneckIdentification && opp.forecast.bottleneckIdentification.toLowerCase() !== "none identified" && opp.forecast.bottleneckIdentification.toLowerCase() !== "none" && opp.forecast.bottleneckIdentification.length > 0 ? <AlertCircle className="mr-2 h-4 w-4 text-destructive mt-0.5 shrink-0" /> : <CheckCircle className="mr-2 h-4 w-4 text-green-500 mt-0.5 shrink-0" />}
+                        <div>
+                            <span className="font-medium text-foreground">Potential Bottlenecks:</span>
+                            <p className="ml-1 text-muted-foreground leading-snug">{opp.forecast.bottleneckIdentification || "None identified"}</p>
+                        </div>
+                      </div>
                     </>
                   ) : (
-                    <p className="text-sm text-muted-foreground">AI forecast not available for this opportunity.</p>
+                    <p className="text-muted-foreground">AI forecast not available.</p>
                   )}
                 </CardContent>
-                <CardFooter>
-                  <Button variant="outline" size="sm" asChild>
+                <CardFooter className="pt-4">
+                  <Button variant="outline" size="sm" asChild className="ml-auto">
                     <Link href={`/opportunities/${opp.id}`}>View Opportunity</Link>
                   </Button>
                 </CardFooter>
@@ -193,18 +195,17 @@ export default function DashboardPage() {
           )}
         </div>
 
-        {/* Sales Pipeline Chart Section */}
-        <div className="lg:col-span-1">
-           <Card className="shadow-md">
+        <div className="lg:col-span-1 space-y-6">
+           <Card className="shadow-md hover:shadow-xl transition-shadow duration-300">
             <CardHeader>
-              <CardTitle className="text-lg font-headline flex items-center">
-                <BarChartHorizontalBig className="mr-2 h-5 w-5 text-primary" />
+              <CardTitle className="text-lg flex items-center">
+                <BarChartHorizontalBig className="mr-3 h-5 w-5 text-primary" />
                 Opportunities Pipeline
               </CardTitle>
             </CardHeader>
             <CardContent>
               {isLoading && opportunityStatusData.length === 0 ? (
-                <div className="h-64 bg-muted rounded animate-pulse"></div>
+                <div className="h-64 bg-muted/50 rounded animate-pulse"></div>
               ) : opportunityStatusData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={300}>
                   <BarChart data={opportunityStatusData} layout="vertical" margin={{ top: 5, right: 20, left: 20, bottom: 5 }}>
@@ -213,15 +214,16 @@ export default function DashboardPage() {
                     <YAxis dataKey="name" type="category" stroke="hsl(var(--muted-foreground))" fontSize={12} width={100} interval={0}/>
                     <Tooltip
                         contentStyle={{
-                            backgroundColor: "hsl(var(--background))",
+                            backgroundColor: "hsl(var(--card))",
                             borderColor: "hsl(var(--border))",
                             borderRadius: "var(--radius)",
+                            boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)",
                         }}
                         labelStyle={{ color: "hsl(var(--foreground))" }}
-                        itemStyle={{ color: "hsl(var(--foreground))" }}
+                        itemStyle={{ color: "hsl(var(--primary))" }}
                     />
-                    <Legend wrapperStyle={{fontSize: "12px"}}/>
-                    <Bar dataKey="count" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
+                    <Legend wrapperStyle={{fontSize: "12px", paddingTop: "10px"}}/>
+                    <Bar dataKey="count" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} barSize={20} />
                   </BarChart>
                 </ResponsiveContainer>
               ) : (
@@ -230,29 +232,27 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
 
-          {/* Lead Activity Highlights Placeholder */}
-          <Card className="shadow-md mt-6">
+          <Card className="shadow-md hover:shadow-xl transition-shadow duration-300">
             <CardHeader>
-              <CardTitle className="text-lg font-headline flex items-center">
-                <Users className="mr-2 h-5 w-5 text-primary" />
+              <CardTitle className="text-lg flex items-center">
+                <Users className="mr-3 h-5 w-5 text-primary" />
                 Lead Engagement (Simulated)
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-2">
               <p className="text-sm text-muted-foreground">
-                This section would display real-time insights from lead activities (e.g., LinkedIn updates, company news).
-                Currently, direct social media tracking is a complex integration.
+                This section would display real-time insights from lead activities. Direct social media tracking is a complex integration.
               </p>
-              <ul className="mt-2 space-y-1 text-xs">
+              <ul className="space-y-2 text-xs">
                 {mockLeads.slice(0,2).map(lead => (
-                  <li key={lead.id} className="border-l-2 border-primary pl-2">
-                    <span className="font-semibold">{lead.personName}</span> ({lead.companyName}): Recent mock activity shows interest in AI solutions.
+                  <li key={lead.id} className="border-l-2 border-primary pl-3 py-1 bg-secondary/30 rounded-r-md">
+                    <span className="font-semibold text-foreground">{lead.personName}</span> <span className="text-muted-foreground">({lead.companyName})</span>: Recent mock activity shows interest in AI solutions.
                   </li>
                 ))}
               </ul>
             </CardContent>
-             <CardFooter>
-                <Button variant="outline" size="sm" asChild>
+             <CardFooter className="pt-4">
+                <Button variant="outline" size="sm" asChild className="ml-auto">
                     <Link href="/leads">View All Leads</Link>
                 </Button>
             </CardFooter>
