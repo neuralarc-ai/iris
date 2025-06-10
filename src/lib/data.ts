@@ -1,4 +1,5 @@
-import type { Account, Project, Update, User } from '@/types';
+
+import type { Account, Project, Update, User, Lead, LeadStatus } from '@/types';
 import { DEMO_PIN } from '@/lib/constants';
 
 const today = new Date();
@@ -8,6 +9,42 @@ const oneWeekAgo = new Date(today);
 oneWeekAgo.setDate(today.getDate() - 7);
 const oneMonthAgo = new Date(today);
 oneMonthAgo.setMonth(today.getMonth() - 1);
+
+
+export const mockLeads: Lead[] = [
+  {
+    id: 'lead_001',
+    companyName: 'Future Gadgets Co.',
+    personName: 'Rintaro Okabe',
+    email: 'okabe@futuregadgets.com',
+    phone: '555-0100',
+    status: 'Qualified',
+    projectIds: ['proj_lead_001'],
+    createdAt: oneWeekAgo.toISOString(),
+    updatedAt: yesterday.toISOString(),
+  },
+  {
+    id: 'lead_002',
+    companyName: 'Cyberdyne Systems',
+    personName: 'Miles Dyson',
+    email: 'mdyson@cyberdyne.com',
+    phone: '555-0200',
+    status: 'Proposal Sent',
+    projectIds: [],
+    createdAt: oneMonthAgo.toISOString(),
+    updatedAt: oneWeekAgo.toISOString(),
+  },
+  {
+    id: 'lead_003',
+    companyName: 'Stark Industries',
+    personName: 'Pepper Potts',
+    email: 'ppotts@stark.com',
+    status: 'New',
+    projectIds: [],
+    createdAt: today.toISOString(),
+    updatedAt: today.toISOString(),
+  }
+];
 
 export const mockAccounts: Account[] = [
   {
@@ -19,7 +56,6 @@ export const mockAccounts: Account[] = [
     projectIds: ['proj_001', 'proj_002'],
     createdAt: oneMonthAgo.toISOString(),
     updatedAt: yesterday.toISOString(),
-    // Add a placeholder for contactEmail and industry for the new AddAccountDialog
     contactEmail: 'contact@innovatech.com',
     industry: 'Technology',
   },
@@ -89,6 +125,19 @@ export const mockProjects: Project[] = [
     createdAt: new Date(new Date().setDate(today.getDate() - 10)).toISOString(),
     updatedAt: new Date().toISOString(),
   },
+  {
+    id: 'proj_lead_001', // Project linked to a lead
+    name: 'Time Leap Machine Feasibility',
+    leadId: 'lead_001', // Linked to Rintaro Okabe at Future Gadgets Co.
+    status: 'Need Analysis',
+    value: 50000, // Quoted amount
+    startDate: today.toISOString(),
+    endDate: new Date(new Date().setMonth(today.getMonth() + 1)).toISOString(),
+    description: 'Initial feasibility study for a temporal displacement device.',
+    updateIds: ['upd_lead_001'],
+    createdAt: today.toISOString(),
+    updatedAt: today.toISOString(),
+  },
 ];
 
 export const mockUpdates: Update[] = [
@@ -116,6 +165,14 @@ export const mockUpdates: Update[] = [
     type: 'Email',
     createdAt: new Date().toISOString(),
   },
+  {
+    id: 'upd_lead_001',
+    projectId: 'proj_lead_001',
+    date: yesterday.toISOString(),
+    content: 'Met with Okabe-san. He seems very enthusiastic but some of his ideas are... unconventional. Requested a preliminary budget.',
+    type: 'Meeting',
+    createdAt: yesterday.toISOString(),
+  }
 ];
 
 export let mockUsers: User[] = [
@@ -135,20 +192,18 @@ export let mockUsers: User[] = [
   },
 ];
 
-// Modified to accept PIN
 export const addUser = (name: string, email: string, pin: string): User => {
   const newUser: User = {
     id: `user_${new Date().getTime()}`,
     name,
     email,
-    pin, // Use provided PIN
+    pin, 
     createdAt: new Date().toISOString(),
   };
   mockUsers.push(newUser);
   return newUser;
 };
 
-// Add a function to add new accounts for the "Quick Create" dialog
 export const addAccount = (accountData: Omit<Account, 'id' | 'projectIds' | 'createdAt' | 'updatedAt'>): Account => {
   const newAccount: Account = {
     id: `acc_${new Date().getTime()}`,
@@ -159,6 +214,19 @@ export const addAccount = (accountData: Omit<Account, 'id' | 'projectIds' | 'cre
   };
   mockAccounts.push(newAccount);
   return newAccount;
+};
+
+export const addLead = (leadData: Omit<Lead, 'id' | 'projectIds' | 'createdAt' | 'updatedAt' | 'status'>): Lead => {
+  const newLead: Lead = {
+    id: `lead_${new Date().getTime()}`,
+    ...leadData,
+    status: 'New' as LeadStatus,
+    projectIds: [],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+  mockLeads.push(newLead);
+  return newLead;
 };
 
 
@@ -177,8 +245,20 @@ export const getUserById = (userId: string): User | undefined => {
 
 export const getProjectsForAccount = (accountId: string): Project[] => {
   return mockProjects.filter(p => p.accountId === accountId);
-}
+};
+
+export const getProjectsForLead = (leadId: string): Project[] => {
+  return mockProjects.filter(p => p.leadId === leadId);
+};
 
 export const getUpdatesForProject = (projectId: string): Update[] => {
   return mockUpdates.filter(u => u.projectId === projectId);
+};
+
+export const getLeadById = (leadId: string): Lead | undefined => {
+  return mockLeads.find(lead => lead.id === leadId);
+}
+
+export const getAccountById = (accountId: string): Account | undefined => {
+  return mockAccounts.find(account => account.id === accountId);
 }

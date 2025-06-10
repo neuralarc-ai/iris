@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -5,34 +6,30 @@ import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ListChecks, DollarSign, CalendarDays, Eye, TrendingUp, AlertTriangle, CheckCircle2 } from 'lucide-react';
-import type { Project, ProjectForecast as AIProjectForecast, Account } from '@/types';
+import { ListChecks, DollarSign, CalendarDays, Eye, AlertTriangle, CheckCircle2, Briefcase, Users } from 'lucide-react'; // Added Briefcase for Account, Users for Lead
+import type { Project, ProjectForecast as AIProjectForecast, Account, Lead } from '@/types';
 import { Progress } from "@/components/ui/progress";
 import {format, differenceInDays, parseISO} from 'date-fns';
 import { aiPoweredForecasting } from '@/ai/flows/ai-powered-forecasting';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
-import { mockAccounts } from '@/lib/data';
+import { mockAccounts, mockLeads, getAccountById, getLeadById } from '@/lib/data';
 
 interface ProjectCardProps {
   project: Project;
 }
 
-// Function to determine grayscale color based on project status for minimal B&W theme
 const getStatusGrayscale = (status: Project['status']): string => {
-  // These are Tailwind text color classes.
-  // Use shades of gray for a monochrome theme.
   switch (status) {
-    case 'Need Analysis': return 'text-gray-400'; // Lighter gray
+    case 'Need Analysis': return 'text-gray-400'; 
     case 'Negotiation': return 'text-gray-500';
-    case 'In Progress': return 'text-gray-700'; // Darker gray for active
+    case 'In Progress': return 'text-gray-700'; 
     case 'On Hold': return 'text-gray-600';
-    case 'Completed': return 'text-gray-800'; // Darkest for completed
-    case 'Cancelled': return 'text-gray-300'; // Very light for cancelled
+    case 'Completed': return 'text-gray-800'; 
+    case 'Cancelled': return 'text-gray-300'; 
     default: return 'text-gray-500';
   }
 };
 
-// Function to calculate project progress
 const calculateProgress = (startDate: string, endDate: string, status: Project['status']): number => {
   if (status === 'Completed') return 100;
   if (status === 'Cancelled' || status === 'Need Analysis') return 0;
@@ -42,12 +39,12 @@ const calculateProgress = (startDate: string, endDate: string, status: Project['
   const today = new Date();
 
   if (today < start) return 0;
-  if (today > end) return 100; // Or based on actual completion if not marked 'Completed'
+  if (today > end) return 100; 
 
   const totalDuration = differenceInDays(end, start);
   const elapsedDuration = differenceInDays(today, start);
 
-  if (totalDuration <= 0) return 0; // Avoid division by zero or negative duration
+  if (totalDuration <= 0) return 0; 
 
   return Math.min(100, Math.max(0, (elapsedDuration / totalDuration) * 100));
 };
@@ -56,11 +53,18 @@ const calculateProgress = (startDate: string, endDate: string, status: Project['
 export default function ProjectCard({ project }: ProjectCardProps) {
   const [forecast, setForecast] = useState<AIProjectForecast | null>(null);
   const [isLoadingForecast, setIsLoadingForecast] = useState(false);
-  const [account, setAccount] = useState<Account | undefined>(undefined);
+  const [associatedEntity, setAssociatedEntity] = useState<Account | Lead | undefined>(undefined);
+  const [entityType, setEntityType] = useState<'Account' | 'Lead' | null>(null);
 
   useEffect(() => {
-    setAccount(mockAccounts.find(acc => acc.id === project.accountId));
-  }, [project.accountId]);
+    if (project.accountId) {
+      setAssociatedEntity(getAccountById(project.accountId));
+      setEntityType('Account');
+    } else if (project.leadId) {
+      setAssociatedEntity(getLeadById(project.leadId));
+      setEntityType('Lead');
+    }
+  }, [project.accountId, project.leadId]);
   
   const fetchForecast = async () => {
     setIsLoadingForecast(true);
@@ -71,7 +75,7 @@ export default function ProjectCard({ project }: ProjectCardProps) {
         projectTimeline: `Start: ${format(parseISO(project.startDate), 'MMM dd, yyyy')}, End: ${format(parseISO(project.endDate), 'MMM dd, yyyy')}`,
         projectValue: project.value,
         projectStatus: project.status,
-        recentUpdates: "Placeholder: Updates show steady progress.", // Replace with actual data
+        recentUpdates: "Placeholder: Updates show steady progress.",
       });
       setForecast(forecastData);
     } catch (error) {
@@ -83,14 +87,15 @@ export default function ProjectCard({ project }: ProjectCardProps) {
 
   useEffect(() => {
     fetchForecast();
-  }, [project.id, project.name]);
+  }, [project.id, project.name, project.startDate, project.endDate, project.value, project.status, project.description]); // Added more dependencies
 
   const progress = calculateProgress(project.startDate, project.endDate, project.status);
-
-  // Simplified health indicator based on forecast
-  const isAtRisk = forecast?.bottleneckIdentification && forecast.bottleneckIdentification !== "No major bottlenecks identified.";
+  const isAtRisk = forecast?.bottleneckIdentification && forecast.bottleneckIdentification !== "No major bottlenecks identified." && forecast.bottleneckIdentification !== "None";
   const projectHealthIcon = isAtRisk ? <AlertTriangle className="h-4 w-4 text-destructive" /> : <CheckCircle2 className="h-4 w-4 text-green-500" />;
   const projectHealthText = isAtRisk ? "Potential Risk" : "On Track";
+
+  const entityName = entityType === 'Account' ? (associatedEntity as Account)?.name : (associatedEntity as Lead)?.companyName;
+  const EntityIcon = entityType === 'Account' ? Briefcase : Users;
 
 
   return (
@@ -102,11 +107,17 @@ export default function ProjectCard({ project }: ProjectCardProps) {
               <ListChecks className="mr-2 h-5 w-5 text-primary" />
               {project.name}
             </CardTitle>
-            <CardDescription className={getStatusGrayscale(project.status)}>
-              Status: {project.status} {account ? `| For: ${account.name}` : ''}
+            <CardDescription className={`${getStatusGrayscale(project.status)} flex items-center`}>
+              Status: {project.status} 
+              {entityName && (
+                <>
+                  <span className="mx-1">|</span> 
+                  <EntityIcon className="mr-1 h-4 w-4 text-muted-foreground" /> 
+                  For: {entityName}
+                </>
+              )}
             </CardDescription>
           </div>
-          {/* Grayscale badge for project value */}
           <Badge variant="secondary" className="bg-gray-200 text-gray-700">
             <DollarSign className="mr-1 h-3 w-3" />
             {project.value.toLocaleString()}
@@ -153,7 +164,7 @@ export default function ProjectCard({ project }: ProjectCardProps) {
       </CardContent>
       <CardFooter className="flex justify-end pt-4">
         <Button variant="outline" size="sm" asChild>
-          <Link href={`/projects?id=${project.id}#details`}> {/* Simplified link */}
+          <Link href={`/projects?id=${project.id}#details`}> 
             <Eye className="mr-2 h-4 w-4" />
             View Details
           </Link>

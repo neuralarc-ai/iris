@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState } from 'react';
@@ -5,14 +6,15 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import Logo from '@/components/common/Logo';
 import { Button } from '@/components/ui/button';
-import { Briefcase, ListChecks, MessageSquare, LayoutDashboard, Users2, PlusCircle, Search } from 'lucide-react';
+import { Briefcase, ListChecks, MessageSquare, LayoutDashboard, Users2, PlusCircle, Search, Users } from 'lucide-react'; // Added Users for Leads
 import UserProfile from './UserProfile';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
-import AddAccountDialog from '@/components/accounts/AddAccountDialog'; // Import the new dialog
+import AddAccountDialog from '@/components/accounts/AddAccountDialog';
 
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/leads', label: 'Leads', icon: Users }, // Changed icon for Leads
   { href: '/accounts', label: 'Accounts', icon: Briefcase },
   { href: '/projects', label: 'Projects', icon: ListChecks },
   { href: '/updates', label: 'Updates', icon: MessageSquare },
@@ -67,7 +69,7 @@ export default function HorizontalNav() {
               variant="default" 
               size="sm" 
               className="h-9"
-              onClick={() => setIsAddAccountDialogOpen(true)}
+              onClick={() => setIsAddAccountDialogOpen(true)} // This remains "Quick Create Account"
             >
               <PlusCircle className="mr-2 h-4 w-4" />
               Quick Create
@@ -75,8 +77,8 @@ export default function HorizontalNav() {
             <UserProfile />
           </div>
         </div>
-        {/* Mobile Nav - could be a dropdown or off-canvas if many items */}
-        <div className="md:hidden flex items-center justify-center border-t py-2 bg-background/95">
+        {/* Mobile Nav */}
+        <div className="md:hidden flex items-center justify-around border-t py-2 bg-background/95 overflow-x-auto">
           {navItems.map((item) => (
             <Button
               key={item.href}
@@ -84,14 +86,14 @@ export default function HorizontalNav() {
               size="sm"
               asChild
               className={cn(
-                "flex-1 justify-center text-xs text-muted-foreground",
+                "flex-1 justify-center text-xs text-muted-foreground px-1 min-w-max", // Allow shrinking
                  (pathname === item.href || (pathname.startsWith(item.href) && item.href !== '/dashboard' && item.href !== '/')) &&
                   "text-primary font-semibold"
               )}
             >
               <Link href={item.href} className="flex flex-col items-center">
                 <item.icon className="h-5 w-5 mb-0.5" />
-                {item.label}
+                <span className="truncate">{item.label}</span>
               </Link>
             </Button>
           ))}

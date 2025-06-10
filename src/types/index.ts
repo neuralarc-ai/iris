@@ -1,76 +1,88 @@
+
 export type AccountType = "Client" | "Channel Partner";
 export type AccountStatus = "Active" | "Inactive";
 export type ProjectStatus = "Need Analysis" | "Negotiation" | "In Progress" | "On Hold" | "Completed" | "Cancelled";
 export type UpdateType = "General" | "Call" | "Meeting" | "Email";
+export type LeadStatus = "New" | "Contacted" | "Qualified" | "Proposal Sent" | "Converted to Account" | "Lost";
 
 export interface Account {
   id: string;
-  name: string;
+  name: string; // Company Name for the account
   type: AccountType;
   status: AccountStatus;
   description: string;
-  projectIds: string[]; // Store IDs of associated projects
-  createdAt: string; // ISO date string
-  updatedAt: string; // ISO date string
-  contactEmail?: string; // Optional: Added for AddAccountDialog
-  industry?: string;    // Optional: Added for AddAccountDialog
+  projectIds: string[];
+  createdAt: string; 
+  updatedAt: string; 
+  contactEmail?: string; 
+  industry?: string;
+  // If converted from a lead, these might be populated
+  contactPersonName?: string;
+  contactPhone?: string;
+}
+
+export interface Lead {
+  id: string;
+  companyName: string;
+  personName: string;
+  phone?: string;
+  email: string;
+  status: LeadStatus;
+  projectIds: string[];
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface Project {
   id: string;
   name:string;
-  accountId: string; // ID of the associated account
+  accountId?: string; // ID of the associated account (if converted/direct account project)
+  leadId?: string; // ID of the associated lead (if project created for a lead)
   status: ProjectStatus;
-  value: number; // Monetary value
+  value: number; // Monetary value / Quoted amount
+  description: string;
+  updateIds: string[]; 
+  createdAt: string; 
+  updatedAt: string; 
+  // startDate and endDate were on ProjectCard but not in type, adding them
   startDate: string; // ISO date string
   endDate: string; // ISO date string
-  description: string;
-  updateIds: string[]; // Store IDs of associated updates
-  createdAt: string; // ISO date string
-  updatedAt: string; // ISO date string
 }
 
 export interface Update {
   id: string;
-  projectId: string; // ID of the associated project
-  date: string; // ISO date string
+  projectId: string; 
+  date: string; 
   content: string;
   type: UpdateType;
-  createdAt: string; // ISO date string
-}
-
-export interface ApiSettings {
-  deepSeekApiKey?: string;
-  deepSeekModel?: string;
-  openRouterApiKey?: string;
-  openRouterModel?: string;
+  createdAt: string; 
 }
 
 // For AI Generated Content
 export interface DailyAccountSummary {
   summary: string;
-  relationshipHealth: string; // e.g., "Healthy", "At Risk", "Needs Attention"
+  relationshipHealth: string; 
 }
 
 export interface ProjectForecast {
   timelinePrediction: string;
-  completionDateEstimate: string; // ISO date string or textual description
+  completionDateEstimate: string; 
   revenueForecast: number;
   bottleneckIdentification: string;
 }
 
 export interface UpdateInsights {
-  categorization?: string; // AI-powered category
+  categorization?: string; 
   summary?: string;
   actionItems?: string[];
   followUpSuggestions?: string[];
-  sentiment?: string; // e.g., "Positive", "Neutral", "Negative"
+  sentiment?: string; 
 }
 
 export interface User {
   id: string;
   name: string;
   email: string;
-  pin: string; // 6-digit PIN
-  createdAt: string; // ISO date string
+  pin: string; 
+  createdAt: string; 
 }

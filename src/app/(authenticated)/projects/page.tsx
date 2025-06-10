@@ -1,27 +1,46 @@
+
 "use client";
 
 import React, { useState } from 'react';
 import PageTitle from '@/components/common/PageTitle';
 import ProjectCard from '@/components/projects/ProjectCard';
-import { mockProjects, mockAccounts } from '@/lib/data';
+import { mockProjects, mockAccounts, mockLeads } from '@/lib/data'; // Added mockLeads
 import type { Project, ProjectStatus } from '@/types';
 import { Button } from '@/components/ui/button';
 import { PlusCircle, Filter } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+// Local Card and Label components if not using global ones from ui/card or ui/label
+import { Card, CardContent } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
 
 export default function ProjectsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<ProjectStatus | 'all'>('all');
-  const [accountFilter, setAccountFilter] = useState<string | 'all'>('all');
+  const [entityFilter, setEntityFilter] = useState<string | 'all'>('all'); // Combined filter for leads and accounts
 
   const projectStatusOptions: ProjectStatus[] = ["Need Analysis", "Negotiation", "In Progress", "On Hold", "Completed", "Cancelled"];
+
+  // Combine leads and accounts for the filter dropdown
+  const entityOptions = [
+    ...mockLeads.map(lead => ({ id: `lead_${lead.id}`, name: `${lead.companyName} (Lead)` })),
+    ...mockAccounts.map(account => ({ id: `account_${account.id}`, name: `${account.name} (Account)` }))
+  ];
 
   const filteredProjects = mockProjects.filter(project => {
     const matchesSearch = project.name.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'all' || project.status === statusFilter;
-    const matchesAccount = accountFilter === 'all' || project.accountId === accountFilter;
-    return matchesSearch && matchesStatus && matchesAccount;
+    
+    let matchesEntity = true;
+    if (entityFilter !== 'all') {
+      const [type, id] = entityFilter.split('_');
+      if (type === 'lead') {
+        matchesEntity = project.leadId === id;
+      } else if (type === 'account') {
+        matchesEntity = project.accountId === id;
+      }
+    }
+    return matchesSearch && matchesStatus && matchesEntity;
   });
 
   return (
@@ -36,7 +55,7 @@ export default function ProjectsPage() {
         <CardContent className="p-0">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
             <div>
-              <Label htmlFor="search-projects" className="text-sm font-medium">Search Projects</Label>
+              <Label htmlFor="search-projects">Search Projects</Label>
               <Input
                 id="search-projects"
                 type="text"
@@ -47,7 +66,7 @@ export default function ProjectsPage() {
               />
             </div>
             <div>
-              <Label htmlFor="status-filter" className="text-sm font-medium">Status</Label>
+              <Label htmlFor="status-filter">Status</Label>
               <Select value={statusFilter} onValueChange={(value: ProjectStatus | 'all') => setStatusFilter(value)}>
                 <SelectTrigger id="status-filter" className="w-full mt-1">
                   <SelectValue placeholder="Filter by status" />
@@ -61,15 +80,15 @@ export default function ProjectsPage() {
               </Select>
             </div>
             <div>
-              <Label htmlFor="account-filter" className="text-sm font-medium">Account</Label>
-              <Select value={accountFilter} onValueChange={(value: string | 'all') => setAccountFilter(value)}>
-                <SelectTrigger id="account-filter" className="w-full mt-1">
-                  <SelectValue placeholder="Filter by account" />
+              <Label htmlFor="entity-filter">Lead / Account</Label>
+              <Select value={entityFilter} onValueChange={(value: string | 'all') => setEntityFilter(value)}>
+                <SelectTrigger id="entity-filter" className="w-full mt-1">
+                  <SelectValue placeholder="Filter by lead or account" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Accounts</SelectItem>
-                  {mockAccounts.map(account => (
-                    <SelectItem key={account.id} value={account.id}>{account.name}</SelectItem>
+                  <SelectItem value="all">All Leads/Accounts</SelectItem>
+                  {entityOptions.map(entity => (
+                    <SelectItem key={entity.id} value={entity.id}>{entity.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -94,22 +113,3 @@ export default function ProjectsPage() {
     </div>
   );
 }
-
-// Minimal Label and Card components used inline for brevity
-const Label = ({ htmlFor, children, className }: { htmlFor: string, children: React.ReactNode, className?: string }) => (
-  <label htmlFor={htmlFor} className={`block text-sm font-medium text-muted-foreground ${className}`}>
-    {children}
-  </label>
-);
-
-const Card = ({ children, className }: { children: React.ReactNode, className?: string }) => (
-  <div className={`rounded-lg border bg-card text-card-foreground shadow-sm ${className}`}>
-    {children}
-  </div>
-);
-
-const CardContent = ({ children, className }: { children: React.ReactNode, className?: string }) => (
-  <div className={`p-6 ${className}`}>
-    {children}
-  </div>
-);
