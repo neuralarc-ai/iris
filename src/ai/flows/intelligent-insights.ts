@@ -1,3 +1,4 @@
+
 'use server';
 
 /**
@@ -51,21 +52,47 @@ const RelationshipHealthInputSchema = z.object({
 });
 
 const RelationshipHealthOutputSchema = z.object({
-  healthScore: z.number().describe('A numerical score representing the relationship health.'),
-  summary: z.string().describe('A summary of the relationship health.'),
+  healthScore: z.number().describe('A numerical score representing the relationship health (0.0 to 1.0).'),
+  summary: z.string().describe('A concise summary explaining the relationship health score.'),
 });
+export type RelationshipHealthOutput = z.infer<typeof RelationshipHealthOutputSchema>;
+
 
 const relationshipHealthTool = ai.defineTool({
   name: 'getRelationshipHealth',
-  description: 'Returns the current relationship health score and summary.',
+  description: 'Returns the current relationship health score and summary based on communication history.',
   inputSchema: RelationshipHealthInputSchema,
   outputSchema: RelationshipHealthOutputSchema,
 },
 async (input) => {
   // TODO: Implement the relationship health logic
+  // For now, providing a placeholder based on simple analysis
+  const historyLength = input.communicationHistory.length;
+  let score = 0.5;
+  let summary = "The relationship health is moderate.";
+
+  if (historyLength > 500) {
+    score = 0.8;
+    summary = "The relationship appears strong due to frequent communication.";
+  } else if (historyLength < 100 && historyLength > 0) {
+    score = 0.3;
+    summary = "The relationship might need more engagement due to limited communication.";
+  } else if (historyLength === 0) {
+    score = 0.1;
+    summary = "No communication history provided to assess relationship health.";
+  }
+
+  // Simulate some keywords for sentiment
+  if (input.communicationHistory.toLowerCase().includes("great") || input.communicationHistory.toLowerCase().includes("excellent")) {
+    score = Math.min(1.0, score + 0.15);
+  }
+  if (input.communicationHistory.toLowerCase().includes("problem") || input.communicationHistory.toLowerCase().includes("issue")) {
+    score = Math.max(0.0, score - 0.15);
+  }
+
   return {
-    healthScore: 0.75,
-    summary: 'The relationship is generally healthy, but there are some areas for improvement.',
+    healthScore: parseFloat(score.toFixed(2)),
+    summary: summary,
   };
 });
 
@@ -127,7 +154,9 @@ const relationshipHealthPrompt = ai.definePrompt({
   name: 'relationshipHealthPrompt',
   tools: [relationshipHealthTool],
   input: {schema: CommunicationAnalysisInputSchema},
+  output: {schema: RelationshipHealthOutputSchema}, // Define the expected output structure
   prompt: `Based on the following communication history, use the getRelationshipHealth tool to get the relationship health score and summary.
+  Then, provide the health score and summary as a JSON object matching the defined output schema.
 
   Communication History: {{{communicationHistory}}}`,
 });
@@ -136,34 +165,46 @@ export type IntelligentInsightsInput = {
   communicationHistory: string;
 };
 
+// Define the output type explicitly based on the individual flow outputs and the new relationshipHealth structure
+export type IntelligentInsightsOutput = {
+  communicationAnalysis: CommunicationAnalysisOutput | null;
+  updateSummary: UpdateSummaryOutput | null;
+  relationshipHealth: RelationshipHealthOutput | null; // This will now be the plain object
+};
+
+
 const intelligentInsightsFlow = ai.defineFlow(
   {
     name: 'intelligentInsightsFlow',
+    inputSchema: z.object({ communicationHistory: z.string() }), // Define input schema for the main flow
+    outputSchema: z.object({ // Define output schema for the main flow
+      communicationAnalysis: CommunicationAnalysisOutputSchema.nullable(),
+      updateSummary: UpdateSummaryOutputSchema.nullable(),
+      relationshipHealth: RelationshipHealthOutputSchema.nullable(),
+    }),
   },
-  async (input: IntelligentInsightsInput) => {
-    // Example usage of analyzeCommunicationFlow and summarizeUpdateFlow
-    const communicationAnalysis = await analyzeCommunicationFlow({
+  async (input: IntelligentInsightsInput): Promise<IntelligentInsightsOutput> => {
+    const communicationAnalysisResult = await analyzeCommunicationFlow({
       communicationHistory: input.communicationHistory,
     });
 
-    const updateSummary = await summarizeUpdateFlow({
-      updateContent: input.communicationHistory, // Using the communication history as a stand-in for update content
+    const updateSummaryResult = await summarizeUpdateFlow({
+      updateContent: input.communicationHistory, 
     });
 
-    const relationshipHealth = await relationshipHealthPrompt({
+    // Extract the structured output from the relationshipHealthPrompt
+    const { output: relationshipHealthResult } = await relationshipHealthPrompt({
       communicationHistory: input.communicationHistory,
     });
 
     return {
-      communicationAnalysis,
-      updateSummary,
-      relationshipHealth,
+      communicationAnalysis: communicationAnalysisResult,
+      updateSummary: updateSummaryResult,
+      relationshipHealth: relationshipHealthResult, // This is now a plain object or null
     };
   }
 );
 
-export async function generateInsights(input: IntelligentInsightsInput) {
+export async function generateInsights(input: IntelligentInsightsInput): Promise<IntelligentInsightsOutput> {
   return intelligentInsightsFlow(input);
 }
-
-export type IntelligentInsightsOutput = Awaited<ReturnType<typeof intelligentInsightsFlow>>;
