@@ -5,77 +5,83 @@
 
 @layer base {
   :root {
-    /* Updated background to a cooler, slightly darker tone for glassmorphism */
-    --background: 220 10% 92%; /* Cooler light gray page background */
-    --foreground: 220 10% 20%; /* Darker text for better contrast */
+    /* Gradient Start/End Colors */
+    --gradient-start: 220 10% 92%; /* Previous light gray, can be adjusted */
+    --gradient-end: 80 20% 90%; /* Light Olive Greenish */
 
-    /* Card variables will be less about solid color, more about glass effect directly on component */
-    /* However, card-foreground needs to ensure readability on the glass */
-    --card: 0 0% 100%; /* Base for card, but opacity/blur handled by component */
-    --card-foreground: 220 10% 15%; /* Ensure text on cards is very readable */
+    /* Adjusted background to use gradient, foreground for readability */
+    --background: 220 10% 92%; /* Fallback, actual bg is on body */
+    --foreground: 220 10% 15%; /* Darker text for good contrast on light gradient */
 
-    --popover: 0 0% 100%; /* Popovers might remain more opaque or get their own glass treatment */
-    --popover-foreground: 220 10% 15%;
+    /* Card variables for glass effect */
+    --card: 0 0% 100%;
+    --card-foreground: 220 10% 10%;
 
-    --primary: 240 5.9% 10%; 
-    --primary-foreground: 0 0% 98%; 
-    
-    --secondary: 220 10% 90%; 
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 10% 10%;
+
+    --primary: 240 5.9% 10%;
+    --primary-foreground: 0 0% 98%;
+
+    --secondary: 220 10% 90%;
     --secondary-foreground: 220 10% 10%;
 
-    --muted: 220 10% 85%; 
-    --muted-foreground: 220 10% 45%; 
-    
-    --accent: 220 10% 88%; 
+    --muted: 220 10% 85%;
+    --muted-foreground: 220 10% 45%;
+
+    --accent: 220 10% 88%;
     --accent-foreground: 220 10% 10%;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
 
-    --border: 220 10% 80%; 
-    --input: 220 10% 80%; 
-    --ring: 240 5.9% 10%; 
+    --border: 220 10% 80%;
+    --input: 220 10% 80%;
+    --ring: 240 5.9% 10%;
 
     --radius: 0.5rem;
 
     /* Chart colors - monochrome theme */
-    --chart-1: 0 0% 20%; 
+    --chart-1: 0 0% 20%;
     --chart-2: 0 0% 35%;
     --chart-3: 0 0% 50%;
     --chart-4: 0 0% 65%;
-    --chart-5: 0 0% 80%; 
+    --chart-5: 0 0% 80%;
   }
 
   .dark {
-    /* Dark mode - inverted or similar shades of dark */
-    --background: 220 10% 12%; /* Cooler very dark blue/grey */
-    --foreground: 220 10% 85%; /* Lighter text */
+    /* Dark mode Gradient Start/End Colors */
+    --gradient-start: 220 10% 12%; /* Dark Grey */
+    --gradient-end: 80 15% 18%; /* Dark Olive Greenish */
+
+    --background: 220 10% 12%; /* Fallback */
+    --foreground: 220 10% 90%; /* Lighter text for dark gradient */
 
     /* Card variables for dark mode */
-    --card: 220 10% 15%; /* Base for dark card */
+    --card: 220 10% 15%;
     --card-foreground: 220 10% 90%;
 
     --popover: 220 10% 10%;
     --popover-foreground: 220 10% 90%;
 
-    --primary: 220 10% 90%; 
+    --primary: 220 10% 90%;
     --primary-foreground: 220 10% 10%;
 
-    --secondary: 220 10% 20%; 
+    --secondary: 220 10% 20%;
     --secondary-foreground: 220 10% 90%;
 
     --muted: 220 10% 20%;
-    --muted-foreground: 220 10% 60%; 
+    --muted-foreground: 220 10% 60%;
 
-    --accent: 220 10% 25%; 
+    --accent: 220 10% 25%;
     --accent-foreground: 220 10% 90%;
 
-    --destructive: 0 62.8% 30.6%; 
+    --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
 
-    --border: 220 10% 25%; 
-    --input: 220 10% 25%;  
-    --ring: 220 10% 80%;   
+    --border: 220 10% 25%;
+    --input: 220 10% 25%;
+    --ring: 220 10% 80%;
 
     --chart-1: 0 0% 80%;
     --chart-2: 0 0% 65%;
@@ -90,9 +96,9 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground font-body;
-    /* Consider adding a subtle gradient or image here for better glassmorphism later */
-    /* background-image: linear-gradient(to bottom right, hsl(var(--background)), hsl(var(--background) / 0.8)); */
+    @apply bg-[hsl(var(--background))] text-foreground font-body; /* Fallback */
+    background-image: linear-gradient(to bottom right, hsl(var(--gradient-start)), hsl(var(--gradient-end)));
+    background-attachment: fixed; /* Ensures gradient covers the whole viewport and doesn't scroll */
   }
   h1, h2, h3, h4, h5, h6 {
     @apply font-headline;
