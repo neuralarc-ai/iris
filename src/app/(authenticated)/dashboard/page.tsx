@@ -230,7 +230,7 @@ export default function DashboardPage() {
         </div>
 
         <div className="lg:col-span-1 space-y-6 flex flex-col">
-           <Card className="shadow-md hover:shadow-xl transition-shadow duration-300 h-full flex flex-col bg-green-50 dark:bg-green-900/60">
+           <Card className="shadow-md hover:shadow-xl transition-shadow duration-300 flex flex-col bg-green-50 dark:bg-green-900/60">
             <CardHeader>
               <CardTitle className="text-lg flex items-center">
                 <BarChartHorizontalBig className="mr-3 h-5 w-5 text-primary" />
@@ -266,7 +266,7 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
 
-          <Card className="shadow-md hover:shadow-xl transition-shadow duration-300 h-full flex flex-col bg-amber-50 dark:bg-amber-900/60">
+          <Card className="shadow-md hover:shadow-xl transition-shadow duration-300 flex flex-col bg-amber-50 dark:bg-amber-900/60">
             <CardHeader>
               <CardTitle className="text-lg flex items-center">
                 <Users className="mr-3 h-5 w-5 text-primary" />
