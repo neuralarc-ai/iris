@@ -5,78 +5,77 @@
 
 @layer base {
   :root {
-    /* Updated background to a very light gray, cards remain white */
-    --background: 0 0% 98%; /* Very light gray page background */
-    --foreground: 0 0% 3.9%; /* Near Black for text */
+    /* Updated background to a cooler, slightly darker tone for glassmorphism */
+    --background: 220 10% 92%; /* Cooler light gray page background */
+    --foreground: 220 10% 20%; /* Darker text for better contrast */
 
-    --card: 0 0% 100%; /* White card background */
-    --card-foreground: 0 0% 3.9%;
+    /* Card variables will be less about solid color, more about glass effect directly on component */
+    /* However, card-foreground needs to ensure readability on the glass */
+    --card: 0 0% 100%; /* Base for card, but opacity/blur handled by component */
+    --card-foreground: 220 10% 15%; /* Ensure text on cards is very readable */
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 3.9%;
+    --popover: 0 0% 100%; /* Popovers might remain more opaque or get their own glass treatment */
+    --popover-foreground: 220 10% 15%;
 
-    /* Primary for interactive elements - kept dark for contrast */
-    --primary: 240 5.9% 10%; /* A very dark blue/near black */
-    --primary-foreground: 0 0% 98%; /* White text on primary */
+    --primary: 240 5.9% 10%; 
+    --primary-foreground: 0 0% 98%; 
     
-    /* Secondary for less prominent elements */
-    --secondary: 0 0% 96.1%; /* Light Gray - Original: #F5F5F5 - Good for subtle backgrounds or borders */
-    --secondary-foreground: 240 5.9% 10%; /* Dark text on secondary */
+    --secondary: 220 10% 90%; 
+    --secondary-foreground: 220 10% 10%;
 
-    /* Muted for subtle text or backgrounds */
-    --muted: 0 0% 90%; /* Lighter Gray - Original: #E5E5E5 */
-    --muted-foreground: 0 0% 45.1%; /* Medium Gray text - Original: #737373 */
+    --muted: 220 10% 85%; 
+    --muted-foreground: 220 10% 45%; 
     
-    /* Accent for highlights or hover states - kept subtle */
-    --accent: 0 0% 94%; /* Light Gray, slightly darker than secondary for hover */
-    --accent-foreground: 0 0% 9%; /* Dark text on accent */
+    --accent: 220 10% 88%; 
+    --accent-foreground: 220 10% 10%;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
 
-    --border: 0 0% 89.8%; /* Light Gray borders - Original: #E5E5E5 */
-    --input: 0 0% 89.8%; /* Light Gray input borders */
-    --ring: 240 5.9% 10%; /* Dark focus ring, matching primary */
+    --border: 220 10% 80%; 
+    --input: 220 10% 80%; 
+    --ring: 240 5.9% 10%; 
 
-    --radius: 0.5rem; /* Default rounded corners */
+    --radius: 0.5rem;
 
     /* Chart colors - monochrome theme */
-    --chart-1: 0 0% 20%; /* Darkest grey for chart */
+    --chart-1: 0 0% 20%; 
     --chart-2: 0 0% 35%;
     --chart-3: 0 0% 50%;
     --chart-4: 0 0% 65%;
-    --chart-5: 0 0% 80%; /* Lightest grey for chart */
+    --chart-5: 0 0% 80%; 
   }
 
   .dark {
     /* Dark mode - inverted or similar shades of dark */
-    --background: 0 0% 3.9%; /* Near Black */
-    --foreground: 0 0% 98%; /* White text */
+    --background: 220 10% 12%; /* Cooler very dark blue/grey */
+    --foreground: 220 10% 85%; /* Lighter text */
 
-    --card: 0 0% 5.9%; /* Slightly lighter than background for cards in dark mode */
-    --card-foreground: 0 0% 98%;
+    /* Card variables for dark mode */
+    --card: 220 10% 15%; /* Base for dark card */
+    --card-foreground: 220 10% 90%;
 
-    --popover: 0 0% 3.9%;
-    --popover-foreground: 0 0% 98%;
+    --popover: 220 10% 10%;
+    --popover-foreground: 220 10% 90%;
 
-    --primary: 0 0% 90%; /* Light gray for primary in dark mode - Contrast against dark bg */
-    --primary-foreground: 0 0% 9%; /* Dark text on light primary */
+    --primary: 220 10% 90%; 
+    --primary-foreground: 220 10% 10%;
 
-    --secondary: 0 0% 14.9%; /* Darker Gray */
-    --secondary-foreground: 0 0% 98%;
+    --secondary: 220 10% 20%; 
+    --secondary-foreground: 220 10% 90%;
 
-    --muted: 0 0% 14.9%;
-    --muted-foreground: 0 0% 63.9%; /* Lighter gray text on dark muted */
+    --muted: 220 10% 20%;
+    --muted-foreground: 220 10% 60%; 
 
-    --accent: 0 0% 20%; /* Darker accent for dark mode */
-    --accent-foreground: 0 0% 98%;
+    --accent: 220 10% 25%; 
+    --accent-foreground: 220 10% 90%;
 
-    --destructive: 0 62.8% 30.6%; /* Standard destructive */
+    --destructive: 0 62.8% 30.6%; 
     --destructive-foreground: 0 0% 98%;
 
-    --border: 0 0% 14.9%; /* Dark border */
-    --input: 0 0% 14.9%;  /* Dark input border */
-    --ring: 0 0% 83.1%;   /* Light ring for focus */
+    --border: 220 10% 25%; 
+    --input: 220 10% 25%;  
+    --ring: 220 10% 80%;   
 
     --chart-1: 0 0% 80%;
     --chart-2: 0 0% 65%;
@@ -92,6 +91,8 @@
   }
   body {
     @apply bg-background text-foreground font-body;
+    /* Consider adding a subtle gradient or image here for better glassmorphism later */
+    /* background-image: linear-gradient(to bottom right, hsl(var(--background)), hsl(var(--background) / 0.8)); */
   }
   h1, h2, h3, h4, h5, h6 {
     @apply font-headline;

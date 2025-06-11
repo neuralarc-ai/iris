@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState } from 'react';
@@ -26,18 +27,23 @@ export default function HorizontalNav() {
 
   return (
     <>
-      <header className="fixed top-0 left-0 right-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <header 
+        className={cn(
+          "fixed top-0 left-0 right-0 z-50 w-full border-b",
+          "bg-background/70 dark:bg-background/80 backdrop-blur-lg", // Glassmorphism for nav
+          "border-white/20 dark:border-white/10" // Subtle border for nav
+        )}
+      >
         <div className="container mx-auto flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
           <div className="flex items-center">
-            <Link href="/dashboard" className="mr-6"> {/* Added margin to the right of the logo */}
+            <Link href="/dashboard" className="mr-6">
               <Logo iconSize={28} textSize="text-2xl" />
             </Link>
           </div>
 
           <div className="flex flex-1 items-center justify-end gap-2 sm:gap-4">
-            {/* Search Icon - input hidden for now */}
-            <Button variant="ghost" size="icon" className="hidden sm:inline-flex">
-              <Search className="h-5 w-5 text-muted-foreground" />
+            <Button variant="ghost" size="icon" className="hidden sm:inline-flex text-muted-foreground hover:text-foreground">
+              <Search className="h-5 w-5" />
               <span className="sr-only">Search</span>
             </Button>
 
@@ -49,9 +55,9 @@ export default function HorizontalNav() {
                   size="sm"
                   asChild
                   className={cn(
-                    "text-muted-foreground hover:text-foreground hover:bg-accent",
+                    "text-muted-foreground hover:text-foreground hover:bg-white/10 dark:hover:bg-white/5",
                     (pathname === item.href || (pathname.startsWith(item.href) && item.href !== '/dashboard' && item.href !== '/')) &&
-                    "text-primary bg-accent font-semibold"
+                    "text-primary bg-primary/10 dark:text-primary-foreground dark:bg-primary/20 font-semibold"
                   )}
                 >
                   <Link href={item.href}>
@@ -75,7 +81,13 @@ export default function HorizontalNav() {
           </div>
         </div>
         {/* Mobile Nav */}
-        <div className="md:hidden flex items-center justify-around border-t py-2 bg-background/95 overflow-x-auto">
+        <div 
+          className={cn(
+            "md:hidden flex items-center justify-around border-t py-2 overflow-x-auto",
+            "bg-background/80 dark:bg-background/85 backdrop-blur-md", // Glassmorphism for mobile nav
+            "border-white/20 dark:border-white/10" // Subtle border
+          )}
+        >
           {navItems.map((item) => (
             <Button
               key={item.href}
@@ -83,7 +95,7 @@ export default function HorizontalNav() {
               size="sm"
               asChild
               className={cn(
-                "flex-1 justify-center text-xs text-muted-foreground px-1 min-w-max",
+                "flex-1 justify-center text-xs text-muted-foreground px-1 min-w-max hover:bg-white/10 dark:hover:bg-white/5",
                  (pathname === item.href || (pathname.startsWith(item.href) && item.href !== '/dashboard' && item.href !== '/')) &&
                   "text-primary font-semibold"
               )}
