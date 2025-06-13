@@ -5,13 +5,9 @@
 
 @layer base {
   :root {
-    /* Gradient Start/End Colors */
-    --gradient-start: 220 10% 92%; /* Previous light gray, can be adjusted */
-    --gradient-end: 80 20% 90%; /* Light Olive Greenish */
-
-    /* Adjusted background to use gradient, foreground for readability */
-    --background: 220 10% 92%; /* Fallback, actual bg is on body */
-    --foreground: 220 10% 15%; /* Darker text for good contrast on light gradient */
+    /* New background color for light mode */
+    --background: 40 33% 98%; /* #FBFAF8 */
+    --foreground: 220 10% 15%; /* Darker text for good contrast */
 
     /* Card variables for glass effect */
     --card: 0 0% 100%;
@@ -50,12 +46,9 @@
   }
 
   .dark {
-    /* Dark mode Gradient Start/End Colors */
-    --gradient-start: 220 10% 12%; /* Dark Grey */
-    --gradient-end: 80 15% 18%; /* Dark Olive Greenish */
-
-    --background: 220 10% 12%; /* Fallback */
-    --foreground: 220 10% 90%; /* Lighter text for dark gradient */
+    /* Dark mode background remains dark */
+    --background: 220 10% 12%; 
+    --foreground: 220 10% 90%; /* Lighter text for dark background */
 
     /* Card variables for dark mode */
     --card: 220 10% 15%;
@@ -96,9 +89,8 @@
     @apply border-border;
   }
   body {
-    @apply bg-[hsl(var(--background))] text-foreground font-body; /* Fallback */
-    background-image: linear-gradient(to bottom right, hsl(var(--gradient-start)), hsl(var(--gradient-end)));
-    background-attachment: fixed; /* Ensures gradient covers the whole viewport and doesn't scroll */
+    /* Apply solid background color using CSS variable */
+    @apply bg-[hsl(var(--background))] text-foreground font-body;
   }
   h1, h2, h3, h4, h5, h6 {
     @apply font-headline;
