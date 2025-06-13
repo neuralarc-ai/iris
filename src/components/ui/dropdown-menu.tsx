@@ -49,7 +49,8 @@ const DropdownMenuSubContent = React.forwardRef<
     ref={ref}
     className={cn(
       "z-50 min-w-[8rem] overflow-hidden rounded-md p-1 shadow-xl data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2",
-      "bg-popover/80 dark:bg-popover/85 backdrop-blur-lg", // Glassmorphism
+      // Retaining original glassmorphism for sub-menus, or apply new style if needed
+      "bg-popover/80 dark:bg-popover/85 backdrop-blur-lg",
       "border border-white/30 dark:border-white/15 text-popover-foreground",
       className
     )}
@@ -68,9 +69,10 @@ const DropdownMenuContent = React.forwardRef<
       ref={ref}
       sideOffset={sideOffset}
       className={cn(
-        "z-50 min-w-[8rem] overflow-hidden rounded-md p-1 shadow-xl data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2",
-        "bg-popover/80 dark:bg-popover/85 backdrop-blur-lg", // Glassmorphism
-        "border border-white/30 dark:border-white/15 text-popover-foreground",
+        "z-50 overflow-auto shadow-xl data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2", // Base structure & animations
+        "w-[330px] h-[407px] rounded-xl p-2", // Dimensions & Padding & Rounded corners
+        "bg-[#38312C] text-gray-100", // Background and Text color
+        "border-[1.5px] border-gray-500/60", // Border width and color
         className
       )}
       {...props}
@@ -88,7 +90,7 @@ const DropdownMenuItem = React.forwardRef<
   <DropdownMenuPrimitive.Item
     ref={ref}
     className={cn(
-      "relative flex cursor-default select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent/50 focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
+      "relative flex cursor-default select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-white/10 focus:text-gray-50 data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0", // Adjusted focus style for dark background
       inset && "pl-8",
       className
     )}
@@ -104,7 +106,7 @@ const DropdownMenuCheckboxItem = React.forwardRef<
   <DropdownMenuPrimitive.CheckboxItem
     ref={ref}
     className={cn(
-      "relative flex cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none transition-colors focus:bg-accent/50 focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+      "relative flex cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none transition-colors focus:bg-white/10 focus:text-gray-50 data-[disabled]:pointer-events-none data-[disabled]:opacity-50", // Adjusted focus style
       className
     )}
     checked={checked}
@@ -128,7 +130,7 @@ const DropdownMenuRadioItem = React.forwardRef<
   <DropdownMenuPrimitive.RadioItem
     ref={ref}
     className={cn(
-      "relative flex cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none transition-colors focus:bg-accent/50 focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+      "relative flex cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none transition-colors focus:bg-white/10 focus:text-gray-50 data-[disabled]:pointer-events-none data-[disabled]:opacity-50", // Adjusted focus style
       className
     )}
     {...props}
@@ -152,7 +154,7 @@ const DropdownMenuLabel = React.forwardRef<
   <DropdownMenuPrimitive.Label
     ref={ref}
     className={cn(
-      "px-2 py-1.5 text-sm font-semibold",
+      "px-2 py-1.5 text-sm font-semibold", // Text color will be inherited (text-gray-100)
       inset && "pl-8",
       className
     )}
@@ -167,7 +169,7 @@ const DropdownMenuSeparator = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <DropdownMenuPrimitive.Separator
     ref={ref}
-    className={cn("-mx-1 my-1 h-px bg-muted/40", className)} // Made separator more subtle
+    className={cn("-mx-1 my-1 h-px bg-gray-500/50", className)} // Adjusted separator for dark background
     {...props}
   />
 ))
@@ -179,7 +181,7 @@ const DropdownMenuShortcut = ({
 }: React.HTMLAttributes<HTMLSpanElement>) => {
   return (
     <span
-      className={cn("ml-auto text-xs tracking-widest opacity-60", className)}
+      className={cn("ml-auto text-xs tracking-widest opacity-60", className)} // Text color inherited
       {...props}
     />
   )
