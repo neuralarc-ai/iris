@@ -30,19 +30,20 @@ export default function HorizontalNav() {
       <header 
         className={cn(
           "fixed top-0 left-0 right-0 z-50 w-full border-b",
-          "bg-background/70 dark:bg-background/80 backdrop-blur-lg", // Glassmorphism for nav
-          "border-white/20 dark:border-white/10" // Subtle border for nav
+          "bg-[#2B2521]", // New background color
+          "border-gray-700" // Adjusted border color for dark background
         )}
+        style={{ height: '70px' }} // New height
       >
-        <div className="container mx-auto flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
+        <div className="container mx-auto flex h-full items-center justify-between px-1 py-2"> {/* Adjusted padding and h-full */}
           <div className="flex items-center">
             <Link href="/dashboard" className="mr-6">
-              <Logo iconSize={28} textSize="text-2xl" />
+              <Logo iconSize={28} textSize="text-2xl" className="text-gray-100" /> {/* Adjusted logo text color */}
             </Link>
           </div>
 
-          <div className="flex flex-1 items-center justify-end gap-2 sm:gap-4">
-            <Button variant="ghost" size="icon" className="hidden sm:inline-flex text-muted-foreground hover:text-foreground">
+          <div className="flex flex-1 items-center justify-end gap-1"> {/* Adjusted gap */}
+            <Button variant="ghost" size="icon" className="hidden sm:inline-flex text-gray-300 hover:text-gray-100"> {/* Adjusted icon color */}
               <Search className="h-5 w-5" />
               <span className="sr-only">Search</span>
             </Button>
@@ -55,9 +56,9 @@ export default function HorizontalNav() {
                   size="sm"
                   asChild
                   className={cn(
-                    "text-muted-foreground hover:text-foreground hover:bg-white/10 dark:hover:bg-white/5",
+                    "text-gray-300 hover:text-gray-100 hover:bg-white/5", // Adjusted text and hover colors
                     (pathname === item.href || (pathname.startsWith(item.href) && item.href !== '/dashboard' && item.href !== '/')) &&
-                    "text-primary bg-primary/10 dark:text-primary-foreground dark:bg-primary/20 font-semibold"
+                    "text-white bg-white/10 font-semibold" // Adjusted active state colors
                   )}
                 >
                   <Link href={item.href}>
@@ -69,9 +70,9 @@ export default function HorizontalNav() {
             </nav>
 
             <Button
-              variant="default"
+              variant="outline" // Changed to outline for better contrast on dark nav
               size="sm"
-              className="h-9"
+              className="h-9 text-gray-200 border-gray-500 hover:bg-gray-700 hover:text-white" // Custom styling for this button on dark nav
               onClick={() => setIsAddAccountDialogOpen(true)}
             >
               <PlusCircle className="mr-2 h-4 w-4" />
@@ -84,9 +85,10 @@ export default function HorizontalNav() {
         <div 
           className={cn(
             "md:hidden flex items-center justify-around border-t py-2 overflow-x-auto",
-            "bg-background/80 dark:bg-background/85 backdrop-blur-md", // Glassmorphism for mobile nav
-            "border-white/20 dark:border-white/10" // Subtle border
+            "bg-[#2B2521]", // Consistent background for mobile nav
+            "border-gray-700" // Consistent border for mobile nav
           )}
+          style={{ position: 'absolute', bottom: '-50px', left: 0, right: 0, height: '50px' }} // Ensure it's part of the 70px or styled appropriately
         >
           {navItems.map((item) => (
             <Button
@@ -95,9 +97,9 @@ export default function HorizontalNav() {
               size="sm"
               asChild
               className={cn(
-                "flex-1 justify-center text-xs text-muted-foreground px-1 min-w-max hover:bg-white/10 dark:hover:bg-white/5",
+                "flex-1 justify-center text-xs text-gray-300 px-1 min-w-max hover:bg-white/5", // Adjusted text colors
                  (pathname === item.href || (pathname.startsWith(item.href) && item.href !== '/dashboard' && item.href !== '/')) &&
-                  "text-primary font-semibold"
+                  "text-white font-semibold" // Adjusted active state colors
               )}
             >
               <Link href={item.href} className="flex flex-col items-center">
