@@ -30,20 +30,20 @@ export default function HorizontalNav() {
       <header 
         className={cn(
           "fixed top-0 left-0 right-0 z-50 w-full border-b",
-          "bg-[#2B2521]", // New background color
-          "border-gray-700" // Adjusted border color for dark background
+          "bg-[#2B2521]", 
+          "border-gray-700" 
         )}
-        style={{ height: '70px' }} // New height
+        style={{ height: '70px' }} 
       >
-        <div className="container mx-auto flex h-full items-center justify-between px-1 py-2"> {/* Adjusted padding and h-full */}
+        <div className="container mx-auto flex h-full items-center justify-between px-1 py-2"> 
           <div className="flex items-center">
             <Link href="/dashboard" className="mr-6">
-              <Logo iconSize={28} textSize="text-2xl" className="text-gray-100" /> {/* Adjusted logo text color */}
+              <Logo iconSize={28} textSize="text-2xl" className="text-[#EFEDEB]" /> 
             </Link>
           </div>
 
-          <div className="flex flex-1 items-center justify-end gap-1"> {/* Adjusted gap */}
-            <Button variant="ghost" size="icon" className="hidden sm:inline-flex text-gray-300 hover:text-gray-100"> {/* Adjusted icon color */}
+          <div className="flex flex-1 items-center justify-end gap-1"> 
+            <Button variant="ghost" size="icon" className="hidden sm:inline-flex text-[#EFEDEB] hover:text-[#EFEDEB]/90"> 
               <Search className="h-5 w-5" />
               <span className="sr-only">Search</span>
             </Button>
@@ -56,9 +56,9 @@ export default function HorizontalNav() {
                   size="sm"
                   asChild
                   className={cn(
-                    "text-gray-300 hover:text-gray-100 hover:bg-white/5", // Adjusted text and hover colors
+                    "text-[#EFEDEB] hover:text-[#EFEDEB]/90 hover:bg-white/5", 
                     (pathname === item.href || (pathname.startsWith(item.href) && item.href !== '/dashboard' && item.href !== '/')) &&
-                    "text-white bg-white/10 font-semibold" // Adjusted active state colors
+                    "text-[#EFEDEB] bg-white/10 font-semibold" 
                   )}
                 >
                   <Link href={item.href}>
@@ -70,9 +70,9 @@ export default function HorizontalNav() {
             </nav>
 
             <Button
-              variant="outline" // Changed to outline for better contrast on dark nav
+              variant="outline" 
               size="sm"
-              className="h-9 text-gray-200 border-gray-500 hover:bg-gray-700 hover:text-white" // Custom styling for this button on dark nav
+              className="h-9 text-[#EFEDEB] border-gray-500 hover:bg-gray-700 hover:text-[#EFEDEB]/90" 
               onClick={() => setIsAddAccountDialogOpen(true)}
             >
               <PlusCircle className="mr-2 h-4 w-4" />
@@ -85,10 +85,10 @@ export default function HorizontalNav() {
         <div 
           className={cn(
             "md:hidden flex items-center justify-around border-t py-2 overflow-x-auto",
-            "bg-[#2B2521]", // Consistent background for mobile nav
-            "border-gray-700" // Consistent border for mobile nav
+            "bg-[#2B2521]", 
+            "border-gray-700" 
           )}
-          style={{ position: 'absolute', bottom: '-50px', left: 0, right: 0, height: '50px' }} // Ensure it's part of the 70px or styled appropriately
+          style={{ position: 'absolute', bottom: '-50px', left: 0, right: 0, height: '50px' }} 
         >
           {navItems.map((item) => (
             <Button
@@ -97,9 +97,9 @@ export default function HorizontalNav() {
               size="sm"
               asChild
               className={cn(
-                "flex-1 justify-center text-xs text-gray-300 px-1 min-w-max hover:bg-white/5", // Adjusted text colors
+                "flex-1 justify-center text-xs text-[#EFEDEB] px-1 min-w-max hover:bg-white/5", 
                  (pathname === item.href || (pathname.startsWith(item.href) && item.href !== '/dashboard' && item.href !== '/')) &&
-                  "text-white font-semibold" // Adjusted active state colors
+                  "text-[#EFEDEB] font-semibold" 
               )}
             >
               <Link href={item.href} className="flex flex-col items-center">
