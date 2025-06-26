@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useRef } from 'react';
@@ -19,7 +18,8 @@ import type { Lead, ExtractedLeadInfo } from '@/types';
 import { addLead } from '@/lib/data';
 import { countries } from '@/lib/countryData';
 import { extractLeadInfoFromCard } from '@/ai/flows/extract-lead-from-card';
-import { Loader2, UserPlus, UploadCloud, ScanLine, FileText } from 'lucide-react';
+import { Loader2, UploadCloud, ScanLine, FileText } from 'lucide-react';
+import Image from 'next/image';
 
 interface AddLeadDialogProps {
   open: boolean;
@@ -160,7 +160,7 @@ export default function AddLeadDialog({ open, onOpenChange, onLeadAdded }: AddLe
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center">
-            <UserPlus className="mr-2 h-5 w-5" /> Add New Lead
+            <Image src="/images/add.svg" alt="Add" width={20} height={20} className="mr-2" /> Add New Lead
           </DialogTitle>
           <DialogDescription>
             Enter details or upload a business card to create a new lead.
@@ -239,10 +239,10 @@ export default function AddLeadDialog({ open, onOpenChange, onLeadAdded }: AddLe
               </Select>
             </div>
             <DialogFooter className="pt-3">
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isLoading || isOcrLoading}>
+              <Button type="button" variant="outline-dark" onClick={() => onOpenChange(false)} disabled={isLoading || isOcrLoading}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={isLoading || isOcrLoading}>
+              <Button type="submit" disabled={isLoading || isOcrLoading} variant="add">
                 {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Create Lead"}
               </Button>
             </DialogFooter>

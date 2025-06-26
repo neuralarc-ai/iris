@@ -1,4 +1,3 @@
-
 import type { Account, Opportunity, Update, User, Lead, LeadStatus, OpportunityStatus, AccountType, UpdateType } from '@/types';
 import { DEMO_PIN } from '@/lib/constants';
 import { countries } from '@/lib/countryData'; // Import countries
@@ -12,7 +11,7 @@ const oneMonthAgo = new Date(today);
 oneMonthAgo.setMonth(today.getMonth() - 1);
 
 
-export let mockLeads: Lead[] = [ // Made 'let' for modification
+export const mockLeads: Lead[] = [ // Made 'let' for modification
   {
     id: 'lead_001',
     companyName: 'Future Gadgets Co.',
@@ -53,7 +52,7 @@ export let mockLeads: Lead[] = [ // Made 'let' for modification
   }
 ];
 
-export let mockAccounts: Account[] = [ // Made 'let' for modification
+export const mockAccounts: Account[] = [ // Made 'let' for modification
   {
     id: 'acc_001',
     name: 'Innovatech Solutions',
@@ -92,7 +91,7 @@ export let mockAccounts: Account[] = [ // Made 'let' for modification
   },
 ];
 
-export let mockOpportunities: Opportunity[] = [ // Made 'let' for modification
+export const mockOpportunities: Opportunity[] = [ // Made 'let' for modification
   {
     id: 'opp_001',
     name: 'Opportunity Phoenix',
@@ -134,7 +133,7 @@ export let mockOpportunities: Opportunity[] = [ // Made 'let' for modification
   },
 ];
 
-export let mockUpdates: Update[] = [ // Made 'let' for modification
+export const mockUpdates: Update[] = [ // Made 'let' for modification
   {
     id: 'upd_001',
     opportunityId: 'opp_001',
@@ -196,7 +195,7 @@ export let mockUpdates: Update[] = [ // Made 'let' for modification
   }
 ];
 
-export let mockUsers: User[] = [
+export const mockUsers: User[] = [
   {
     id: 'user_admin_000',
     name: 'Admin User',
@@ -423,4 +422,17 @@ export const getRecentUpdates = (limit: number = 3): Update[] => {
   return [...mockUpdates] 
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
     .slice(0, limit);
+};
+
+export const deleteLead = (leadId: string): boolean => {
+  const leadIndex = mockLeads.findIndex(l => l.id === leadId);
+  if (leadIndex === -1) return false;
+  mockLeads.splice(leadIndex, 1);
+  // Remove updates associated with this lead
+  for (let i = mockUpdates.length - 1; i >= 0; i--) {
+    if ((mockUpdates[i] as any).leadId === leadId) {
+      mockUpdates.splice(i, 1);
+    }
+  }
+  return true;
 };

@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -99,7 +98,7 @@ export default function OpportunityCard({ opportunity }: OpportunityCardProps) {
 
 
   return (
-    <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300 flex flex-col h-full">
+    <Card className="shadow-md hover:shadow-lg transition-shadow duration-300 flex flex-col h-full bg-white">
       <CardHeader>
         <div className="flex justify-between items-start">
           <div>

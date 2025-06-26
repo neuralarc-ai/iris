@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -108,7 +107,7 @@ export default function UpdateItem({ update }: UpdateItemProps) {
   const UpdateIcon = getUpdateTypeIcon(update.type);
 
   return (
-    <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300 bg-card flex flex-col h-full">
+    <Card className="shadow-md hover:shadow-lg transition-shadow duration-300 bg-white flex flex-col h-full">
       <CardHeader className="pb-3">
         <div className="flex justify-between items-start mb-1">
           <CardTitle className="text-xl font-headline flex items-center text-foreground">

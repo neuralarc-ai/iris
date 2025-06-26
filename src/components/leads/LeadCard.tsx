@@ -1,19 +1,21 @@
-
 "use client";
 import React from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Users, User, Mail, Phone, Eye, CheckSquare, FileWarning, CalendarPlus, History, Linkedin, MapPin } from 'lucide-react';
+import { Users, User, Mail, Phone, Eye, CheckSquare, FileWarning, CalendarPlus, History, Linkedin, MapPin, Trash2 } from 'lucide-react';
 import type { Lead } from '@/types';
-import { formatDistanceToNow } from 'date-fns';
-import { convertLeadToAccount } from '@/lib/data';
+import { add, formatDistanceToNow } from 'date-fns';
+import { convertLeadToAccount, deleteLead } from '@/lib/data';
 import { useToast } from "@/hooks/use-toast";
+import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from '@/components/ui/alert-dialog';
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
 
 interface LeadCardProps {
   lead: Lead;
   onLeadConverted: (leadId: string, newAccountId: string) => void;
+  onLeadDeleted?: (leadId: string) => void;
 }
 
 const getStatusBadgeVariant = (status: Lead['status']): "default" | "secondary" | "destructive" | "outline" => {
@@ -40,7 +42,7 @@ const getStatusBadgeColorClasses = (status: Lead['status']): string => {
   }
 }
 
-export default function LeadCard({ lead, onLeadConverted }: LeadCardProps) {
+export default function LeadCard({ lead, onLeadConverted, onLeadDeleted }: LeadCardProps) {
   const { toast } = useToast();
 
   const handleConvertLead = async () => {
@@ -63,8 +65,17 @@ export default function LeadCard({ lead, onLeadConverted }: LeadCardProps) {
 
   const canConvert = lead.status !== "Converted to Account" && lead.status !== "Lost";
 
+  const handleDeleteLead = () => {
+    if (deleteLead(lead.id)) {
+      toast({ title: "Lead Deleted", description: `${lead.companyName} has been deleted.`, variant: "destructive" });
+      onLeadDeleted && onLeadDeleted(lead.id);
+    } else {
+      toast({ title: "Delete Failed", description: "Could not delete lead.", variant: "destructive" });
+    }
+  };
+
   return (
-    <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300 flex flex-col h-full bg-card">
+    <Card className="shadow-md hover:shadow-lg transition-shadow duration-300 flex flex-col h-full bg-white">
       <CardHeader className="pb-3">
         <div className="flex justify-between items-start mb-1">
           <CardTitle className="text-xl font-headline flex items-center text-foreground">
@@ -119,22 +130,51 @@ export default function LeadCard({ lead, onLeadConverted }: LeadCardProps) {
         </div>
       </CardContent>
       <CardFooter className="pt-4 border-t mt-auto">
-        <Button variant="outline" size="sm" asChild className="mr-auto">
-          <Link href={`/leads?id=${lead.id}#details`}> {/* This link might be for a detail view not yet implemented */}
+        <Button variant="outline" size="sm" asChild className="mr-auto rounded-[2px]">
+          <Link href={`/leads?id=${lead.id}#details`}>
             <Eye className="mr-2 h-4 w-4" />
             View
           </Link>
         </Button>
-        {canConvert ? (
-             <Button size="sm" onClick={handleConvertLead}>
-                <CheckSquare className="mr-2 h-4 w-4" /> Convert
-             </Button>
-        ) : (
-          <Button size="sm" variant="outline" disabled>
-            {lead.status === "Lost" ? <FileWarning className="mr-2 h-4 w-4" /> : <CheckSquare className="mr-2 h-4 w-4" />}
-            {lead.status === "Lost" ? "Lost" : "Converted"}
-          </Button>
-        )}
+        <TooltipProvider delayDuration={0}>
+          {canConvert ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button size="sm" onClick={handleConvertLead} variant="add" className='rounded-[2px] p-2'><CheckSquare className="h-4 w-4" /></Button>
+              </TooltipTrigger>
+              <TooltipContent side="top" align="center">Convert</TooltipContent>
+            </Tooltip>
+          ) : (
+            <Button size="sm" variant="outline" disabled>
+              {lead.status === "Lost" ? <FileWarning className="mr-2 h-4 w-4" /> : <CheckSquare className="mr-2 h-4 w-4" />}
+              {lead.status === "Lost" ? "Lost" : "Converted"}
+            </Button>
+          )}
+          {canConvert && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button size="sm" variant="delete" className="ml-2 rounded-[4px] p-2"><Trash2 className="h-4 w-4" /></Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Delete Lead?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Are you sure you want to delete this lead? This action cannot be undone.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleDeleteLead} className="bg-[#916D5B] text-white rounded-[4px] border-0 hover:bg-[#a98a77]">Delete</AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </TooltipTrigger>
+              <TooltipContent side="top" align="center">Delete</TooltipContent>
+            </Tooltip>
+          )}
+        </TooltipProvider>
       </CardFooter>
     </Card>
   );

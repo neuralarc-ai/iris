@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -7,7 +6,8 @@ import OpportunityCard from '@/components/opportunities/OpportunityCard';
 import { mockOpportunities as initialMockOpportunities, mockAccounts, mockLeads } from '@/lib/data';
 import type { Opportunity, OpportunityStatus } from '@/types';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, ListFilter, Search, BarChartBig } from 'lucide-react';
+import { ListFilter, Search, BarChartBig } from 'lucide-react';
+import Image from 'next/image';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -46,10 +46,10 @@ export default function OpportunitiesPage() {
   };
 
   return (
-    <div className="container mx-auto space-y-6">
+    <div className="max-w-[1440px] px-4 mx-auto w-full space-y-6">
       <PageTitle title="Opportunity Management" subtitle="Track and manage all ongoing and potential sales opportunities.">
-        <Button onClick={() => setIsAddOpportunityDialogOpen(true)}>
-          <PlusCircle className="mr-2 h-4 w-4" /> Add New Opportunity
+        <Button onClick={() => setIsAddOpportunityDialogOpen(true)} variant="add" className='w-fit'>
+          <Image src="/images/add.svg" alt="Add" width={20} height={20} className="mr-2" /> Add New Opportunity
         </Button>
       </PageTitle>
 

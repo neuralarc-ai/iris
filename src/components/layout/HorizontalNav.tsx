@@ -1,16 +1,15 @@
-
 "use client";
 
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import Logo from '@/components/common/Logo';
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
-import { Briefcase, ListChecks, MessageSquare, LayoutDashboard, Users2, PlusCircle, Search, Users, BarChartBig } from 'lucide-react';
+import { Briefcase, MessageSquare, LayoutDashboard, Users2, PlusCircle, Search, Users, BarChartBig } from 'lucide-react';
 import UserProfile from './UserProfile';
 import { cn } from '@/lib/utils';
-import { Input } from '@/components/ui/input';
 import AddAccountDialog from '@/components/accounts/AddAccountDialog';
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
 
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -27,68 +26,60 @@ export default function HorizontalNav() {
 
   return (
     <>
-      <header 
+      <header
         className={cn(
-          "fixed top-0 left-0 right-0 z-50 w-full border-b",
-          "bg-[#2B2521]", 
-          "border-gray-700" 
+          "z-50 w-full border-b",
+          "bg-transparent text-black",
         )}
-        style={{ height: '70px' }} 
+        style={{ height: '70px' }}
       >
-        <div className="container mx-auto flex h-full items-center justify-between px-1 py-2"> 
+        <div className="max-w-[1440px] mx-auto w-full flex h-full items-center justify-between px-4 py-2">
           <div className="flex items-center">
             <Link href="/dashboard" className="mr-6">
-              <Logo iconSize={28} textSize="text-2xl" className="text-[#EFEDEB]" /> 
+              <Image src="/images/iris.svg" alt="Iris AI Logo" width={36} height={36} priority />
             </Link>
           </div>
+          <div className="flex flex-1 items-center justify-center gap-1">
+            <TooltipProvider delayDuration={0}>
+              <nav className="hidden md:flex flex-1 items-center justify-center gap-1">
+                {navItems.map((item) => (
+                  <Tooltip key={item.href}>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        asChild
+                        className={cn(
+                          "w-12 h-12 p-0 flex items-center justify-center hover:bg-muted/20 text-black",
+                          (pathname === item.href || (pathname.startsWith(item.href) && item.href !== '/dashboard' && item.href !== '/')) &&
+                          "bg-muted/20 font-semibold text-black"
+                        )}
+                      >
+                        <Link href={item.href}>
+                          <item.icon className="h-6 w-6" />
+                        </Link>
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" align="center">
+                      {item.label}
+                    </TooltipContent>
+                  </Tooltip>
+                ))}
+              </nav>
+            </TooltipProvider>
 
-          <div className="flex flex-1 items-center justify-end gap-1"> 
-            <Button variant="ghost" size="icon" className="hidden sm:inline-flex text-[#EFEDEB] hover:text-[#EFEDEB]/90"> 
-              <Search className="h-5 w-5" />
-              <span className="sr-only">Search</span>
-            </Button>
-
-            <nav className="hidden md:flex items-center gap-1">
-              {navItems.map((item) => (
-                <Button
-                  key={item.href}
-                  variant="ghost"
-                  size="sm"
-                  asChild
-                  className={cn(
-                    "text-[#EFEDEB] hover:text-[#EFEDEB]/90 hover:bg-white/5", 
-                    (pathname === item.href || (pathname.startsWith(item.href) && item.href !== '/dashboard' && item.href !== '/')) &&
-                    "text-[#EFEDEB] bg-white/10 font-semibold" 
-                  )}
-                >
-                  <Link href={item.href}>
-                    <item.icon className="mr-2 h-4 w-4" />
-                    {item.label}
-                  </Link>
-                </Button>
-              ))}
-            </nav>
-
-            <Button
-              variant="outline" 
-              size="sm"
-              className="h-9 text-[#EFEDEB] border-gray-500 hover:bg-gray-700 hover:text-[#EFEDEB]/90" 
-              onClick={() => setIsAddAccountDialogOpen(true)}
-            >
-              <PlusCircle className="mr-2 h-4 w-4" />
-              Quick Create
-            </Button>
-            <UserProfile />
+            <div className="ml-auto flex items-center">
+              <UserProfile />
+            </div>
           </div>
         </div>
         {/* Mobile Nav */}
-        <div 
+        <div
           className={cn(
             "md:hidden flex items-center justify-around border-t py-2 overflow-x-auto",
-            "bg-[#2B2521]", 
-            "border-gray-700" 
+            "bg-transparent text-black",
           )}
-          style={{ position: 'absolute', bottom: '-50px', left: 0, right: 0, height: '50px' }} 
+          style={{ position: 'absolute', bottom: '-50px', left: 0, right: 0, height: '50px' }}
         >
           {navItems.map((item) => (
             <Button
@@ -97,9 +88,9 @@ export default function HorizontalNav() {
               size="sm"
               asChild
               className={cn(
-                "flex-1 justify-center text-xs text-[#EFEDEB] px-1 min-w-max hover:bg-white/5", 
+                "flex-1 justify-center text-xs px-1 min-w-max hover:bg-muted/20 text-black",
                  (pathname === item.href || (pathname.startsWith(item.href) && item.href !== '/dashboard' && item.href !== '/')) &&
-                  "text-[#EFEDEB] font-semibold" 
+                  "font-semibold text-black"
               )}
             >
               <Link href={item.href} className="flex flex-col items-center">

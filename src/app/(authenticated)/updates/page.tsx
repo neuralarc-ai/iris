@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -7,13 +6,16 @@ import UpdateItem from '@/components/updates/UpdateItem';
 import { mockUpdates as initialMockUpdates, mockOpportunities } from '@/lib/data';
 import type { Update, UpdateType, Opportunity } from '@/types';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Search, ListFilter, MessageSquare } from 'lucide-react';
+import { Search, ListFilter, MessageSquare } from 'lucide-react';
+import Image from 'next/image';
 import { Input } from '@/components/ui/input'; 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {format, parseISO, isValid} from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import AddUpdateDialog from '@/components/updates/AddUpdateDialog';
+import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
 
 export default function UpdatesPage() {
   const [updates, setUpdates] = useState<Update[]>([]);
@@ -55,10 +57,10 @@ export default function UpdatesPage() {
   });
 
   return (
-    <div className="container mx-auto space-y-6">
+    <div className="max-w-[1440px] px-4 mx-auto w-full space-y-6">
       <PageTitle title="Communication Updates" subtitle="Log and review all opportunity-related communications.">
-        <Button onClick={() => setIsAddUpdateDialogOpen(true)}> 
-          <PlusCircle className="mr-2 h-4 w-4" /> Log New Update
+        <Button onClick={() => setIsAddUpdateDialogOpen(true)} variant="add"> 
+          <Image src="/images/add.svg" alt="Add" width={20} height={20} className="mr-2" /> Log New Update
         </Button>
       </PageTitle>
 
@@ -114,13 +116,30 @@ export default function UpdatesPage() {
             </div>
             <div>
               <Label htmlFor="date-filter">Date</Label>
-              <Input
-                id="date-filter"
-                type="date"
-                value={dateFilter}
-                onChange={(e) => setDateFilter(e.target.value)}
-                className="mt-1"
-              />
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Input
+                    id="date-filter"
+                    type="text"
+                    value={dateFilter}
+                    placeholder="Select date"
+                    readOnly
+                    className="mt-1 cursor-pointer bg-white"
+                  />
+                </PopoverTrigger>
+                <PopoverContent align="start" className="p-0 w-auto">
+                  <Calendar
+                    mode="single"
+                    selected={dateFilter ? new Date(dateFilter) : undefined}
+                    onSelect={date => {
+                      if (date) {
+                        setDateFilter(date.toISOString().slice(0, 10));
+                      }
+                    }}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
           </div>
         </CardContent>

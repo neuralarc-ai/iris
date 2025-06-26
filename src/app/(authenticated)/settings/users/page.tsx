@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -285,7 +284,7 @@ export default function UserManagementPage() {
 
 
   return (
-    <div className="container mx-auto">
+    <div className="max-w-[1440px] mx-auto">
       <PageTitle title="User Management" subtitle="Create and manage user accounts and PINs.">
         <Dialog open={isCreateUserDialogOpen} onOpenChange={handleCreateUserDialogChange}>
           <DialogTrigger asChild>

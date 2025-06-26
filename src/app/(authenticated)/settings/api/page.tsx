@@ -5,7 +5,7 @@ import { KeyRound } from 'lucide-react';
 
 export default function ApiSettingsPage() {
   return (
-    <div className="container mx-auto">
+    <div className="max-w-[1440px] mx-auto">
       <PageTitle title="API Key Management" subtitle="Manage your API keys for AI services." />
       <Card className="shadow-lg">
         <CardHeader>

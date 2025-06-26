@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -97,7 +96,7 @@ export default function DashboardPage() {
   }, []);
 
   return (
-    <div className="container mx-auto space-y-8"> 
+    <div className="max-w-[1440px] px-4 mx-auto w-full space-y-8"> 
       <PageTitle title="Intelligent Sales Dashboard">
         <div className="flex items-center gap-2">
           {lastRefreshed && (

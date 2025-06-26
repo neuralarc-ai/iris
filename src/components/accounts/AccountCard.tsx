@@ -1,24 +1,27 @@
-
 "use client";
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Briefcase, ListChecks, PlusCircle, Eye, MessageSquareHeart, Lightbulb, Users, Mail, Phone, Tag } from 'lucide-react';
+import { Briefcase, ListChecks, PlusCircle, Eye, MessageSquareHeart, Lightbulb, Users, Mail, Phone, Tag, Trash2 } from 'lucide-react';
 import type { Account, DailyAccountSummary as AIDailySummary, Opportunity } from '@/types';
 import { getOpportunitiesByAccount } from '@/lib/data';
 import { generateDailyAccountSummary } from '@/ai/flows/daily-account-summary';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
+import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from '@/components/ui/alert-dialog';
 
 interface AccountCardProps {
   account: Account;
+  view?: 'grid' | 'table';
 }
 
-export default function AccountCard({ account }: AccountCardProps) {
+export default function AccountCard({ account, view = 'grid' }: AccountCardProps) {
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [dailySummary, setDailySummary] = useState<AIDailySummary | null>(null);
   const [isLoadingSummary, setIsLoadingSummary] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   useEffect(() => {
     setOpportunities(getOpportunitiesByAccount(account.id));
@@ -50,9 +53,15 @@ export default function AccountCard({ account }: AccountCardProps) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [account.id, account.name, account.status]);
 
+  // Placeholder for delete handler
+  const handleDeleteAccount = () => {
+    // Implement actual delete logic as needed
+    setDeleteDialogOpen(false);
+    // Optionally show a toast or update parent state
+  };
 
   return (
-    <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300 flex flex-col h-full bg-card">
+    <Card className="shadow-md hover:shadow-lg transition-shadow duration-300 flex flex-col h-full bg-white">
       <CardHeader className="pb-3">
         <div className="flex justify-between items-start mb-1">
           <CardTitle className="text-xl font-headline flex items-center text-foreground">
@@ -124,19 +133,45 @@ export default function AccountCard({ account }: AccountCardProps) {
           </div>
         )}
       </CardContent>
-      <CardFooter className="pt-4 border-t mt-auto"> {/* mt-auto pushes footer to bottom */}
-        <Button variant="outline" size="sm" asChild className="mr-auto">
-          <Link href={`/accounts?id=${account.id}#details`}> 
-            <Eye className="mr-2 h-4 w-4" />
-            View Details
-          </Link>
-        </Button>
-        <Button size="sm" asChild>
-          <Link href={`/opportunities/new?accountId=${account.id}`}> {/* Pre-fill accountId for new opportunity */}
-            <PlusCircle className="mr-2 h-4 w-4" />
-            New Opportunity
-          </Link>
-        </Button>
+      <CardFooter className="pt-4 border-t mt-auto">
+        <TooltipProvider delayDuration={0}>
+          {view === 'grid' && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="outline" size="sm" asChild className="rounded-[4px] p-2 mr-auto"><Link href={`/accounts?id=${account.id}#details`}><Eye className="h-4 w-4" /></Link></Button>
+              </TooltipTrigger>
+              <TooltipContent>View Details</TooltipContent>
+            </Tooltip>
+          )}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button size="sm" asChild variant="add" className="rounded-[4px] p-2"><Link href={`/opportunities/new?accountId=${account.id}`}><PlusCircle className="h-4 w-4" /></Link></Button>
+            </TooltipTrigger>
+            <TooltipContent>New Opportunity</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+                <AlertDialogTrigger asChild>
+                  <Button size="sm" variant="delete" className="rounded-[4px] p-2 ml-2"><Trash2 className="h-4 w-4" /></Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete Account?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will permanently remove the account and all its data. This action cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter className="justify-center">
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleDeleteAccount} className="bg-[#916D5B] text-white rounded-[4px] border-0 hover:bg-[#a98a77]">Delete</AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </TooltipTrigger>
+            <TooltipContent>Delete</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </CardFooter>
     </Card>
   );
