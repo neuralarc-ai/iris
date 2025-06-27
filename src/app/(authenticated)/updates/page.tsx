@@ -24,6 +24,7 @@ export default function UpdatesPage() {
   const [opportunityFilter, setOpportunityFilter] = useState<string | 'all'>('all');
   const [dateFilter, setDateFilter] = useState<string>(''); 
   const [isAddUpdateDialogOpen, setIsAddUpdateDialogOpen] = useState(false);
+  const [entityTypeFilter, setEntityTypeFilter] = useState<'all' | 'lead' | 'opportunity' | 'account'>('all');
 
   useEffect(() => {
     setUpdates([...initialMockUpdates].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
@@ -53,13 +54,17 @@ export default function UpdatesPage() {
         matchesDate = true; 
       }
     }
-    return matchesSearch && matchesType && matchesOpportunity && matchesDate;
+    let matchesEntity = true;
+    if (entityTypeFilter === 'lead') matchesEntity = !!update.leadId;
+    else if (entityTypeFilter === 'opportunity') matchesEntity = !!update.opportunityId;
+    else if (entityTypeFilter === 'account') matchesEntity = !!update.accountId;
+    return matchesSearch && matchesType && matchesOpportunity && matchesDate && matchesEntity;
   });
 
   return (
     <div className="max-w-[1440px] px-4 mx-auto w-full space-y-6">
       <PageTitle title="Communication Updates" subtitle="Log and review all opportunity-related communications.">
-        <Button onClick={() => setIsAddUpdateDialogOpen(true)} variant="add"> 
+        <Button onClick={() => setIsAddUpdateDialogOpen(true)} variant="add" className='w-fit'> 
           <Image src="/images/add.svg" alt="Add" width={20} height={20} className="mr-2" /> Log New Update
         </Button>
       </PageTitle>
@@ -71,7 +76,7 @@ export default function UpdatesPage() {
             </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
             <div>
               <Label htmlFor="search-updates">Search Content</Label>
                <div className="relative mt-1">
@@ -127,19 +132,32 @@ export default function UpdatesPage() {
                     className="mt-1 cursor-pointer bg-white"
                   />
                 </PopoverTrigger>
-                <PopoverContent align="start" className="p-0 w-auto">
+                <PopoverContent align="start" className="p-0 w-auto border-none bg-[#CFD4C9] rounded-sm">
                   <Calendar
                     mode="single"
                     selected={dateFilter ? new Date(dateFilter) : undefined}
                     onSelect={date => {
                       if (date) {
                         setDateFilter(date.toISOString().slice(0, 10));
-                      }
+                      }  
                     }}
-                    initialFocus
                   />
                 </PopoverContent>
               </Popover>
+            </div>
+            <div>
+              <Label htmlFor="entity-type-filter">Entity Type</Label>
+              <Select value={entityTypeFilter} onValueChange={(value: 'all' | 'lead' | 'opportunity' | 'account') => setEntityTypeFilter(value)}>
+                <SelectTrigger id="entity-type-filter" className="w-full mt-1">
+                  <SelectValue placeholder="Filter by entity type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Entity Types</SelectItem>
+                  <SelectItem value="lead">Lead</SelectItem>
+                  <SelectItem value="opportunity">Opportunity</SelectItem>
+                  <SelectItem value="account">Account</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </CardContent>

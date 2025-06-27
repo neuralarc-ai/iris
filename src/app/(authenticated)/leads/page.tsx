@@ -34,6 +34,7 @@ export default function LeadsPage() {
 
 
   const filteredLeads = leads.filter(lead => {
+    if (lead.status === 'Converted to Account') return false;
     const searchTermLower = searchTerm.toLowerCase();
     const matchesSearch =
       lead.companyName.toLowerCase().includes(searchTermLower) ||
@@ -42,7 +43,7 @@ export default function LeadsPage() {
       (lead.country && lead.country.toLowerCase().includes(searchTermLower));
     const matchesStatus = statusFilter === 'all' || lead.status === statusFilter;
     return matchesSearch && matchesStatus;
-  }); // Sorting is now done in useEffect and after add/convert
+  });
 
   const handleLeadAdded = (newLead: Lead) => {
     setLeads(prevLeads => [newLead, ...prevLeads].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()));

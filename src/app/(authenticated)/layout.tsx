@@ -30,7 +30,7 @@ export default function AuthenticatedLayout({
   return (
     <div className="flex flex-col min-h-screen bg-background">
       <HorizontalNav />
-      <main className=" overflow-y-auto lg:pt-12"> {/* Added padding-top to account for fixed HorizontalNav */}
+      <main className=" overflow-y-auto lg:pt-12">
         {children}
       </main>
     </div>
