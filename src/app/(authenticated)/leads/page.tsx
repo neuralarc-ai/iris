@@ -1,12 +1,13 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import PageTitle from '@/components/common/PageTitle';
 import LeadCard from '@/components/leads/LeadCard';
-import { mockLeads as initialMockLeads } from '@/lib/data';
+import RejectedLeadCard from '@/components/leads/RejectedLeadCard';
+import { mockLeads as initialMockLeads, addLead } from '@/lib/data';
 import type { Lead, LeadStatus } from '@/types';
 import { Button } from '@/components/ui/button';
-import { Search, ListFilter, List, Grid, Trash2, CheckSquare, UploadCloud, X, Users } from 'lucide-react';
+import { Search, ListFilter, List, Grid, Trash2, CheckSquare, UploadCloud, X, Users, AlertTriangle } from 'lucide-react';
 import Image from 'next/image';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -19,11 +20,13 @@ import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/comp
 import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogCancel, AlertDialogAction } from '@/components/ui/alert-dialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Badge } from '@/components/ui/badge';
 
 const leadStatusOptions: LeadStatus[] = ["New", "Contacted", "Qualified", "Proposal Sent", "Lost"];
 
 export default function LeadsPage() {
-  const [leads, setLeads] = useState<Lead[]>([]);
+  const [leads, setLeads] = useState<Lead[]>(initialMockLeads);
+  const [rejectedLeads, setRejectedLeads] = useState<Lead[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<LeadStatus | 'all'>('all');
   const [isAddLeadDialogOpen, setIsAddLeadDialogOpen] = useState(false);
@@ -32,12 +35,14 @@ export default function LeadsPage() {
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadSuccess, setUploadSuccess] = useState(false);
+  const [importProgress, setImportProgress] = useState({ current: 0, total: 0, message: '' });
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [dragActive, setDragActive] = useState(false);
-  const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [selectMode, setSelectMode] = useState(false);
   const [selectedLeads, setSelectedLeads] = useState<string[]>([]);
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
   const [assignUser, setAssignUser] = useState('');
+  const [activeTab, setActiveTab] = useState<'leads' | 'rejected'>('leads');
   const mockUsers = [
     { id: '1', name: 'Tony Stark' },
     { id: '2', name: 'Pepper Potts' },
@@ -66,12 +71,12 @@ export default function LeadsPage() {
     setLeads(prevLeads => [newLead, ...prevLeads].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()));
   };
 
-  const handleLeadConverted = (convertedLeadId: string) => {
-    setLeads(prevLeads =>
-      prevLeads.map(lead =>
-        lead.id === convertedLeadId ? { ...lead, status: 'Converted to Account' as LeadStatus, updatedAt: new Date().toISOString() } : lead
-      ).sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
-    );
+  const handleLeadConverted = (convertedLeadId: string, newAccountId: string) => {
+    setLeads(prev => prev.map(lead => 
+      lead.id === convertedLeadId 
+        ? { ...lead, status: 'Converted to Account' as LeadStatus }
+        : lead
+    ));
   };
 
   const handleImportCsv = () => {
@@ -85,18 +90,423 @@ export default function LeadsPage() {
     if (file) handleFile(file);
   };
 
-  const handleFile = (file: File) => {
+  const handleFile = async (file: File) => {
     setIsUploading(true);
     setUploadSuccess(false);
-    setTimeout(() => {
+    setImportProgress({ current: 0, total: 0, message: '' });
+    
+    try {
+      // Validate file type
+      const validTypes = [
+        'text/csv',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'application/vnd.ms-excel'
+      ];
+      if (!validTypes.includes(file.type) && !file.name.toLowerCase().endsWith('.csv')) {
+        throw new Error('Please upload a valid CSV or Excel file.');
+      }
+      
+      // Check file size (warn if very large)
+      const fileSizeMB = file.size / (1024 * 1024);
+      if (fileSizeMB > 10) {
+        console.warn(`Large file detected: ${fileSizeMB.toFixed(2)}MB. Processing may take longer.`);
+      }
+      
+      // Read file as text and normalize line endings
+      let text = await file.text();
+      text = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+      
+      console.log('File content preview:', text.substring(0, 200) + '...');
+      console.log('File size:', fileSizeMB.toFixed(2), 'MB');
+      
+      // Parse CSV with enhanced large file handling
+      const parsedLeads = await parseCSVFileLarge(text, file.name);
+      console.log('Parsed leads:', parsedLeads.length);
+      
+      if (parsedLeads.length === 0) {
+        throw new Error('No valid leads found in the file.');
+      }
+      
+      // Separate valid leads from rejected leads
+      const validLeads: Array<Omit<Lead, 'id' | 'createdAt' | 'updatedAt' | 'status' | 'opportunityIds' | 'updateIds'>> = [];
+      const rejectedLeadsData: Array<{ leadData: any; reasons: string[] }> = [];
+      
+      parsedLeads.forEach(leadData => {
+        const rejectionCheck = shouldRejectLead(leadData);
+        if (rejectionCheck.rejected) {
+          rejectedLeadsData.push({ leadData, reasons: rejectionCheck.reasons });
+        } else {
+          validLeads.push(leadData);
+        }
+      });
+      
+      console.log('Valid leads:', validLeads.length, 'Rejected leads:', rejectedLeadsData.length);
+      
+      // Process valid leads in batches for large files
+      const batchSize = 50; // Process 50 leads at a time
+      const totalValidLeads = validLeads.length;
+      let processedLeads: Lead[] = [];
+      
+      if (totalValidLeads > batchSize) {
+        console.log(`Large file detected (${totalValidLeads} valid leads). Processing in batches of ${batchSize}...`);
+        setImportProgress({ 
+          current: 0, 
+          total: totalValidLeads, 
+          message: 'Processing large file...' 
+        });
+        
+        for (let i = 0; i < totalValidLeads; i += batchSize) {
+          const batch = validLeads.slice(i, i + batchSize);
+          const batchNumber = Math.floor(i/batchSize) + 1;
+          const totalBatches = Math.ceil(totalValidLeads/batchSize);
+          
+          console.log(`Processing batch ${batchNumber}/${totalBatches} (${batch.length} leads)`);
+          setImportProgress({ 
+            current: i + batch.length, 
+            total: totalValidLeads, 
+            message: `Processing batch ${batchNumber}/${totalBatches}...` 
+          });
+          
+          const batchLeads = batch.map(leadData => {
+            console.log('Adding lead:', leadData.companyName);
+            return addLead(leadData);
+          });
+          
+          processedLeads.push(...batchLeads);
+          
+          // Small delay to prevent browser freezing
+          if (i + batchSize < totalValidLeads) {
+            await new Promise(resolve => setTimeout(resolve, 10));
+          }
+        }
+        
+        setImportProgress({ current: totalValidLeads, total: totalValidLeads, message: 'Import complete!' });
+      } else {
+        // Small file - process all at once
+        setImportProgress({ current: 0, total: totalValidLeads, message: 'Processing leads...' });
+        
+        processedLeads = validLeads.map(leadData => {
+          console.log('Adding lead:', leadData.companyName);
+          return addLead(leadData);
+        });
+        
+        setImportProgress({ current: totalValidLeads, total: totalValidLeads, message: 'Import complete!' });
+      }
+      
+      // Process rejected leads
+      rejectedLeadsData.forEach(({ leadData, reasons }) => {
+        console.log('Adding rejected lead:', leadData.companyName, 'Reasons:', reasons);
+        addRejectedLead(leadData, reasons);
+      });
+      
+      console.log('Total processed leads:', processedLeads.length);
+      console.log('Total rejected leads:', rejectedLeadsData.length);
+      
+      // Update the leads state
+      setLeads(prevLeads => {
+        const newLeads = [...processedLeads, ...prevLeads].sort((a, b) => 
+          new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+        );
+        console.log('Updated leads state:', newLeads.length, 'total leads');
+        return newLeads;
+      });
+      
       setIsUploading(false);
       setUploadSuccess(true);
+      
+      toast({
+        title: 'Import Successful',
+        description: `Successfully imported ${processedLeads.length} lead${processedLeads.length === 1 ? '' : 's'}${rejectedLeadsData.length > 0 ? ` and ${rejectedLeadsData.length} rejected lead${rejectedLeadsData.length === 1 ? '' : 's'}` : ''}.`,
+        className: "bg-green-100 dark:bg-green-900 border-green-500"
+      });
+      
       setTimeout(() => {
         setIsImportDialogOpen(false);
         setUploadSuccess(false);
-        toast({ title: 'Import Complete', description: 'Your file was parsed successfully.' });
-      }, 1200);
-    }, 1800);
+        setImportProgress({ current: 0, total: 0, message: '' });
+        if (fileInputRef.current) fileInputRef.current.value = '';
+      }, 1500);
+      
+    } catch (error) {
+      console.error('Import error:', error);
+      setIsUploading(false);
+      setImportProgress({ current: 0, total: 0, message: '' });
+      toast({
+        title: 'Import Failed',
+        description: error instanceof Error ? error.message : 'Failed to import leads. Please check your file format.',
+        variant: "destructive"
+      });
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  // Enhanced CSV parsing function for large files
+  const parseCSVFileLarge = async (csvText: string, fileName: string): Promise<Array<Omit<Lead, 'id' | 'createdAt' | 'updatedAt' | 'status' | 'opportunityIds' | 'updateIds'>>> => {
+    const lines = csvText.split('\n').map(line => line.trim()).filter(line => line !== '');
+    console.log('CSV lines:', lines.length);
+    
+    if (lines.length < 2) {
+      throw new Error('CSV file must have at least a header row and one data row.');
+    }
+    
+    // Parse header row
+    const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/"/g, ''));
+    console.log('Headers:', headers);
+    
+    // Enhanced column mappings with fuzzy matching support
+    const columnMappings = {
+      // Company variations
+      'company': 'companyName', 'company name': 'companyName', 'company_name': 'companyName', 
+      'organization': 'companyName', 'organization name': 'companyName', 'organization_name': 'companyName',
+      'business': 'companyName', 'business name': 'companyName', 'business_name': 'companyName',
+      'firm': 'companyName', 'firm name': 'companyName', 'firm_name': 'companyName',
+      'corp': 'companyName', 'corporation': 'companyName', 'inc': 'companyName', 'llc': 'companyName',
+      
+      // Person name variations
+      'name': 'personName', 'person name': 'personName', 'person_name': 'personName', 
+      'contact': 'personName', 'contact name': 'personName', 'contact_name': 'personName', 
+      'full name': 'personName', 'full_name': 'personName', 'fullname': 'personName',
+      'ceo': 'personName', 'ceo name': 'personName', 'ceo_name': 'personName',
+      'owner': 'personName', 'owner name': 'personName', 'owner_name': 'personName',
+      'manager': 'personName', 'manager name': 'personName', 'manager_name': 'personName',
+      'director': 'personName', 'director name': 'personName', 'director_name': 'personName',
+      'representative': 'personName', 'rep': 'personName', 'contact person': 'personName',
+      'first name': 'personName', 'first_name': 'personName', 'last name': 'personName', 'last_name': 'personName',
+      
+      // Email variations
+      'email': 'email', 'email address': 'email', 'email_address': 'email', 'e-mail': 'email',
+      'emailaddress': 'email', 'mail': 'email',
+      
+      // Phone variations
+      'phone': 'phone', 'phone number': 'phone', 'phone_number': 'phone', 'telephone': 'phone', 'mobile': 'phone',
+      'tel': 'phone', 'telephone number': 'phone', 'telephone_number': 'phone',
+      'cell': 'phone', 'cell phone': 'phone', 'cell_phone': 'phone', 'mobile number': 'phone',
+      'contact number': 'phone', 'contact_number': 'phone', 'work phone': 'phone', 'work_phone': 'phone',
+      
+      // LinkedIn variations
+      'linkedin': 'linkedinProfileUrl', 'linkedin profile': 'linkedinProfileUrl', 'linkedin_profile': 'linkedinProfileUrl', 
+      'linkedin url': 'linkedinProfileUrl', 'linkedin_url': 'linkedinProfileUrl', 'linkedin link': 'linkedinProfileUrl',
+      'linkedinlink': 'linkedinProfileUrl', 'linkedin profile url': 'linkedinProfileUrl',
+      
+      // Country variations
+      'country': 'country', 'location': 'country', 'region': 'country', 'nation': 'country',
+      'state': 'country', 'province': 'country', 'territory': 'country'
+    };
+    
+    // Fuzzy matching function for similar column names
+    const fuzzyMatch = (header: string, targetField: string): boolean => {
+      const targetVariations = Object.keys(columnMappings).filter(key => columnMappings[key as keyof typeof columnMappings] === targetField);
+      
+      // Check for partial matches
+      for (const variation of targetVariations) {
+        if (header.includes(variation) || variation.includes(header)) {
+          return true;
+        }
+      }
+      
+      // Check for common abbreviations and variations
+      const commonMappings = {
+        'personName': ['name', 'contact', 'person', 'ceo', 'owner', 'manager', 'director', 'rep'],
+        'companyName': ['company', 'org', 'business', 'firm', 'corp', 'inc', 'llc'],
+        'email': ['email', 'mail', 'e-mail'],
+        'phone': ['phone', 'tel', 'mobile', 'cell'],
+        'country': ['country', 'location', 'region', 'state']
+      };
+      
+      const fieldVariations = commonMappings[targetField as keyof typeof commonMappings] || [];
+      return fieldVariations.some(variation => header.includes(variation));
+    };
+    
+    // Intelligent column detection based on content
+    const detectColumnByContent = (columnIndex: number, targetField: string): boolean => {
+      if (lines.length < 3) return false;
+      
+      const sampleValues = [];
+      const sampleSize = Math.min(5, lines.length - 1); // Sample up to 5 rows
+      for (let i = 1; i <= sampleSize; i++) {
+        const values = parseCSVLine(lines[i]);
+        if (values[columnIndex]) {
+          sampleValues.push(values[columnIndex].trim().replace(/^"|"$/g, ''));
+        }
+      }
+      
+      if (sampleValues.length === 0) return false;
+      
+      // Email detection
+      if (targetField === 'email') {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        return sampleValues.every(value => emailRegex.test(value));
+      }
+      
+      // Phone detection
+      if (targetField === 'phone') {
+        const phoneRegex = /^[\+]?[0-9\s\-\(\)\.]+$/;
+        return sampleValues.every(value => phoneRegex.test(value) && value.length >= 7);
+      }
+      
+      return false;
+    };
+    
+    // Map headers to our expected fields with intelligent detection
+    const fieldMappings: Record<string, string> = {};
+    const requiredFields = ['companyName', 'personName', 'email'];
+    const optionalFields = ['phone', 'linkedinProfileUrl', 'country'];
+    
+    // First pass: exact matches
+    headers.forEach((header, index) => {
+      const mappedField = columnMappings[header as keyof typeof columnMappings];
+      if (mappedField) {
+        fieldMappings[mappedField] = index.toString();
+      }
+    });
+    
+    // Second pass: fuzzy matches for unmapped required fields
+    requiredFields.forEach(field => {
+      if (!fieldMappings[field]) {
+        for (let i = 0; i < headers.length; i++) {
+          if (!Object.values(fieldMappings).includes(i.toString()) && fuzzyMatch(headers[i], field)) {
+            fieldMappings[field] = i.toString();
+            console.log(`Fuzzy matched "${headers[i]}" to ${field}`);
+            break;
+          }
+        }
+      }
+    });
+    
+    // Third pass: content-based detection for unmapped required fields
+    requiredFields.forEach(field => {
+      if (!fieldMappings[field]) {
+        for (let i = 0; i < headers.length; i++) {
+          if (!Object.values(fieldMappings).includes(i.toString()) && detectColumnByContent(i, field)) {
+            fieldMappings[field] = i.toString();
+            console.log(`Content-detected "${headers[i]}" as ${field}`);
+            break;
+          }
+        }
+      }
+    });
+    
+    // Fourth pass: fuzzy matches for optional fields
+    optionalFields.forEach(field => {
+      if (!fieldMappings[field]) {
+        for (let i = 0; i < headers.length; i++) {
+          if (!Object.values(fieldMappings).includes(i.toString()) && fuzzyMatch(headers[i], field)) {
+            fieldMappings[field] = i.toString();
+            console.log(`Fuzzy matched optional "${headers[i]}" to ${field}`);
+            break;
+          }
+        }
+      }
+    });
+    
+    console.log('Final field mappings:', fieldMappings);
+    
+    // Validate required fields
+    const missingFields = requiredFields.filter(field => !fieldMappings[field]);
+    if (missingFields.length > 0) {
+      const fieldNames = {
+        'companyName': 'Company',
+        'personName': 'Person Name/Contact',
+        'email': 'Email'
+      };
+      const missingNames = missingFields.map(field => fieldNames[field as keyof typeof fieldNames]).join(', ');
+      throw new Error(`CSV must contain columns for: ${missingNames}. Found columns: ${headers.join(', ')}`);
+    }
+    
+    // Parse data rows with enhanced performance for large files
+    const leads: Array<Omit<Lead, 'id' | 'createdAt' | 'updatedAt' | 'status' | 'opportunityIds' | 'updateIds'>> = [];
+    const existingEmails = new Set(initialMockLeads.map(lead => lead.email)); // Use Set for faster lookup
+    
+    // Process rows in chunks for large files
+    const chunkSize = 100;
+    const totalRows = lines.length - 1;
+    
+    for (let chunkStart = 1; chunkStart < lines.length; chunkStart += chunkSize) {
+      const chunkEnd = Math.min(chunkStart + chunkSize, lines.length);
+      
+      for (let i = chunkStart; i < chunkEnd; i++) {
+        const line = lines[i];
+        if (!line) continue;
+        
+        const values = parseCSVLine(line);
+        if (values.length < headers.length) {
+          console.warn(`Row ${i + 1} has fewer values than headers, skipping.`);
+          continue;
+        }
+        
+        const leadData: any = {};
+        Object.entries(fieldMappings).forEach(([field, indexStr]) => {
+          const index = parseInt(indexStr);
+          if (index < values.length) {
+            const value = values[index].trim().replace(/^"|"$/g, '');
+            if (value) leadData[field] = value;
+          }
+        });
+        
+        // Validate required fields for this row
+        if (!leadData.companyName || !leadData.personName || !leadData.email) {
+          console.warn(`Row ${i + 1} missing required fields (company, name, or email), skipping.`);
+          continue;
+        }
+        
+        // Validate email format
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(leadData.email)) {
+          console.warn(`Row ${i + 1} has invalid email format: ${leadData.email}, skipping.`);
+          continue;
+        }
+        
+        // Check for duplicate email (optimized for large files)
+        const isDuplicate = leads.some(lead => lead.email === leadData.email) || existingEmails.has(leadData.email);
+        if (isDuplicate) {
+          console.warn(`Row ${i + 1} has duplicate email: ${leadData.email}, skipping.`);
+          continue;
+        }
+        
+        leads.push(leadData);
+      }
+      
+      // Small delay between chunks to prevent browser freezing
+      if (chunkEnd < lines.length) {
+        await new Promise(resolve => setTimeout(resolve, 5));
+      }
+    }
+    
+    console.log('Final parsed leads:', leads.length);
+    return leads;
+  };
+
+  // Helper function to parse CSV line with proper quote handling
+  const parseCSVLine = (line: string): string[] => {
+    const result: string[] = [];
+    let current = '';
+    let inQuotes = false;
+    
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i];
+      
+      if (char === '"') {
+        if (inQuotes && line[i + 1] === '"') {
+          // Escaped quote
+          current += '"';
+          i++; // Skip next quote
+        } else {
+          // Toggle quote state
+          inQuotes = !inQuotes;
+        }
+      } else if (char === ',' && !inQuotes) {
+        // End of field
+        result.push(current);
+        current = '';
+      } else {
+        current += char;
+      }
+    }
+    
+    // Add the last field
+    result.push(current);
+    
+    return result;
   };
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -120,6 +530,140 @@ export default function LeadsPage() {
     setSelectMode(false);
     setSelectedLeads([]);
   };
+
+  // Helper function to determine if a lead should be rejected
+  const shouldRejectLead = (leadData: any): { rejected: boolean; reasons: string[] } => {
+    const reasons: string[] = [];
+    
+    // Check for missing required fields
+    if (!leadData.companyName || leadData.companyName.trim().length < 2) {
+      reasons.push('Invalid or missing company name');
+    }
+    
+    if (!leadData.personName || leadData.personName.trim().length < 2) {
+      reasons.push('Invalid or missing contact name');
+    }
+    
+    if (!leadData.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(leadData.email)) {
+      reasons.push('Invalid or missing email address');
+    }
+    
+    // Check for suspicious or incomplete data
+    if (leadData.companyName && leadData.companyName.trim().length < 3) {
+      reasons.push('Company name too short');
+    }
+    
+    if (leadData.personName && leadData.personName.trim().length < 3) {
+      reasons.push('Contact name too short');
+    }
+    
+    if (leadData.email && leadData.email.includes('example.com')) {
+      reasons.push('Example email address detected');
+    }
+    
+    if (leadData.email && leadData.email.includes('test.com')) {
+      reasons.push('Test email address detected');
+    }
+    
+    if (leadData.phone && leadData.phone.length < 7) {
+      reasons.push('Phone number too short');
+    }
+    
+    // Check for duplicate email (against both leads and rejected leads)
+    const allEmails = [...leads, ...rejectedLeads].map(lead => lead.email);
+    if (leadData.email && allEmails.includes(leadData.email)) {
+      reasons.push('Duplicate email address');
+    }
+    
+    return {
+      rejected: reasons.length > 0,
+      reasons
+    };
+  };
+
+  // Helper function to add a rejected lead
+  const addRejectedLead = (leadData: any, reasons: string[]): Lead => {
+    const rejectedLead: Lead = {
+      id: `rejected-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      companyName: leadData.companyName || 'Unknown Company',
+      personName: leadData.personName || 'Unknown Contact',
+      email: leadData.email || 'no-email@example.com',
+      phone: leadData.phone || '',
+      linkedinProfileUrl: leadData.linkedinProfileUrl || '',
+      country: leadData.country || '',
+      status: 'Rejected' as LeadStatus,
+      opportunityIds: [],
+      updateIds: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      rejectionReasons: reasons // Add rejection reasons to the lead
+    };
+    
+    setRejectedLeads(prev => [rejectedLead, ...prev]);
+    return rejectedLead;
+  };
+
+  // Helper function to approve a rejected lead
+  const handleApproveRejectedLead = (rejectedLeadId: string) => {
+    const rejectedLead = rejectedLeads.find(lead => lead.id === rejectedLeadId);
+    if (!rejectedLead) return;
+
+    // Create a new valid lead from the rejected lead
+    const approvedLead: Lead = {
+      ...rejectedLead,
+      id: `lead-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      status: 'New' as LeadStatus,
+      rejectionReasons: undefined, // Remove rejection reasons
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    // Add to regular leads
+    setLeads(prev => [approvedLead, ...prev]);
+    
+    // Remove from rejected leads
+    setRejectedLeads(prev => prev.filter(lead => lead.id !== rejectedLeadId));
+    
+    toast({
+      title: 'Lead Approved',
+      description: `${approvedLead.companyName} has been approved and moved to leads.`,
+      className: "bg-green-100 dark:bg-green-900 border-green-500"
+    });
+  };
+
+  // Helper function to delete a rejected lead
+  const handleDeleteRejectedLead = (rejectedLeadId: string) => {
+    setRejectedLeads(prev => prev.filter(lead => lead.id !== rejectedLeadId));
+    
+    toast({
+      title: 'Rejected Lead Deleted',
+      description: 'The rejected lead has been permanently deleted.',
+      className: "bg-blue-100 dark:bg-blue-900 border-blue-500"
+    });
+  };
+
+  // Helper function to update a rejected lead
+  const handleUpdateRejectedLead = (rejectedLeadId: string, updatedData: Partial<Lead>) => {
+    setRejectedLeads(prev => prev.map(lead => 
+      lead.id === rejectedLeadId 
+        ? { ...lead, ...updatedData, updatedAt: new Date().toISOString() }
+        : lead
+    ));
+    
+    toast({
+      title: 'Lead Updated',
+      description: 'The rejected lead has been updated successfully.',
+      className: "bg-blue-100 dark:bg-blue-900 border-blue-500"
+    });
+  };
+
+  // Filter rejected leads based on search term
+  const filteredRejectedLeads = rejectedLeads.filter(lead =>
+    lead.companyName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    lead.personName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    lead.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (lead.country && lead.country.toLowerCase().includes(searchTerm.toLowerCase()))
+  );
 
   return (
     <div className="max-w-[1440px] px-4 mx-auto w-full space-y-6">
@@ -213,141 +757,318 @@ export default function LeadsPage() {
                   <input
                     type="checkbox"
                     checked={selectedLeads.length === filteredLeads.length && filteredLeads.length > 0}
-                    readOnly
-                    className="accent-[#97A487] border-none mr-2"
+                    onChange={handleSelectAll}
+                    className="accent-[#97A487] border-none h-4 w-4 mr-2"
                   />
                   Select All ({filteredLeads.length})
                 </Button>
-                <Button
-                  variant="outline"
-                  className="text-[#282828] text-sm px-3 py-2"
-                  onClick={() => setSelectedLeads([])}
-                >
-                  Clear Selection
-                </Button>
               </div>
               <Button
-                variant="add"
-                className="ml-auto px-5 py-2 text-sm"
-                disabled={selectedLeads.length === 0}
+                className="bg-[#97A487] text-white hover:bg-[#8A9A7A] rounded-[6px] px-3 py-2 text-sm"
                 onClick={() => setIsAssignDialogOpen(true)}
+                disabled={selectedLeads.length === 0}
               >
-                <Users className="mr-2 h-4 w-4" />Assign to User
+                Assign {selectedLeads.length} Lead{selectedLeads.length === 1 ? '' : 's'}
               </Button>
             </div>
           )}
         </CardContent>
       </Card>
 
-      {filteredLeads.length > 0 ? (
-        view === 'list' ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-8">
-          {filteredLeads.map((lead) => (
-            <LeadCard
-              key={lead.id}
-              lead={lead}
-              onLeadConverted={handleLeadConverted}
-              {...(selectMode ? {
-                selectMode: true,
-                selected: selectedLeads.includes(lead.id),
-                onSelect: () => handleSelectLead(lead.id)
-              } : {})}
-            />
-          ))}
+      {/* Tab Navigation - Only show when there are rejected leads */}
+      {rejectedLeads.length > 0 && (
+        <div className="flex items-center space-x-1 border-b border-gray-200 dark:border-gray-700 mb-6">
+          <button
+            onClick={() => setActiveTab('leads')}
+            className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-all duration-200 ${
+              activeTab === 'leads'
+                ? 'bg-white dark:bg-gray-800 text-primary border-b-2 border-primary'
+                : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800'
+            }`}
+          >
+            <span className="flex items-center gap-2">
+              Accepted
+              <span className={`px-2 py-0.5 text-xs rounded-full ${
+                activeTab === 'leads'
+                  ? 'bg-primary text-white'
+                  : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
+              }`}>
+                {filteredLeads.length}
+              </span>
+            </span>
+          </button>
+          
+          <button
+            onClick={() => setActiveTab('rejected')}
+            className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-all duration-200 ${
+              activeTab === 'rejected'
+                ? 'bg-white dark:bg-gray-800 text-red-600 border-b-2 border-red-600'
+                : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800'
+            }`}
+          >
+            <span className="flex items-center gap-2">
+              Rejected
+              <span className={`px-2 py-0.5 text-xs rounded-full ${
+                activeTab === 'rejected'
+                  ? 'bg-red-600 text-white'
+                  : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
+              }`}>
+                {filteredRejectedLeads.length}
+              </span>
+            </span>
+          </button>
         </div>
-        ) : (
-          <div className="overflow-x-auto rounded-[8px] shadow">
-            <Table className='rounded-[8px] bg-white'>
-              <TableHeader>
-                <TableRow className='bg-[#CBCAC5] hover:bg-[#CBCAC5]'>
-                  {selectMode && <TableHead className='w-10'></TableHead>}
-                  <TableHead className='text-[#282828] rounded-tl-[8px]'>Company</TableHead>
-                  <TableHead className='text-[#282828]'>Contact Person</TableHead>
-                  <TableHead className='text-[#282828]'>Email</TableHead>
-                  <TableHead className='text-[#282828]'>Phone</TableHead>
-                  <TableHead className='text-[#282828]'>Country</TableHead>
-                  <TableHead className='text-[#282828]'>Status</TableHead>
-                  <TableHead className='text-[#282828]'>Created</TableHead>
-                  <TableHead className='text-[#282828] rounded-tr-[8px]'>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+      )}
+
+      {/* Content - Show leads directly when no rejected leads, or in tabs when there are rejected leads */}
+      {rejectedLeads.length === 0 ? (
+        /* No rejected leads - show leads directly */
+        <div className="mt-6">
+          {filteredLeads.length > 0 ? (
+            view === 'list' ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                 {filteredLeads.map((lead) => (
-                  <TableRow
+                  <LeadCard
                     key={lead.id}
-                    className={`hover:bg-transparent`}
-                    style={selectMode ? { cursor: 'pointer' } : {}}
-                    onClick={selectMode ? () => handleSelectLead(lead.id) : undefined}
-                  >
-                    {selectMode && (
-                      <TableCell className="w-10 align-middle">
-                        <input
-                          type="checkbox"
-                          checked={selectedLeads.includes(lead.id)}
-                          onChange={e => { e.stopPropagation(); handleSelectLead(lead.id); }}
-                          onClick={e => e.stopPropagation()}
-                          className="accent-[#97A487] border-none h-4 w-4"
-                        />
-                      </TableCell>
-                    )}
-                    <TableCell className="font-semibold text-foreground">{lead.companyName}</TableCell>
-                    <TableCell>{lead.personName}</TableCell>
-                    <TableCell><a href={`mailto:${lead.email}`} className="text-primary hover:underline">{lead.email}</a></TableCell>
-                    <TableCell>{lead.phone || '-'}</TableCell>
-                    <TableCell>{lead.country}</TableCell>
-                    <TableCell><span className="inline-block rounded-full bg-muted px-3 py-1 text-xs font-semibold text-muted-foreground" style={{background:'#b0aca7',color:'#23201d'}}>{lead.status}</span></TableCell>
-                    <TableCell>{new Date(lead.createdAt).toLocaleDateString('en-GB')}</TableCell>
-                    <TableCell className="flex gap-2">
-                      <TooltipProvider delayDuration={0}>
-                        {lead.status !== "Converted to Account" && lead.status !== "Lost" && (
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button size="sm" onClick={() => handleLeadConverted(lead.id)} variant="add" className="rounded-[4px] p-2"><CheckSquare className="h-4 w-4" /></Button>
-                            </TooltipTrigger>
-                            <TooltipContent>Convert</TooltipContent>
-                          </Tooltip>
-                        )}
-                        {lead.status !== "Converted to Account" && lead.status !== "Lost" && (
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                  <Button size="sm" variant="delete" className="rounded-[4px] p-2"><Trash2 className="h-4 w-4" /></Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                  <AlertDialogHeader>
-                                    <AlertDialogTitle>Delete Lead?</AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                      Are you sure you want to delete this lead? This action cannot be undone.
-                                    </AlertDialogDescription>
-                                  </AlertDialogHeader>
-                                  <AlertDialogFooter>
-                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                    <AlertDialogAction onClick={() => {
-                                      setLeads(prev => prev.filter(l => l.id !== lead.id));
-                                      // Optionally, call deleteLead(lead.id) if you want to sync with mock data
-                                    }} className="bg-[#916D5B] text-white rounded-[4px] border-0 hover:bg-[#a98a77]">Delete</AlertDialogAction>
-                                  </AlertDialogFooter>
-                                </AlertDialogContent>
-                              </AlertDialog>
-                            </TooltipTrigger>
-                            <TooltipContent>Delete</TooltipContent>
-                          </Tooltip>
-                        )}
-                      </TooltipProvider>
-                    </TableCell>
-                  </TableRow>
+                    lead={lead}
+                    onLeadConverted={(convertedLeadId) => handleLeadConverted(convertedLeadId, 'newAccountId')}
+                    onLeadDeleted={(leadId: string) => {
+                      setLeads(prev => prev.filter(l => l.id !== leadId));
+                    }}
+                  />
                 ))}
-              </TableBody>
-            </Table>
-          </div>
-        )
-      ) : (
-        <div className="text-center py-16">
-          <Search className="mx-auto h-16 w-16 text-muted-foreground/50 mb-6" />
-          <p className="text-xl font-semibold text-foreground mb-2">No Leads Found</p>
-          <p className="text-muted-foreground">Try adjusting your search or filter criteria, or add a new lead.</p>
+              </div>
+            ) : (
+              <div className="rounded-lg border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      {selectMode && <TableHead className="w-10"></TableHead>}
+                      <TableHead className='text-[#282828]'>Company</TableHead>
+                      <TableHead className='text-[#282828]'>Contact</TableHead>
+                      <TableHead className='text-[#282828]'>Email</TableHead>
+                      <TableHead className='text-[#282828]'>Phone</TableHead>
+                      <TableHead className='text-[#282828]'>Country</TableHead>
+                      <TableHead className='text-[#282828]'>Status</TableHead>
+                      <TableHead className='text-[#282828]'>Created</TableHead>
+                      <TableHead className='text-[#282828] rounded-tr-[8px]'>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredLeads.map((lead) => (
+                      <TableRow
+                        key={lead.id}
+                        className={`hover:bg-transparent`}
+                        style={selectMode ? { cursor: 'pointer' } : {}}
+                        onClick={selectMode ? () => handleSelectLead(lead.id) : undefined}
+                      >
+                        {selectMode && (
+                          <TableCell className="w-10 align-middle">
+                            <input
+                              type="checkbox"
+                              checked={selectedLeads.includes(lead.id)}
+                              onChange={e => { e.stopPropagation(); handleSelectLead(lead.id); }}
+                              onClick={e => e.stopPropagation()}
+                              className="accent-[#97A487] border-none h-4 w-4"
+                            />
+                          </TableCell>
+                        )}
+                        <TableCell className="font-semibold text-foreground">{lead.companyName}</TableCell>
+                        <TableCell>{lead.personName}</TableCell>
+                        <TableCell><a href={`mailto:${lead.email}`} className="text-primary hover:underline">{lead.email}</a></TableCell>
+                        <TableCell>{lead.phone || '-'}</TableCell>
+                        <TableCell>{lead.country}</TableCell>
+                        <TableCell><span className="inline-block rounded-full bg-muted px-3 py-1 text-xs font-semibold text-muted-foreground" style={{background:'#b0aca7',color:'#23201d'}}>{lead.status}</span></TableCell>
+                        <TableCell>{new Date(lead.createdAt).toLocaleDateString('en-GB')}</TableCell>
+                        <TableCell className="flex gap-2">
+                          <TooltipProvider delayDuration={0}>
+                            {lead.status !== "Converted to Account" && lead.status !== "Lost" && (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button size="sm" onClick={(e) => { e.stopPropagation(); handleLeadConverted(lead.id, 'newAccountId'); }} variant="add" className="rounded-[4px] p-2"><CheckSquare className="h-4 w-4" /></Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Convert</TooltipContent>
+                              </Tooltip>
+                            )}
+                            {lead.status !== "Converted to Account" && lead.status !== "Lost" && (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                      <Button size="sm" variant="delete" className="rounded-[4px] p-2"><Trash2 className="h-4 w-4" /></Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                      <AlertDialogHeader>
+                                        <AlertDialogTitle>Delete Lead?</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                          Are you sure you want to delete this lead? This action cannot be undone.
+                                        </AlertDialogDescription>
+                                      </AlertDialogHeader>
+                                      <AlertDialogFooter>
+                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                        <AlertDialogAction onClick={(e) => { e.stopPropagation(); setLeads(prev => prev.filter(l => l.id !== lead.id)); }} className="bg-[#916D5B] text-white rounded-[4px] border-0 hover:bg-[#a98a77]">Delete</AlertDialogAction>
+                                      </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                  </AlertDialog>
+                                </TooltipTrigger>
+                                <TooltipContent>Delete</TooltipContent>
+                              </Tooltip>
+                            )}
+                          </TooltipProvider>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )
+          ) : (
+            <div className="text-center py-16">
+              <Search className="mx-auto h-16 w-16 text-muted-foreground/50 mb-6" />
+              <p className="text-xl font-semibold text-foreground mb-2">No Leads Found</p>
+              <p className="text-muted-foreground">Try adjusting your search or filter criteria, or add a new lead.</p>
+            </div>
+          )}
         </div>
+      ) : (
+        /* Has rejected leads - show tabbed content */
+        <>
+          {/* Accepted Leads Tab Content */}
+          {activeTab === 'leads' && (
+            <div className="mt-6">
+              {filteredLeads.length > 0 ? (
+                view === 'list' ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                    {filteredLeads.map((lead) => (
+                      <LeadCard
+                        key={lead.id}
+                        lead={lead}
+                        onLeadConverted={(convertedLeadId) => handleLeadConverted(convertedLeadId, 'newAccountId')}
+                        onLeadDeleted={(leadId: string) => {
+                          setLeads(prev => prev.filter(l => l.id !== leadId));
+                        }}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="rounded-lg border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          {selectMode && <TableHead className="w-10"></TableHead>}
+                          <TableHead className='text-[#282828]'>Company</TableHead>
+                          <TableHead className='text-[#282828]'>Contact</TableHead>
+                          <TableHead className='text-[#282828]'>Email</TableHead>
+                          <TableHead className='text-[#282828]'>Phone</TableHead>
+                          <TableHead className='text-[#282828]'>Country</TableHead>
+                          <TableHead className='text-[#282828]'>Status</TableHead>
+                          <TableHead className='text-[#282828]'>Created</TableHead>
+                          <TableHead className='text-[#282828] rounded-tr-[8px]'>Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredLeads.map((lead) => (
+                          <TableRow
+                            key={lead.id}
+                            className={`hover:bg-transparent`}
+                            style={selectMode ? { cursor: 'pointer' } : {}}
+                            onClick={selectMode ? () => handleSelectLead(lead.id) : undefined}
+                          >
+                            {selectMode && (
+                              <TableCell className="w-10 align-middle">
+                                <input
+                                  type="checkbox"
+                                  checked={selectedLeads.includes(lead.id)}
+                                  onChange={e => { e.stopPropagation(); handleSelectLead(lead.id); }}
+                                  onClick={e => e.stopPropagation()}
+                                  className="accent-[#97A487] border-none h-4 w-4"
+                                />
+                              </TableCell>
+                            )}
+                            <TableCell className="font-semibold text-foreground">{lead.companyName}</TableCell>
+                            <TableCell>{lead.personName}</TableCell>
+                            <TableCell><a href={`mailto:${lead.email}`} className="text-primary hover:underline">{lead.email}</a></TableCell>
+                            <TableCell>{lead.phone || '-'}</TableCell>
+                            <TableCell>{lead.country}</TableCell>
+                            <TableCell><span className="inline-block rounded-full bg-muted px-3 py-1 text-xs font-semibold text-muted-foreground" style={{background:'#b0aca7',color:'#23201d'}}>{lead.status}</span></TableCell>
+                            <TableCell>{new Date(lead.createdAt).toLocaleDateString('en-GB')}</TableCell>
+                            <TableCell className="flex gap-2">
+                              <TooltipProvider delayDuration={0}>
+                                {lead.status !== "Converted to Account" && lead.status !== "Lost" && (
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button size="sm" onClick={(e) => { e.stopPropagation(); handleLeadConverted(lead.id, 'newAccountId'); }} variant="add" className="rounded-[4px] p-2"><CheckSquare className="h-4 w-4" /></Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>Convert</TooltipContent>
+                                  </Tooltip>
+                                )}
+                                {lead.status !== "Converted to Account" && lead.status !== "Lost" && (
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <AlertDialog>
+                                        <AlertDialogTrigger asChild>
+                                          <Button size="sm" variant="delete" className="rounded-[4px] p-2"><Trash2 className="h-4 w-4" /></Button>
+                                        </AlertDialogTrigger>
+                                        <AlertDialogContent>
+                                          <AlertDialogHeader>
+                                            <AlertDialogTitle>Delete Lead?</AlertDialogTitle>
+                                            <AlertDialogDescription>
+                                              Are you sure you want to delete this lead? This action cannot be undone.
+                                            </AlertDialogDescription>
+                                          </AlertDialogHeader>
+                                          <AlertDialogFooter>
+                                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                            <AlertDialogAction onClick={(e) => { e.stopPropagation(); setLeads(prev => prev.filter(l => l.id !== lead.id)); }} className="bg-[#916D5B] text-white rounded-[4px] border-0 hover:bg-[#a98a77]">Delete</AlertDialogAction>
+                                          </AlertDialogFooter>
+                                        </AlertDialogContent>
+                                      </AlertDialog>
+                                    </TooltipTrigger>
+                                    <TooltipContent>Delete</TooltipContent>
+                                  </Tooltip>
+                                )}
+                              </TooltipProvider>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )
+              ) : (
+                <div className="text-center py-16">
+                  <Search className="mx-auto h-16 w-16 text-muted-foreground/50 mb-6" />
+                  <p className="text-xl font-semibold text-foreground mb-2">No Leads Found</p>
+                  <p className="text-muted-foreground">Try adjusting your search or filter criteria, or add a new lead.</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Rejected Leads Tab Content */}
+          {activeTab === 'rejected' && (
+            <div className="mt-6">
+              {filteredRejectedLeads.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                  {filteredRejectedLeads.map((lead) => (
+                    <RejectedLeadCard
+                      key={lead.id}
+                      lead={lead}
+                      onApprove={handleApproveRejectedLead}
+                      onDelete={handleDeleteRejectedLead}
+                      onUpdate={handleUpdateRejectedLead}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-16">
+                  <AlertTriangle className="mx-auto h-16 w-16 text-muted-foreground/50 mb-6" />
+                  <p className="text-xl font-semibold text-foreground mb-2">No Rejected Leads</p>
+                  <p className="text-muted-foreground">All imported leads have passed validation.</p>
+                </div>
+              )}
+            </div>
+          )}
+        </>
       )}
       <AddLeadDialog
         open={isAddLeadDialogOpen}
@@ -377,7 +1098,21 @@ export default function LeadsPage() {
                   >
                     <Image src="/images/import.svg" alt="Uploading" width={40} height={40} className="opacity-70" />
                   </motion.div>
-                  <span className="text-muted-foreground text-sm">Parsing and uploading...</span>
+                  <span className="text-muted-foreground text-sm mb-2">{importProgress.message}</span>
+                  {importProgress.total > 0 && (
+                    <div className="w-full max-w-xs">
+                      <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                        <span>{importProgress.current} / {importProgress.total}</span>
+                        <span>{Math.round((importProgress.current / importProgress.total) * 100)}%</span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div 
+                          className="bg-primary h-2 rounded-full transition-all duration-300"
+                          style={{ width: `${(importProgress.current / importProgress.total) * 100}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
                 </motion.div>
               ) : uploadSuccess ? (
                 <motion.div

@@ -2,7 +2,7 @@ export type AccountType = "Client" | "Channel Partner";
 export type AccountStatus = "Active" | "Inactive";
 export type OpportunityStatus = "Need Analysis" | "Negotiation" | "In Progress" | "On Hold" | "Completed" | "Cancelled";
 export type UpdateType = "General" | "Call" | "Meeting" | "Email";
-export type LeadStatus = "New" | "Contacted" | "Qualified" | "Proposal Sent" | "Converted to Account" | "Lost";
+export type LeadStatus = "New" | "Contacted" | "Qualified" | "Proposal Sent" | "Converted to Account" | "Lost" | "Rejected";
 
 export interface Account {
   id: string;
@@ -34,6 +34,7 @@ export interface Lead {
   createdAt: string;
   updatedAt: string;
   assignedUserId?: string; // NEW: user assignment
+  rejectionReasons?: string[]; // Reasons why the lead was rejected
 }
 
 export interface Opportunity {
