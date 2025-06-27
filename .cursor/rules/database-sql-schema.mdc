@@ -1,0 +1,124 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+-- Enable the pgcrypto extension for UUID generation
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
+-- Company Table
+CREATE TABLE company (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    name text UNIQUE NOT NULL,
+    address text,
+    industry text,
+    created_at timestamptz DEFAULT now(),
+    updated_at timestamptz DEFAULT now()
+    -- Only the admin can edit/update this record
+);
+
+-- User Table
+CREATE TABLE users (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    name text NOT NULL,
+    pin text UNIQUE NOT NULL,
+    email text UNIQUE NOT NULL,
+    role text NOT NULL CHECK (role IN ('admin', 'user')),
+    created_at timestamptz DEFAULT now(),
+    updated_at timestamptz DEFAULT now()
+);
+
+-- Lead Table
+CREATE TABLE lead (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    company_name text,
+    person_name text,
+    email text,
+    phone text,
+    linkedin_profile_url text,
+    country text,
+    status text NOT NULL CHECK (status IN ('New', 'Qualified', 'Proposal Sent', 'Converted to Account', 'Lost')),
+    owner_id uuid REFERENCES users(id),
+    created_at timestamptz DEFAULT now(),
+    updated_at timestamptz DEFAULT now()
+);
+
+-- Account Table
+CREATE TABLE account (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    name text NOT NULL,
+    type text NOT NULL CHECK (type IN ('Client', 'Channel Partner')),
+    status text NOT NULL CHECK (status IN ('Active', 'Inactive')),
+    description text,
+    contact_email text,
+    industry text,
+    contact_person_name text,
+    contact_phone text,
+    converted_from_lead_id uuid REFERENCES lead(id),
+    owner_id uuid REFERENCES users(id),
+    created_at timestamptz DEFAULT now(),
+    updated_at timestamptz DEFAULT now()
+);
+
+-- Opportunity Table
+CREATE TABLE opportunity (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    name text NOT NULL,
+    account_id uuid REFERENCES account(id),
+    status text NOT NULL CHECK (status IN ('Need Analysis', 'In Progress', 'Negotiation')),
+    value numeric,
+    start_date timestamptz,
+    end_date timestamptz,
+    description text,
+    owner_id uuid REFERENCES users(id),
+    created_at timestamptz DEFAULT now(),
+    updated_at timestamptz DEFAULT now()
+);
+
+-- Update Table
+CREATE TABLE update (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    type text NOT NULL CHECK (type IN ('Call', 'Email', 'Meeting', 'General')),
+    content text,
+    updated_by_user_id uuid REFERENCES users(id),
+    date timestamptz,
+    created_at timestamptz DEFAULT now(),
+    lead_id uuid REFERENCES lead(id),
+    opportunity_id uuid REFERENCES opportunity(id),
+    account_id uuid REFERENCES account(id)
+);
+
+-- AIAnalysis Table
+CREATE TABLE aianalysis (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    entity_type text NOT NULL CHECK (entity_type IN ('Account', 'Lead', 'Opportunity', 'Company')),
+    entity_id uuid NOT NULL,
+    analysis_type text,
+    content text,
+    last_refreshed_at timestamptz,
+    next_refresh_at timestamptz,
+    refresh_interval_minutes integer,
+    status text NOT NULL CHECK (status IN ('pending', 'success', 'error')),
+    error_message text,
+    created_at timestamptz DEFAULT now(),
+    updated_at timestamptz DEFAULT now()
+);
+
+-- LeadImport Table
+CREATE TABLE leadimport (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    file_name text,
+    file_type text CHECK (file_type IN ('csv', 'xlsx')),
+    imported_by uuid REFERENCES users(id),
+    status text NOT NULL CHECK (status IN ('pending', 'processing', 'success', 'error')),
+    error_message text,
+    imported_count integer,
+    created_at timestamptz DEFAULT now(),
+    completed_at timestamptz
+);
+
+-- Access Control Notes:
+-- - Admin users (role = 'admin') can view and manage all records, and can edit/update the company info.
+-- - Regular users (role = 'user') can only view and manage:
+--   - Accounts, Leads, Opportunities, and Updates where they are the owner_id or updated_by_user_id.
+--   - Records assigned to them by the admin.

@@ -2,51 +2,42 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { DEMO_PIN, AUTH_TOKEN_KEY } from '@/lib/constants';
+import { supabase } from '@/lib/supabaseClient';
 
 export function useAuth() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
 
+  // Persist authentication state across reloads
   useEffect(() => {
-    try {
-      const token = localStorage.getItem(AUTH_TOKEN_KEY);
-      if (token === DEMO_PIN) {
-        setIsAuthenticated(true);
-      } else {
-        setIsAuthenticated(false);
-      }
-    } catch (error) {
-      // localStorage might not be available (e.g. SSR or incognito)
-      setIsAuthenticated(false);
-    } finally {
-      setIsLoading(false);
-    }
+    const userId = localStorage.getItem('user_id');
+    setIsAuthenticated(!!userId);
   }, []);
 
   const login = useCallback(async (pin: string) => {
-    if (pin === DEMO_PIN) {
-      try {
-        localStorage.setItem(AUTH_TOKEN_KEY, pin);
-      } catch (error) {
-        // Handle localStorage error (e.g. private browsing)
-        console.warn("Could not save auth token to localStorage", error);
-      }
+    setIsLoading(true);
+    const { data, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('pin', pin)
+      .single();
+
+    if (data && !error) {
+      localStorage.setItem('user_id', data.id);
       setIsAuthenticated(true);
       router.push('/dashboard');
+      setIsLoading(false);
       return true;
+    } else {
+      setIsAuthenticated(false);
+      setIsLoading(false);
+      return false;
     }
-    setIsAuthenticated(false);
-    return false;
   }, [router]);
 
   const logout = useCallback(() => {
-    try {
-      localStorage.removeItem(AUTH_TOKEN_KEY);
-    } catch (error) {
-       console.warn("Could not remove auth token from localStorage", error);
-    }
+    localStorage.removeItem('user_id');
     setIsAuthenticated(false);
     router.push('/login');
   }, [router]);

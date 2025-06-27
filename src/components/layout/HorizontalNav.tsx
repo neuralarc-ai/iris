@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Image from "next/image";
@@ -22,6 +22,7 @@ import {
   TooltipContent,
   TooltipProvider,
 } from "@/components/ui/tooltip";
+import { supabase } from '@/lib/supabaseClient';
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -35,6 +36,37 @@ const navItems = [
 export default function HorizontalNav() {
   const pathname = usePathname();
   const [isAddAccountDialogOpen, setIsAddAccountDialogOpen] = useState(false);
+  const [role, setRole] = useState<string | null>(null);
+  const [checkingRole, setCheckingRole] = useState(true);
+
+  useEffect(() => {
+    const checkRole = async () => {
+      const userId = localStorage.getItem('user_id');
+      if (!userId) {
+        setRole(null);
+        setCheckingRole(false);
+        return;
+      }
+      const { data, error } = await supabase
+        .from('users')
+        .select('role')
+        .eq('id', userId)
+        .single();
+      if (error || !data) {
+        setRole(null);
+      } else {
+        setRole(data.role);
+      }
+      setCheckingRole(false);
+    };
+    checkRole();
+  }, []);
+
+  if (checkingRole) return null;
+
+  const filteredNavItems = role === 'admin'
+    ? navItems
+    : navItems.filter(item => item.href !== '/settings/users');
 
   return (
     <>
@@ -57,7 +89,7 @@ export default function HorizontalNav() {
           <div className="flex flex-1 items-center justify-center gap-1">
             <TooltipProvider delayDuration={0}>
               <nav className="hidden md:flex flex-1 items-center justify-center gap-1">
-                {navItems.map((item) => (
+                {filteredNavItems.map((item) => (
                   <Tooltip key={item.href}>
                     <TooltipTrigger asChild>
                       <Button
@@ -105,7 +137,7 @@ export default function HorizontalNav() {
             height: "50px",
           }}
         >
-          {navItems.map((item) => (
+          {filteredNavItems.map((item) => (
             <Button
               key={item.href}
               variant="ghost"
