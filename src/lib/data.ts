@@ -1,4 +1,4 @@
-import type { Account, Opportunity, Update, User, Lead, LeadStatus, OpportunityStatus, AccountType, UpdateType } from '@/types';
+import type { Account, Opportunity, Update, User, Lead, LeadStatus, OpportunityStatus, AccountType, UpdateType, AccountStatus } from '@/types';
 import { DEMO_PIN } from '@/lib/constants';
 import { countries } from '@/lib/countryData'; // Import countries
 
@@ -25,6 +25,7 @@ export const mockLeads: Lead[] = [ // Made 'let' for modification
     country: 'Japan',
     createdAt: oneWeekAgo.toISOString(),
     updatedAt: yesterday.toISOString(),
+    assignedUserId: 'user_admin_000',
   },
   {
     id: 'lead_002',
@@ -37,6 +38,7 @@ export const mockLeads: Lead[] = [ // Made 'let' for modification
     country: 'United States',
     createdAt: oneMonthAgo.toISOString(),
     updatedAt: oneWeekAgo.toISOString(),
+    assignedUserId: 'user_jane_001',
   },
   {
     id: 'lead_003',
@@ -49,6 +51,7 @@ export const mockLeads: Lead[] = [ // Made 'let' for modification
     country: 'United States',
     createdAt: today.toISOString(),
     updatedAt: today.toISOString(),
+    assignedUserId: 'user_admin_000',
   }
 ];
 

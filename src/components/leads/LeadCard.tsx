@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Users, User, Mail, Phone, Eye, CheckSquare, FileWarning, CalendarPlus, History, Linkedin, MapPin, Trash2, Pencil, X } from 'lucide-react';
 import type { Lead, Update } from '@/types';
 import { add, formatDistanceToNow, format } from 'date-fns';
-import { convertLeadToAccount, deleteLead } from '@/lib/data';
+import { convertLeadToAccount, deleteLead, mockUsers } from '@/lib/data';
 import { useToast } from "@/hooks/use-toast";
 import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from '@/components/ui/alert-dialog';
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
@@ -69,6 +69,9 @@ export default function LeadCard({ lead, onLeadConverted, onLeadDeleted, selectM
     country: lead.country || '',
   });
   const [logs, setLogs] = React.useState<Update[]>([]);
+  const [isViewDialogOpen, setIsViewDialogOpen] = React.useState(false);
+  const [assignedUserId, setAssignedUserId] = React.useState(lead.assignedUserId || '');
+  const assignedUser = mockUsers.find(u => u.id === assignedUserId);
 
   const handleConvertLead = async () => {
     if (lead.status === "Converted to Account" || lead.status === "Lost") {
@@ -147,13 +150,19 @@ export default function LeadCard({ lead, onLeadConverted, onLeadDeleted, selectM
     setEditMode(false);
   };
 
+  const handleAssignUser = (userId: string) => {
+    setAssignedUserId(userId);
+    // Optionally update mock data for demo
+    lead.assignedUserId = userId;
+  };
+
   return (
     <>
       <Card
         className={
           `shadow-md hover:shadow-lg transition-shadow duration-300 flex flex-col h-full bg-white ${selectMode && selected ? 'ring-2 ring-[#97A487] ring-offset-2' : ''}`
         }
-        onClick={selectMode ? onSelect : () => setIsDialogOpen(true)}
+        onClick={selectMode ? onSelect : undefined}
         style={selectMode ? { cursor: 'pointer' } : {}}
       >
         <CardHeader className="pb-3">
@@ -173,7 +182,7 @@ export default function LeadCard({ lead, onLeadConverted, onLeadDeleted, selectM
               <Users className="mr-2 h-4 w-4 shrink-0"/> {lead.personName}
           </CardDescription>
         </CardHeader>
-        <CardContent className="flex-grow space-y-2.5 text-sm">
+        <CardContent className="flex-grow space-y-2.5 text-sm" onClick={selectMode ? undefined : () => setIsDialogOpen(true)} style={selectMode ? {} : { cursor: 'pointer' }}>
           {lead.email && (
             <div className="flex items-center text-muted-foreground">
               <Mail className="mr-2 h-4 w-4 shrink-0" />
@@ -210,11 +219,9 @@ export default function LeadCard({ lead, onLeadConverted, onLeadDeleted, selectM
           </div>
         </CardContent>
         <CardFooter className="pt-4 border-t mt-auto">
-          <Button variant="outline" size="sm" asChild className="mr-auto rounded-[2px]">
-            <Link href={`/leads?id=${lead.id}#details`}>
-              <Eye className="mr-2 h-4 w-4" />
-              View
-            </Link>
+          <Button variant="outline" size="sm" className="mr-auto rounded-[2px]" onClick={() => setIsViewDialogOpen(true)}>
+            <Eye className="mr-2 h-4 w-4" />
+            View
           </Button>
           <TooltipProvider delayDuration={0}>
           {canConvert ? (
@@ -291,62 +298,60 @@ export default function LeadCard({ lead, onLeadConverted, onLeadDeleted, selectM
                 {editMode ? <X className="h-5 w-5" /> : <Pencil className="h-5 w-5" />}
               </Button>
             </DialogTitle>
-            <DialogDescription>
-              <div className="grid grid-cols-1 gap-2 mt-2">
-                <div>
-                  <span className="font-semibold">Name:</span>{' '}
-                  {editMode ? (
-                    <Input
-                      value={editLead.personName}
-                      onChange={e => handleEditChange('personName', e.target.value)}
-                      className="border-none bg-transparent px-0 focus:ring-0 focus:outline-none"
-                      placeholder="Person Name"
-                    />
-                  ) : (
-                    editLead.personName
-                  )}
-                </div>
-                <div>
-                  <span className="font-semibold">Email:</span>{' '}
-                  {editMode ? (
-                    <Input
-                      value={editLead.email}
-                      onChange={e => handleEditChange('email', e.target.value)}
-                      className="border-none bg-transparent px-0 focus:ring-0 focus:outline-none"
-                      placeholder="Email"
-                    />
-                  ) : (
-                    editLead.email
-                  )}
-                </div>
-                <div>
-                  <span className="font-semibold">Number:</span>{' '}
-                  {editMode ? (
-                    <Input
-                      value={editLead.phone}
-                      onChange={e => handleEditChange('phone', e.target.value)}
-                      className="border-none bg-transparent px-0 focus:ring-0 focus:outline-none"
-                      placeholder="Phone"
-                    />
-                  ) : (
-                    editLead.phone || 'N/A'
-                  )}
-                </div>
-                <div>
-                  <span className="font-semibold">Location:</span>{' '}
-                  {editMode ? (
-                    <Input
-                      value={editLead.country}
-                      onChange={e => handleEditChange('country', e.target.value)}
-                      className="border-none bg-transparent px-0 focus:ring-0 focus:outline-none"
-                      placeholder="Location"
-                    />
-                  ) : (
-                    editLead.country || 'N/A'
-                  )}
-                </div>
+            <div className="grid grid-cols-1 gap-2 mt-2">
+              <div>
+                <span className="font-semibold">Name:</span>{' '}
+                {editMode ? (
+                  <Input
+                    value={editLead.personName}
+                    onChange={e => handleEditChange('personName', e.target.value)}
+                    className="border-none bg-transparent px-0 focus:ring-0 focus:outline-none"
+                    placeholder="Person Name"
+                  />
+                ) : (
+                  editLead.personName
+                )}
               </div>
-            </DialogDescription>
+              <div>
+                <span className="font-semibold">Email:</span>{' '}
+                {editMode ? (
+                  <Input
+                    value={editLead.email}
+                    onChange={e => handleEditChange('email', e.target.value)}
+                    className="border-none bg-transparent px-0 focus:ring-0 focus:outline-none"
+                    placeholder="Email"
+                  />
+                ) : (
+                  editLead.email
+                )}
+              </div>
+              <div>
+                <span className="font-semibold">Number:</span>{' '}
+                {editMode ? (
+                  <Input
+                    value={editLead.phone}
+                    onChange={e => handleEditChange('phone', e.target.value)}
+                    className="border-none bg-transparent px-0 focus:ring-0 focus:outline-none"
+                    placeholder="Phone"
+                  />
+                ) : (
+                  editLead.phone || 'N/A'
+                )}
+              </div>
+              <div>
+                <span className="font-semibold">Location:</span>{' '}
+                {editMode ? (
+                  <Input
+                    value={editLead.country}
+                    onChange={e => handleEditChange('country', e.target.value)}
+                    className="border-none bg-transparent px-0 focus:ring-0 focus:outline-none"
+                    placeholder="Location"
+                  />
+                ) : (
+                  editLead.country || 'N/A'
+                )}
+              </div>
+            </div>
           </DialogHeader>
           <div className="mt-4">
             <div className="mb-2 text-sm font-semibold">Lead: {editLead.companyName}</div>
@@ -439,6 +444,41 @@ export default function LeadCard({ lead, onLeadConverted, onLeadDeleted, selectM
                 </DialogFooter>
               </form>
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
+        <DialogContent className="sm:max-w-lg bg-white">
+          <DialogHeader>
+            <DialogTitle>Lead Details</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="grid grid-cols-1 gap-2">
+              <div><span className="font-semibold">Company:</span> {lead.companyName}</div>
+              <div><span className="font-semibold">Contact:</span> {lead.personName}</div>
+              <div><span className="font-semibold">Email:</span> {lead.email}</div>
+              <div><span className="font-semibold">Phone:</span> {lead.phone || 'N/A'}</div>
+              <div><span className="font-semibold">Country:</span> {lead.country || 'N/A'}</div>
+              <div><span className="font-semibold">Status:</span> {lead.status}</div>
+              <div><span className="font-semibold">Created:</span> {formatDistanceToNow(new Date(lead.createdAt), { addSuffix: true })}</div>
+              <div><span className="font-semibold">Last Updated:</span> {formatDistanceToNow(new Date(lead.updatedAt), { addSuffix: true })}</div>
+            </div>
+            <div className="pt-2">
+              <span className="font-semibold">Assigned To:</span>
+              <Select value={assignedUserId} onValueChange={handleAssignUser}>
+                <SelectTrigger className="w-full mt-1">
+                  <SelectValue placeholder="Assign to user" />
+                </SelectTrigger>
+                <SelectContent>
+                  {mockUsers.map(user => (
+                    <SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {assignedUser && (
+                <div className="mt-1 text-sm text-muted-foreground">Currently assigned to: <span className="font-medium">{assignedUser.name}</span></div>
+              )}
+            </div>
           </div>
         </DialogContent>
       </Dialog>

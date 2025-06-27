@@ -1,4 +1,3 @@
-
 export type AccountType = "Client" | "Channel Partner";
 export type AccountStatus = "Active" | "Inactive";
 export type OpportunityStatus = "Need Analysis" | "Negotiation" | "In Progress" | "On Hold" | "Completed" | "Cancelled";
@@ -34,6 +33,7 @@ export interface Lead {
   updateIds?: string[]; // Direct updates to this lead
   createdAt: string;
   updatedAt: string;
+  assignedUserId?: string; // NEW: user assignment
 }
 
 export interface Opportunity {

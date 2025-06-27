@@ -173,7 +173,7 @@ export default function LeadsPage() {
                 />
               </div>
             </div>
-            <div className="flex items-end gap-2 w-full">
+            <div className="flex items-end gap-4 w-full">
               <div className="flex-1">
                 <Label htmlFor="status-filter">Status</Label>
                 <Select value={statusFilter} onValueChange={(value: LeadStatus | 'all') => setStatusFilter(value)}>
