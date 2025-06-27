@@ -5,13 +5,20 @@ import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { BarChartBig, DollarSign, CalendarDays, Eye, AlertTriangle, CheckCircle2, Briefcase, Lightbulb, TrendingUp, Users, Clock } from 'lucide-react';
-import type { Opportunity, OpportunityForecast as AIOpportunityForecast, Account } from '@/types';
+import { BarChartBig, DollarSign, CalendarDays, Eye, AlertTriangle, CheckCircle2, Briefcase, Lightbulb, TrendingUp, Users, Clock, MessageSquarePlus, Calendar as CalendarIcon, Sparkles } from 'lucide-react';
+import type { Opportunity, OpportunityForecast as AIOpportunityForecast, Account, OpportunityStatus, Update } from '@/types';
 import { Progress } from "@/components/ui/progress";
 import {format, differenceInDays, parseISO, formatDistanceToNowStrict} from 'date-fns';
 import { aiPoweredOpportunityForecasting } from '@/ai/flows/ai-powered-opportunity-forecasting';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { getAccountById } from '@/lib/data';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+import { useToast } from '@/hooks/use-toast';
+import { getUpdatesForOpportunity, addUpdate } from '@/lib/data';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Calendar } from '@/components/ui/calendar';
 
 interface OpportunityCardProps {
   opportunity: Opportunity;
@@ -30,32 +37,52 @@ const getStatusBadgeColorClasses = (status: Opportunity['status']): string => {
 };
 
 
-const calculateProgress = (startDate: string, endDate: string, status: Opportunity['status']): number => {
-  if (status === 'Completed') return 100;
-  if (status === 'Cancelled') return 0;
-  if (status === 'Need Analysis' && new Date() < parseISO(startDate)) return 0;
-
+function calculateProgress(startDate: string, endDate: string, status: OpportunityStatus): number {
+  switch (status) {
+    case 'Completed':
+      return 100;
+    case 'Cancelled':
+      return 0;
+    case 'Need Analysis':
+      if (new Date() < parseISO(startDate)) return 0;
+      break;
+    case 'Negotiation':
+    case 'In Progress':
+    case 'On Hold':
+      break;
+    default:
+      return 0;
+  }
 
   const start = parseISO(startDate);
   const end = parseISO(endDate);
   const today = new Date();
 
   if (today < start) return 5; // Slight progress if it hasn't started but not cancelled
-  if (today >= end && status !== 'Completed') return 95; // Near completion if past end date but not marked complete
+  if (today >= end) return 95; // Near completion if past end date but not marked complete
 
   const totalDuration = differenceInDays(end, start);
   const elapsedDuration = differenceInDays(today, start);
 
-  if (totalDuration <= 0) return status === 'In Progress' || status === 'Negotiation' || status === 'On Hold' ? 50 : 0;
+  if (totalDuration <= 0) return (status === 'In Progress' || status === 'Negotiation' || status === 'On Hold') ? 50 : 0;
 
   return Math.min(98, Math.max(5, (elapsedDuration / totalDuration) * 100)); // Ensure progress is between 5 and 98 unless completed/cancelled
-};
+}
 
 
 export default function OpportunityCard({ opportunity }: OpportunityCardProps) {
   const [forecast, setForecast] = useState<AIOpportunityForecast | null>(null);
   const [isLoadingForecast, setIsLoadingForecast] = useState(false);
   const [associatedAccount, setAssociatedAccount] = useState<Account | undefined>(undefined);
+  const { toast } = useToast();
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [activityLogs, setActivityLogs] = useState(() => getUpdatesForOpportunity(opportunity.id));
+  const [newActivityDescription, setNewActivityDescription] = useState('');
+  const [isLoggingActivity, setIsLoggingActivity] = useState(false);
+  const [nextActionDate, setNextActionDate] = useState<Date | undefined>(undefined);
+  const [showAiInsights, setShowAiInsights] = useState(false);
+
+  const status = opportunity.status as OpportunityStatus;
 
   useEffect(() => {
     if (opportunity.accountId) {
@@ -92,7 +119,11 @@ export default function OpportunityCard({ opportunity }: OpportunityCardProps) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [opportunity.id, opportunity.name, opportunity.startDate, opportunity.endDate, opportunity.value, opportunity.status, opportunity.description]);
 
-  const progress = calculateProgress(opportunity.startDate, opportunity.endDate, opportunity.status);
+  useEffect(() => {
+    setActivityLogs(getUpdatesForOpportunity(opportunity.id));
+  }, [opportunity.id]);
+
+  const progress = calculateProgress(opportunity.startDate, opportunity.endDate, opportunity.status as OpportunityStatus);
   const isAtRisk = forecast?.bottleneckIdentification && forecast.bottleneckIdentification.toLowerCase() !== "none identified" && forecast.bottleneckIdentification.toLowerCase() !== "none" && forecast.bottleneckIdentification !== "Error fetching forecast." && forecast.bottleneckIdentification.length > 0;
   
   let opportunityHealthIcon = <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />;
@@ -107,7 +138,7 @@ export default function OpportunityCard({ opportunity }: OpportunityCardProps) {
 
 
   const accountName = associatedAccount?.name;
-  const timeRemaining = (status: Opportunity['status']): string => {
+  function timeRemaining(status: OpportunityStatus): string {
     if (status === 'Completed' || status === 'Cancelled') return status;
     const end = parseISO(opportunity.endDate);
     const now = new Date();
@@ -115,82 +146,214 @@ export default function OpportunityCard({ opportunity }: OpportunityCardProps) {
     return `${formatDistanceToNowStrict(end, {addSuffix: false})} left`;
   }
 
+  const handleLogActivity = async () => {
+    if (!newActivityDescription.trim()) {
+      toast({ title: "Error", description: "Please enter a description for the activity.", variant: "destructive" });
+      return;
+    }
+    setIsLoggingActivity(true);
+    try {
+      const newUpdate = addUpdate({
+        type: 'General',
+        content: newActivityDescription,
+        opportunityId: opportunity.id,
+        accountId: opportunity.accountId,
+      });
+      setActivityLogs(getUpdatesForOpportunity(opportunity.id));
+      setNewActivityDescription('');
+      toast({ title: "Success", description: "Activity logged successfully." });
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to log activity. Please try again.", variant: "destructive" });
+    } finally {
+      setIsLoggingActivity(false);
+    }
+  };
+
+  const renderActivityLogItem = (log: Update) => (
+    <div key={log.id} className="flex items-start space-x-3 p-3 rounded-r-lg bg-muted/30 border-l-4 border-muted">
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center justify-between mb-1">
+          <p className="text-sm font-medium text-foreground line-clamp-2">{log.content}</p>
+          <span className="text-xs flex-shrink-0 text-muted-foreground ml-2">{format(parseISO(log.date), 'MMM dd')}</span>
+        </div>
+        <div className="flex items-center space-x-2">
+          <Badge variant="outline" className="text-xs">{log.type}</Badge>
+        </div>
+      </div>
+    </div>
+  );
+
+  const toggleAiInsights = () => setShowAiInsights((prev) => !prev);
+
   return (
-    <Card className="shadow-md hover:shadow-lg transition-shadow duration-300 flex flex-col h-full bg-white">
-      <CardHeader className="pb-3">
-        <div className="flex justify-between items-start mb-1">
-          <CardTitle className="text-xl font-headline flex items-center text-foreground">
-            <BarChartBig className="mr-2 h-5 w-5 text-primary shrink-0" />
-            {opportunity.name}
-          </CardTitle>
-          <Badge variant="secondary" className={`capitalize whitespace-nowrap ml-2 ${getStatusBadgeColorClasses(opportunity.status)}`}>
-            {opportunity.status}
-          </Badge>
-        </div>
-        <CardDescription className="text-sm text-muted-foreground">
-            {accountName && (
-                <span className="flex items-center">
-                  <Briefcase className="mr-1.5 h-4 w-4 shrink-0" /> For: {accountName}
-                </span>
-            )}
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="flex-grow space-y-3.5 text-sm">
-        <div className="flex items-center text-foreground">
-            <DollarSign className="mr-2 h-4 w-4 text-green-600 shrink-0" />
-            <span className="font-medium">Quoted Value:</span>
-            <span className="ml-1.5 text-muted-foreground">${opportunity.value.toLocaleString()}</span>
-        </div>
-
-        <p className="text-muted-foreground line-clamp-2">{opportunity.description}</p>
-
-        <div>
-          <div className="flex items-center text-muted-foreground mb-1">
-            <CalendarDays className="mr-2 h-4 w-4 shrink-0" />
-            <span>{format(parseISO(opportunity.startDate), 'MMM dd, yyyy')} - {format(parseISO(opportunity.endDate), 'MMM dd, yyyy')}</span>
+    <>
+      <Card className="shadow-md hover:shadow-lg transition-shadow duration-300 bg-white flex flex-col h-full cursor-pointer" onClick={() => setIsDialogOpen(true)}>
+        <CardHeader className="pb-3">
+          <div className="flex justify-between items-start mb-2">
+            <CardTitle className="text-lg font-headline text-foreground line-clamp-1 flex items-center">
+              <BarChartBig className="mr-2 h-5 w-5 text-primary shrink-0" />
+              {opportunity.name}
+            </CardTitle>
+            <Badge variant="secondary" className={`capitalize whitespace-nowrap ml-2 ${getStatusBadgeColorClasses(opportunity.status)}`}>{opportunity.status}</Badge>
           </div>
-          <Progress value={progress} className="h-2 my-1" />
-          <div className="flex justify-between text-xs text-muted-foreground">
-            <span className="flex items-center"><Clock className="mr-1 h-3 w-3 shrink-0"/>{timeRemaining(opportunity.status)}</span>
-            <div className="flex items-center gap-1">
+          <div className="space-y-1">
+            <div className="flex items-center text-muted-foreground">
+              <Briefcase className="mr-2 h-4 w-4 shrink-0" />
+              <span className="text-xs">{accountName}</span>
+            </div>
+            <div className="flex items-center text-muted-foreground">
+              <DollarSign className="mr-2 h-4 w-4 text-green-600 shrink-0" />
+              <span className="font-medium text-foreground">${opportunity.value.toLocaleString()}</span>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-3 flex-grow">
+          <div className="bg-[#F8F7F3] p-3 rounded-[4px]">
+            <p className="text-sm text-foreground line-clamp-3">{opportunity.description}</p>
+          </div>
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+            <div className="flex items-center text-muted-foreground text-xs">
+              <CalendarDays className="mr-2 h-4 w-4 shrink-0" />
+              <span>{format(parseISO(opportunity.startDate), 'MMM dd, yyyy')} - {format(parseISO(opportunity.endDate), 'MMM dd, yyyy')}</span>
+            </div>
+            <div className="flex items-center text-muted-foreground text-xs">
+              <Clock className="mr-1 h-3 w-3 shrink-0"/>{timeRemaining(opportunity.status as OpportunityStatus)}
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Progress value={progress} className="h-2 flex-1" gradient="linear-gradient(90deg, #3987BE 0%, #D48EA3 100%)" />
+            <div className="flex items-center gap-1 text-xs">
               {opportunityHealthIcon} {opportunityHealthText}
             </div>
           </div>
-        </div>
-
-        {(forecast || isLoadingForecast) && opportunity.status !== 'Completed' && opportunity.status !== 'Cancelled' && (
+          {(forecast || isLoadingForecast) && opportunity.status !== 'Completed' && opportunity.status !== 'Cancelled' && (
             <div className="pt-3 border-t mt-3">
-                <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-1.5 flex items-center">
-                    <Lightbulb className="mr-1.5 h-3.5 w-3.5 text-yellow-500" /> AI Forecast
-                </h4>
-            {isLoadingForecast ? (
+              <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-1.5 flex items-center">
+                <Lightbulb className="mr-1.5 h-3.5 w-3.5 text-yellow-500" /> AI Forecast
+              </h4>
+              {isLoadingForecast ? (
                 <div className="flex items-center space-x-2 h-12">
-                    <LoadingSpinner size={16} />
-                    <span className="text-xs text-muted-foreground">Generating forecast...</span>
+                  <LoadingSpinner size={16} />
+                  <span className="text-xs text-muted-foreground">Generating forecast...</span>
                 </div>
-            ) : forecast ? (
+              ) : forecast ? (
                 <div className="space-y-1 text-xs">
-                <p className="text-foreground line-clamp-1">
+                  <p className="text-foreground line-clamp-1">
                     <span className="font-medium">Est. Completion:</span> {forecast.completionDateEstimate}
-                </p>
-                <p className="text-foreground line-clamp-2 leading-snug">
+                  </p>
+                  <p className="text-foreground line-clamp-2 leading-snug">
                     <span className="font-medium">Bottlenecks:</span> {forecast.bottleneckIdentification || "None identified"}
-                </p>
+                  </p>
                 </div>
-            ) : (
+              ) : (
                 <p className="text-xs text-muted-foreground h-12 flex items-center">No AI forecast data for this opportunity.</p>
-            )}
+              )}
             </div>
-        )}
-      </CardContent>
-      <CardFooter className="pt-4 border-t mt-auto">
-        <Button variant="outline" size="sm" asChild className="ml-auto">
-          <Link href={`/opportunities/${opportunity.id}`}>
-            <Eye className="mr-2 h-4 w-4" />
-            View Details
-          </Link>
-        </Button>
-      </CardFooter>
-    </Card>
+          )}
+        </CardContent>
+        <CardFooter className="pt-4 border-t mt-auto flex gap-2">
+          <Button variant="outline" size="sm" asChild className="mr-auto rounded-[4px]">
+            <Link href={`/opportunities/${opportunity.id}`}>
+              <Eye className="mr-2 h-4 w-4" />
+              View Details
+            </Link>
+          </Button>
+        </CardFooter>
+      </Card>
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-headline flex items-center">
+              <BarChartBig className="mr-2 h-5 w-5 text-primary shrink-0" />
+              {opportunity.name}
+            </DialogTitle>
+            <DialogDescription>{opportunity.description}</DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto space-y-6">
+            {/* Details Section */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-white/30 p-3 rounded-lg">
+                <div className="text-sm font-medium text-muted-foreground">Value</div>
+                <div className="text-lg font-bold text-[#97A487]">${opportunity.value.toLocaleString()}</div>
+              </div>
+              <div className="bg-white/30 p-3 rounded-lg">
+                <div className="text-sm font-medium text-muted-foreground">Status</div>
+                <Badge variant="secondary" className={`capitalize whitespace-nowrap ml-2 ${getStatusBadgeColorClasses(opportunity.status)}`}>{opportunity.status}</Badge>
+              </div>
+              <div className="bg-white/30 p-3 rounded-lg">
+                <div className="text-sm font-medium text-muted-foreground">Timeline</div>
+                <div className="text-xs text-muted-foreground">{format(parseISO(opportunity.startDate), 'MMM dd, yyyy')} - {format(parseISO(opportunity.endDate), 'MMM dd, yyyy')}</div>
+              </div>
+            </div>
+            {/* Progress & Health */}
+            <div className="flex items-center gap-2">
+              <Progress value={progress} className="h-2 flex-1" gradient="linear-gradient(90deg, #3987BE 0%, #D48EA3 100%)" />
+              <div className="flex items-center gap-1 text-xs">
+                {opportunityHealthIcon} {opportunityHealthText}
+              </div>
+            </div>
+            {/* Activity Log */}
+            <div>
+              <h4 className="text-sm font-semibold text-foreground mb-3">Activity Log</h4>
+              <div className="space-y-2 h-32 overflow-y-auto">
+                {activityLogs.map((log) => renderActivityLogItem(log))}
+              </div>
+            </div>
+            {/* Log New Activity Form */}
+            <div>
+              <h4 className="text-sm font-semibold text-foreground mb-2">Log New Activity</h4>
+              <div className="space-y-3">
+                <Textarea
+                  placeholder="Describe the activity..."
+                  value={newActivityDescription}
+                  onChange={(e) => setNewActivityDescription(e.target.value)}
+                  className="min-h-[80px] resize-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0"
+                />
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <Button 
+                      variant="add" 
+                      className="w-fit"
+                      onClick={handleLogActivity}
+                      disabled={isLoggingActivity || !newActivityDescription.trim()}
+                    >
+                      {isLoggingActivity ? (
+                        <LoadingSpinner size={16} className="mr-2" />
+                      ) : (
+                        <MessageSquarePlus className="mr-2 h-4 w-4" />
+                      )}
+                      Log Activity
+                    </Button>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" className="w-fit">
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {nextActionDate ? format(nextActionDate, 'MMM dd, yyyy') : 'Set next action'}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={nextActionDate}
+                          onSelect={(date) => setNextActionDate(date)}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                  <Button 
+                    variant="outline"
+                    onClick={toggleAiInsights}
+                  >
+                    <Sparkles className="mr-2 h-4 w-4" />
+                    AI Advice
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

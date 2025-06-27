@@ -105,33 +105,33 @@ export default function LeadsPage() {
         <CardContent>
           <div className="flex flex-col md:flex-row md:items-end gap-4 w-full">
             <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="search-leads">Search Leads</Label>
-                <div className="relative mt-1">
-                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                      id="search-leads"
-                      type="text"
-                      placeholder="Search by company, name, email, country..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-9"
-                  />
-                </div>
+            <div>
+              <Label htmlFor="search-leads">Search Leads</Label>
+               <div className="relative mt-1">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                    id="search-leads"
+                    type="text"
+                    placeholder="Search by company, name, email, country..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-9"
+                />
               </div>
-              <div>
-                <Label htmlFor="status-filter">Status</Label>
-                <Select value={statusFilter} onValueChange={(value: LeadStatus | 'all') => setStatusFilter(value)}>
-                  <SelectTrigger id="status-filter" className="w-full mt-1">
-                    <SelectValue placeholder="Filter by status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Statuses</SelectItem>
-                    {leadStatusOptions.map(status => (
-                      <SelectItem key={status} value={status}>{status}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+            </div>
+            <div>
+              <Label htmlFor="status-filter">Status</Label>
+              <Select value={statusFilter} onValueChange={(value: LeadStatus | 'all') => setStatusFilter(value)}>
+                <SelectTrigger id="status-filter" className="w-full mt-1">
+                  <SelectValue placeholder="Filter by status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Statuses</SelectItem>
+                  {leadStatusOptions.map(status => (
+                    <SelectItem key={status} value={status}>{status}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               </div>
             </div>
           </div>
@@ -140,11 +140,11 @@ export default function LeadsPage() {
 
       {filteredLeads.length > 0 ? (
         view === 'list' ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-8">
-            {filteredLeads.map((lead) => (
-              <LeadCard key={lead.id} lead={lead} onLeadConverted={handleLeadConverted} />
-            ))}
-          </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-8">
+          {filteredLeads.map((lead) => (
+            <LeadCard key={lead.id} lead={lead} onLeadConverted={handleLeadConverted} />
+          ))}
+        </div>
         ) : (
           <div className="overflow-x-auto rounded-[8px] shadow">
             <Table className='rounded-[8px] bg-white'>

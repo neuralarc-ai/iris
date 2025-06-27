@@ -159,14 +159,14 @@ export default function UpdateItem({ update }: UpdateItemProps) {
   const getStatusBadge = () => {
     if (opportunity) {
       return (
-        <Badge variant="secondary" className="capitalize bg-accent text-accent-foreground">
+        <Badge variant="secondary" className="flex-shrink-0 capitalize bg-accent hover:bg-accent text-accent-foreground">
           {opportunity.status}
         </Badge>
       );
     }
     if (lead) {
       return (
-        <Badge variant="secondary" className="capitalize bg-accent text-accent-foreground">
+        <Badge variant="secondary" className="flex-shrink-0 capitalize bg-accent hover:bg-accent text-accent-foreground">
           {lead.status}
         </Badge>
       );
@@ -244,14 +244,14 @@ export default function UpdateItem({ update }: UpdateItemProps) {
         className="shadow-md hover:shadow-lg transition-shadow duration-300 bg-white flex flex-col h-full cursor-pointer"
         onClick={() => setIsDialogOpen(true)}
       >
-        <CardHeader className="pb-3">
+      <CardHeader className="pb-3">
           <div className="flex justify-between items-start mb-2">
             <CardTitle className="text-lg font-headline text-foreground line-clamp-1">
               {getHeaderTitle()}
-            </CardTitle>
+          </CardTitle>
             {getStatusBadge()}
-          </div>
-          
+        </div>
+
           <div className="space-y-1">
             {getValueDisplay()}
             {getExpectedClose()}
@@ -434,32 +434,32 @@ export default function UpdateItem({ update }: UpdateItemProps) {
       </Dialog>
 
       {/* AI Insights (if shown) */}
-      {showAiInsights && (
+        {showAiInsights && (
         <Dialog open={showAiInsights} onOpenChange={setShowAiInsights}>
           <DialogContent className="sm:max-w-2xl focus-within:outine-none focus-visible:outline-none focus-within:ring-0 focus-visible:ring-0 focus:ring-0 focus:outline-0">
             <DialogHeader>
               <DialogTitle className="flex items-center">
                 <Sparkles className="mr-2 h-5 w-5 text-yellow-500" />
-                AI-Powered Insights
+              AI-Powered Insights
               </DialogTitle>
             </DialogHeader>
             
             <div className="space-y-4">
-              {isLoadingInsights ? (
+            {isLoadingInsights ? (
                 <div className="flex items-center justify-center h-32">
                   <LoadingSpinner size={24} />
                   <span className="ml-2 text-muted-foreground">Analyzing update...</span>
-                </div>
-              ) : insights ? (
+              </div>
+            ) : insights ? (
                 <div className="space-y-4">
-                  {insights.summary && (
-                    <div>
+                {insights.summary && (
+                  <div>
                       <h4 className="font-semibold text-foreground mb-2">Summary</h4>
                       <p className="text-sm text-muted-foreground">{insights.summary}</p>
-                    </div>
-                  )}
+                  </div>
+                )}
                   
-                  {insights.actionItems && insights.actionItems.length > 0 && (
+                {insights.actionItems && insights.actionItems.length > 0 && (
                     <div>
                       <h4 className="font-semibold text-foreground mb-2 flex items-center">
                         <CheckSquare className="mr-2 h-4 w-4" />
@@ -469,11 +469,11 @@ export default function UpdateItem({ update }: UpdateItemProps) {
                         {insights.actionItems.map((item, idx) => (
                           <li key={idx} className="text-sm text-muted-foreground">{item}</li>
                         ))}
-                      </ul>
-                    </div>
-                  )}
+                    </ul>
+                  </div>
+                )}
                   
-                  {insights.followUpSuggestions && insights.followUpSuggestions.length > 0 && (
+                {insights.followUpSuggestions && insights.followUpSuggestions.length > 0 && (
                     <div>
                       <h4 className="font-semibold text-foreground mb-2 flex items-center">
                         <Repeat className="mr-2 h-4 w-4" />
@@ -483,17 +483,17 @@ export default function UpdateItem({ update }: UpdateItemProps) {
                         {insights.followUpSuggestions.map((item, idx) => (
                           <li key={idx} className="text-sm text-muted-foreground">{item}</li>
                         ))}
-                      </ul>
-                    </div>
-                  )}
+                     </ul>
+                   </div>
+                )}
                   
-                  {insights.sentiment && (
+                 {insights.sentiment && (
                     <div className="flex items-center">
-                      {getSentimentIcon(insights.sentiment)}
+                    {getSentimentIcon(insights.sentiment)}
                       <span className="font-semibold text-foreground ml-2">Sentiment:</span>
                       <span className="text-sm text-muted-foreground ml-1">{insights.sentiment}</span>
                     </div>
-                  )}
+                 )}
                   
                   {insights.relationshipHealth && update.opportunityId && (
                     <div>
@@ -502,12 +502,12 @@ export default function UpdateItem({ update }: UpdateItemProps) {
                         {insights.relationshipHealth.summary} (Score: {insights.relationshipHealth.healthScore.toFixed(2)})
                       </p>
                     </div>
-                  )}
-                </div>
-              ) : (
+                 )}
+              </div>
+            ) : (
                 <p className="text-sm text-muted-foreground">No AI insights available for this update.</p>
-              )}
-            </div>
+            )}
+          </div>
           </DialogContent>
         </Dialog>
       )}

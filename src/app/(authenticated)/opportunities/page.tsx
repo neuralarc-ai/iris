@@ -53,7 +53,7 @@ export default function OpportunitiesPage() {
         </Button>
       </PageTitle>
 
-      <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
+      <Card className="shadow-sm">
         <CardHeader className="pb-4">
             <CardTitle className="text-lg flex items-center">
                 <ListFilter className="mr-2 h-5 w-5 text-primary"/> Filter & Search Opportunities

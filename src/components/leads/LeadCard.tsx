@@ -137,19 +137,19 @@ export default function LeadCard({ lead, onLeadConverted, onLeadDeleted }: LeadC
           </Link>
         </Button>
         <TooltipProvider delayDuration={0}>
-          {canConvert ? (
+        {canConvert ? (
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button size="sm" onClick={handleConvertLead} variant="add" className='rounded-[2px] p-2'><CheckSquare className="h-4 w-4" /></Button>
               </TooltipTrigger>
               <TooltipContent side="top" align="center">Convert</TooltipContent>
             </Tooltip>
-          ) : (
-            <Button size="sm" variant="outline" disabled>
-              {lead.status === "Lost" ? <FileWarning className="mr-2 h-4 w-4" /> : <CheckSquare className="mr-2 h-4 w-4" />}
-              {lead.status === "Lost" ? "Lost" : "Converted"}
-            </Button>
-          )}
+        ) : (
+          <Button size="sm" variant="outline" disabled>
+            {lead.status === "Lost" ? <FileWarning className="mr-2 h-4 w-4" /> : <CheckSquare className="mr-2 h-4 w-4" />}
+            {lead.status === "Lost" ? "Lost" : "Converted"}
+          </Button>
+        )}
           {canConvert && (
             <Tooltip>
               <TooltipTrigger asChild>
