@@ -7,7 +7,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from 'lucide-react';
 
-const PIN_LENGTH = 6;
+const PIN_LENGTH = 4;
 
 export default function PinLoginForm() {
   const [pin, setPin] = useState<string[]>(Array(PIN_LENGTH).fill(''));
@@ -69,7 +69,7 @@ export default function PinLoginForm() {
 
     const enteredPin = pin.join('');
     if (enteredPin.length !== PIN_LENGTH) {
-      setError('PIN must be 6 digits.');
+      setError('PIN must be 4 digits.');
       setIsLoading(false);
       return;
     }
@@ -111,7 +111,7 @@ export default function PinLoginForm() {
 
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6 bg-white" ref={formRef}>
+    <form onSubmit={handleSubmit} className="space-y-6 bg-white w-full flex flex-col items-center justify-center" ref={formRef}>
       <div className="flex justify-center space-x-1 sm:space-x-2">
         {pin.map((digit, index) => (
           <Input
@@ -124,7 +124,7 @@ export default function PinLoginForm() {
             onChange={(e) => handleChange(e, index)}
             onKeyDown={(e) => handleKeyDown(e, index)}
             onPaste={index === 0 ? handlePaste : undefined} // Allow paste only on the first input
-            ref={(el) => (inputRefs.current[index] = el)}
+            ref={(el) => { inputRefs.current[index] = el; }}
             className="w-12 h-14 sm:w-14 sm:h-16 text-center text-2xl font-mono border-border focus:ring-ring rounded-md"
             aria-label={`PIN digit ${index + 1}`}
             disabled={isLoading}
@@ -133,7 +133,7 @@ export default function PinLoginForm() {
         ))}
       </div>
       {error && <p className="text-sm text-center text-destructive">{error}</p>}
-      <Button type="submit" className="w-full h-12 text-lg" disabled={isLoading}>
+      <Button type="submit" className="w-[250px] h-12 text-lg" disabled={isLoading}>
         {isLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : "Login"}
       </Button>
     </form>
