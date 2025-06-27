@@ -96,6 +96,10 @@ export default function LeadsPage() {
     setImportProgress({ current: 0, total: 0, message: '' });
     
     try {
+      console.log('🚀 Starting file import process...');
+      console.log('📁 File name:', file.name);
+      console.log('📏 File size:', (file.size / 1024 / 1024).toFixed(2), 'MB');
+      
       // Validate file type
       const validTypes = [
         'text/csv',
@@ -116,31 +120,67 @@ export default function LeadsPage() {
       let text = await file.text();
       text = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
       
-      console.log('File content preview:', text.substring(0, 200) + '...');
-      console.log('File size:', fileSizeMB.toFixed(2), 'MB');
+      console.log('📄 File content preview:', text.substring(0, 500) + '...');
+      console.log('📊 Total file length:', text.length, 'characters');
       
       // Parse CSV with enhanced large file handling
+      console.log('🔍 Starting CSV parsing...');
       const parsedLeads = await parseCSVFileLarge(text, file.name);
-      console.log('Parsed leads:', parsedLeads.length);
+      console.log('✅ CSV parsing completed. Parsed leads:', parsedLeads.length);
       
       if (parsedLeads.length === 0) {
+        console.error('❌ No leads parsed from CSV');
         throw new Error('No valid leads found in the file.');
       }
       
+      console.log('🔍 Starting lead validation...');
       // Separate valid leads from rejected leads
       const validLeads: Array<Omit<Lead, 'id' | 'createdAt' | 'updatedAt' | 'status' | 'opportunityIds' | 'updateIds'>> = [];
       const rejectedLeadsData: Array<{ leadData: any; reasons: string[] }> = [];
       
-      parsedLeads.forEach(leadData => {
+      parsedLeads.forEach((leadData, index) => {
+        console.log(`🔍 Validating lead ${index + 1}:`, leadData);
         const rejectionCheck = shouldRejectLead(leadData);
         if (rejectionCheck.rejected) {
+          console.log(`❌ Lead ${index + 1} rejected:`, rejectionCheck.reasons);
           rejectedLeadsData.push({ leadData, reasons: rejectionCheck.reasons });
         } else {
+          console.log(`✅ Lead ${index + 1} accepted`);
           validLeads.push(leadData);
         }
       });
       
-      console.log('Valid leads:', validLeads.length, 'Rejected leads:', rejectedLeadsData.length);
+      console.log('📊 Validation results - Valid leads:', validLeads.length, 'Rejected leads:', rejectedLeadsData.length);
+      
+      // Process rejected leads first (regardless of whether there are valid leads)
+      rejectedLeadsData.forEach(({ leadData, reasons }) => {
+        console.log('Adding rejected lead:', leadData.companyName, 'Reasons:', reasons);
+        addRejectedLead(leadData, reasons);
+      });
+      
+      // If no valid leads, just show success message for rejected leads
+      if (validLeads.length === 0) {
+        console.log('📝 All leads were rejected - processing as rejected leads only');
+        setImportProgress({ current: 0, total: 0, message: 'Import complete!' });
+        
+        setIsUploading(false);
+        setUploadSuccess(true);
+        
+        toast({
+          title: 'Import Completed',
+          description: `All ${rejectedLeadsData.length} lead${rejectedLeadsData.length === 1 ? '' : 's'} were rejected and moved to the rejected leads section. Please review and approve them if needed.`,
+          className: "bg-yellow-100 dark:bg-yellow-900 border-yellow-500"
+        });
+        
+        setTimeout(() => {
+          setIsImportDialogOpen(false);
+          setUploadSuccess(false);
+          setImportProgress({ current: 0, total: 0, message: '' });
+          if (fileInputRef.current) fileInputRef.current.value = '';
+        }, 1500);
+        
+        return; // Exit early since there are no valid leads to process
+      }
       
       // Process valid leads in batches for large files
       const batchSize = 50; // Process 50 leads at a time
@@ -193,12 +233,6 @@ export default function LeadsPage() {
         setImportProgress({ current: totalValidLeads, total: totalValidLeads, message: 'Import complete!' });
       }
       
-      // Process rejected leads
-      rejectedLeadsData.forEach(({ leadData, reasons }) => {
-        console.log('Adding rejected lead:', leadData.companyName, 'Reasons:', reasons);
-        addRejectedLead(leadData, reasons);
-      });
-      
       console.log('Total processed leads:', processedLeads.length);
       console.log('Total rejected leads:', rejectedLeadsData.length);
       
@@ -228,7 +262,7 @@ export default function LeadsPage() {
       }, 1500);
       
     } catch (error) {
-      console.error('Import error:', error);
+      console.error('❌ Import error:', error);
       setIsUploading(false);
       setImportProgress({ current: 0, total: 0, message: '' });
       toast({
@@ -242,271 +276,117 @@ export default function LeadsPage() {
 
   // Enhanced CSV parsing function for large files
   const parseCSVFileLarge = async (csvText: string, fileName: string): Promise<Array<Omit<Lead, 'id' | 'createdAt' | 'updatedAt' | 'status' | 'opportunityIds' | 'updateIds'>>> => {
+    const normalizeHeader = (header: string) =>
+      header.toLowerCase().trim().replace(/[^a-z0-9\s]/g, '').replace(/\s+/g, ' ');
     const lines = csvText.split('\n').map(line => line.trim()).filter(line => line !== '');
-    console.log('CSV lines:', lines.length);
-    
     if (lines.length < 2) {
       throw new Error('CSV file must have at least a header row and one data row.');
     }
+    // Parse and normalize header row
+    const rawHeaders = lines[0].split(',');
+    const headers = rawHeaders.map(normalizeHeader);
     
-    // Parse header row
-    const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/"/g, ''));
-    console.log('Headers:', headers);
+    console.log('🔍 CSV Headers Debug:');
+    console.log('Raw headers:', rawHeaders);
+    console.log('Normalized headers:', headers);
     
-    // Enhanced column mappings with fuzzy matching support
-    const columnMappings = {
-      // Company variations
-      'company': 'companyName', 'company name': 'companyName', 'company_name': 'companyName', 
-      'organization': 'companyName', 'organization name': 'companyName', 'organization_name': 'companyName',
-      'business': 'companyName', 'business name': 'companyName', 'business_name': 'companyName',
-      'firm': 'companyName', 'firm name': 'companyName', 'firm_name': 'companyName',
-      'corp': 'companyName', 'corporation': 'companyName', 'inc': 'companyName', 'llc': 'companyName',
-      
-      // Person name variations
-      'name': 'personName', 'person name': 'personName', 'person_name': 'personName', 
-      'contact': 'personName', 'contact name': 'personName', 'contact_name': 'personName', 
-      'full name': 'personName', 'full_name': 'personName', 'fullname': 'personName',
-      'ceo': 'personName', 'ceo name': 'personName', 'ceo_name': 'personName',
-      'owner': 'personName', 'owner name': 'personName', 'owner_name': 'personName',
-      'manager': 'personName', 'manager name': 'personName', 'manager_name': 'personName',
-      'director': 'personName', 'director name': 'personName', 'director_name': 'personName',
-      'representative': 'personName', 'rep': 'personName', 'contact person': 'personName',
-      'first name': 'personName', 'first_name': 'personName', 'last name': 'personName', 'last_name': 'personName',
-      
-      // Email variations
-      'email': 'email', 'email address': 'email', 'email_address': 'email', 'e-mail': 'email',
-      'emailaddress': 'email', 'mail': 'email',
-      
-      // Phone variations
-      'phone': 'phone', 'phone number': 'phone', 'phone_number': 'phone', 'telephone': 'phone', 'mobile': 'phone',
-      'tel': 'phone', 'telephone number': 'phone', 'telephone_number': 'phone',
-      'cell': 'phone', 'cell phone': 'phone', 'cell_phone': 'phone', 'mobile number': 'phone',
-      'contact number': 'phone', 'contact_number': 'phone', 'work phone': 'phone', 'work_phone': 'phone',
-      
-      // LinkedIn variations
-      'linkedin': 'linkedinProfileUrl', 'linkedin profile': 'linkedinProfileUrl', 'linkedin_profile': 'linkedinProfileUrl', 
-      'linkedin url': 'linkedinProfileUrl', 'linkedin_url': 'linkedinProfileUrl', 'linkedin link': 'linkedinProfileUrl',
-      'linkedinlink': 'linkedinProfileUrl', 'linkedin profile url': 'linkedinProfileUrl',
-      
-      // Country variations
-      'country': 'country', 'location': 'country', 'region': 'country', 'nation': 'country',
-      'state': 'country', 'province': 'country', 'territory': 'country'
+    // Expanded mapping dictionary (normalized keys)
+    const columnMappings: Record<string, string> = {
+      // Company
+      'company': 'companyName', 'companyname': 'companyName', 'company name': 'companyName', 'organization': 'companyName', 'business': 'companyName', 'firm': 'companyName', 'corp': 'companyName', 'corporation': 'companyName', 'inc': 'companyName', 'llc': 'companyName',
+      // Person
+      'name': 'personName', 'personname': 'personName', 'person name': 'personName', 'contact': 'personName', 'contactname': 'personName', 'contact person': 'personName', 'contactperson': 'personName', 'fullname': 'personName', 'full name': 'personName', 'ceo': 'personName', 'owner': 'personName', 'manager': 'personName', 'director': 'personName', 'rep': 'personName', 'representative': 'personName', 'key decision maker': 'personName', 'decision maker': 'personName', 'decisionmaker': 'personName', 'contact name': 'personName', 'primary contact': 'personName', 'primarycontact': 'personName',
+      // Email
+      'email': 'email', 'emailaddress': 'email', 'email address': 'email', 'mail': 'email', 'e-mail': 'email', 'e-mail address': 'email', 'contact email': 'email', 'contactemail': 'email', 'primary email': 'email', 'primaryemail': 'email',
+      // Phone
+      'phone': 'phone', 'phonenumber': 'phone', 'phone number': 'phone', 'telephone': 'phone', 'mobile': 'phone', 'tel': 'phone', 'cell': 'phone', 'cellphone': 'phone', 'cell phone': 'phone', 'workphone': 'phone', 'work phone': 'phone', 'contactnumber': 'phone', 'contact number': 'phone', 'contact phone': 'phone', 'contactphone': 'phone',
+      // LinkedIn
+      'linkedin': 'linkedinProfileUrl', 'linkedinprofile': 'linkedinProfileUrl', 'linkedin profile': 'linkedinProfileUrl', 'linkedinurl': 'linkedinProfileUrl', 'linkedin url': 'linkedinProfileUrl', 'linkedinprofileurl': 'linkedinProfileUrl', 'linkedin profile url': 'linkedinProfileUrl',
+      // Country
+      'country': 'country', 'location': 'country', 'region': 'country', 'nation': 'country', 'state': 'country', 'province': 'country', 'territory': 'country', 'countryregion': 'country', 'country region': 'country', 'country/region': 'country',
     };
-    
-    // Fuzzy matching function for similar column names
-    const fuzzyMatch = (header: string, targetField: string): boolean => {
-      const targetVariations = Object.keys(columnMappings).filter(key => columnMappings[key as keyof typeof columnMappings] === targetField);
-      
-      // Check for partial matches
-      for (const variation of targetVariations) {
-        if (header.includes(variation) || variation.includes(header)) {
-          return true;
-        }
-      }
-      
-      // Check for common abbreviations and variations
-      const commonMappings = {
-        'personName': ['name', 'contact', 'person', 'ceo', 'owner', 'manager', 'director', 'rep'],
-        'companyName': ['company', 'org', 'business', 'firm', 'corp', 'inc', 'llc'],
-        'email': ['email', 'mail', 'e-mail'],
-        'phone': ['phone', 'tel', 'mobile', 'cell'],
-        'country': ['country', 'location', 'region', 'state']
-      };
-      
-      const fieldVariations = commonMappings[targetField as keyof typeof commonMappings] || [];
-      return fieldVariations.some(variation => header.includes(variation));
-    };
-    
-    // Intelligent column detection based on content
-    const detectColumnByContent = (columnIndex: number, targetField: string): boolean => {
-      if (lines.length < 3) return false;
-      
-      const sampleValues = [];
-      const sampleSize = Math.min(5, lines.length - 1); // Sample up to 5 rows
-      for (let i = 1; i <= sampleSize; i++) {
-        const values = parseCSVLine(lines[i]);
-        if (values[columnIndex]) {
-          sampleValues.push(values[columnIndex].trim().replace(/^"|"$/g, ''));
-        }
-      }
-      
-      if (sampleValues.length === 0) return false;
-      
-      // Email detection
-      if (targetField === 'email') {
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        return sampleValues.every(value => emailRegex.test(value));
-      }
-      
-      // Phone detection
-      if (targetField === 'phone') {
-        const phoneRegex = /^[\+]?[0-9\s\-\(\)\.]+$/;
-        return sampleValues.every(value => phoneRegex.test(value) && value.length >= 7);
-      }
-      
-      return false;
-    };
-    
-    // Map headers to our expected fields with intelligent detection
-    const fieldMappings: Record<string, string> = {};
+    // Map headers to fields
+    const fieldMappings: Record<string, number> = {};
     const requiredFields = ['companyName', 'personName', 'email'];
     const optionalFields = ['phone', 'linkedinProfileUrl', 'country'];
-    
-    // First pass: exact matches
-    headers.forEach((header, index) => {
-      const mappedField = columnMappings[header as keyof typeof columnMappings];
-      if (mappedField) {
-        fieldMappings[mappedField] = index.toString();
+    // Exact/normalized mapping
+    headers.forEach((header, idx) => {
+      if (columnMappings[header]) {
+        fieldMappings[columnMappings[header]] = idx;
+        console.log(`✅ Mapped "${rawHeaders[idx]}" (${header}) -> ${columnMappings[header]}`);
       }
     });
-    
-    // Second pass: fuzzy matches for unmapped required fields
-    requiredFields.forEach(field => {
-      if (!fieldMappings[field]) {
+    // Partial/fuzzy matching for unmapped required fields
+    requiredFields.concat(optionalFields).forEach(field => {
+      if (fieldMappings[field] === undefined) {
         for (let i = 0; i < headers.length; i++) {
-          if (!Object.values(fieldMappings).includes(i.toString()) && fuzzyMatch(headers[i], field)) {
-            fieldMappings[field] = i.toString();
-            console.log(`Fuzzy matched "${headers[i]}" to ${field}`);
+          if (fieldMappings[field] !== undefined) break;
+          const header = headers[i];
+          if (columnMappings[header]?.toLowerCase() === field) {
+            fieldMappings[field] = i;
+            console.log(`🔍 Fuzzy matched "${rawHeaders[i]}" (${header}) -> ${field}`);
+            break;
+          }
+          // Partial match fallback
+          if (header.includes(field.replace('Name', '').toLowerCase()) || field.toLowerCase().includes(header)) {
+            fieldMappings[field] = i;
+            console.log(`🔍 Partial matched "${rawHeaders[i]}" (${header}) -> ${field}`);
             break;
           }
         }
       }
     });
-    
-    // Third pass: content-based detection for unmapped required fields
-    requiredFields.forEach(field => {
-      if (!fieldMappings[field]) {
-        for (let i = 0; i < headers.length; i++) {
-          if (!Object.values(fieldMappings).includes(i.toString()) && detectColumnByContent(i, field)) {
-            fieldMappings[field] = i.toString();
-            console.log(`Content-detected "${headers[i]}" as ${field}`);
-            break;
-          }
+    // Content-based fallback for email/phone
+    if (fieldMappings['email'] === undefined) {
+      for (let i = 0; i < headers.length; i++) {
+        if (lines[1].split(',')[i]?.includes('@')) {
+          fieldMappings['email'] = i;
+          console.log(`🔍 Content-detected email in "${rawHeaders[i]}"`);
+          break;
         }
       }
-    });
-    
-    // Fourth pass: fuzzy matches for optional fields
-    optionalFields.forEach(field => {
-      if (!fieldMappings[field]) {
-        for (let i = 0; i < headers.length; i++) {
-          if (!Object.values(fieldMappings).includes(i.toString()) && fuzzyMatch(headers[i], field)) {
-            fieldMappings[field] = i.toString();
-            console.log(`Fuzzy matched optional "${headers[i]}" to ${field}`);
-            break;
-          }
+    }
+    if (fieldMappings['phone'] === undefined) {
+      for (let i = 0; i < headers.length; i++) {
+        if (/\d{7,}/.test(lines[1].split(',')[i] || '')) {
+          fieldMappings['phone'] = i;
+          console.log(`🔍 Content-detected phone in "${rawHeaders[i]}"`);
+          break;
         }
       }
-    });
+    }
     
-    console.log('Final field mappings:', fieldMappings);
+    console.log('📊 Final field mappings:', fieldMappings);
     
     // Validate required fields
-    const missingFields = requiredFields.filter(field => !fieldMappings[field]);
+    const missingFields = requiredFields.filter(field => fieldMappings[field] === undefined);
     if (missingFields.length > 0) {
-      const fieldNames = {
-        'companyName': 'Company',
-        'personName': 'Person Name/Contact',
-        'email': 'Email'
-      };
-      const missingNames = missingFields.map(field => fieldNames[field as keyof typeof fieldNames]).join(', ');
-      throw new Error(`CSV must contain columns for: ${missingNames}. Found columns: ${headers.join(', ')}`);
+      console.error('❌ Missing required fields:', missingFields);
+      console.error('Available headers:', rawHeaders);
+      throw new Error(`CSV must contain columns for: ${missingFields.join(', ')}. Found columns: ${rawHeaders.join(', ')}`);
     }
-    
-    // Parse data rows with enhanced performance for large files
+    // Parse data rows
     const leads: Array<Omit<Lead, 'id' | 'createdAt' | 'updatedAt' | 'status' | 'opportunityIds' | 'updateIds'>> = [];
-    const existingEmails = new Set(initialMockLeads.map(lead => lead.email)); // Use Set for faster lookup
-    
-    // Process rows in chunks for large files
-    const chunkSize = 100;
-    const totalRows = lines.length - 1;
-    
-    for (let chunkStart = 1; chunkStart < lines.length; chunkStart += chunkSize) {
-      const chunkEnd = Math.min(chunkStart + chunkSize, lines.length);
-      
-      for (let i = chunkStart; i < chunkEnd; i++) {
-        const line = lines[i];
-        if (!line) continue;
+    for (let i = 1; i < lines.length; i++) {
+      const values = lines[i].split(',');
+      const leadData: any = {};
+      Object.entries(fieldMappings).forEach(([field, idx]) => {
+        let value = values[idx]?.replace(/^"|"$/g, '').split(':')[0] || '';
         
-        const values = parseCSVLine(line);
-        if (values.length < headers.length) {
-          console.warn(`Row ${i + 1} has fewer values than headers, skipping.`);
-          continue;
+        // Clean email format by removing mailto: prefix
+        if (field === 'email' && value.includes(':')) {
+          value = value.split(':')[0];
         }
         
-        const leadData: any = {};
-        Object.entries(fieldMappings).forEach(([field, indexStr]) => {
-          const index = parseInt(indexStr);
-          if (index < values.length) {
-            const value = values[index].trim().replace(/^"|"$/g, '');
-            if (value) leadData[field] = value;
-          }
-        });
-        
-        // Validate required fields for this row
-        if (!leadData.companyName || !leadData.personName || !leadData.email) {
-          console.warn(`Row ${i + 1} missing required fields (company, name, or email), skipping.`);
-          continue;
-        }
-        
-        // Validate email format
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(leadData.email)) {
-          console.warn(`Row ${i + 1} has invalid email format: ${leadData.email}, skipping.`);
-          continue;
-        }
-        
-        // Check for duplicate email (optimized for large files)
-        const isDuplicate = leads.some(lead => lead.email === leadData.email) || existingEmails.has(leadData.email);
-        if (isDuplicate) {
-          console.warn(`Row ${i + 1} has duplicate email: ${leadData.email}, skipping.`);
-          continue;
-        }
-        
-        leads.push(leadData);
-      }
-      
-      // Small delay between chunks to prevent browser freezing
-      if (chunkEnd < lines.length) {
-        await new Promise(resolve => setTimeout(resolve, 5));
-      }
+        leadData[field] = value;
+      });
+      leads.push(leadData);
     }
     
-    console.log('Final parsed leads:', leads.length);
+    console.log('📈 Parsed leads count:', leads.length);
+    console.log('📋 Sample lead data:', leads[0]);
+    
     return leads;
-  };
-
-  // Helper function to parse CSV line with proper quote handling
-  const parseCSVLine = (line: string): string[] => {
-    const result: string[] = [];
-    let current = '';
-    let inQuotes = false;
-    
-    for (let i = 0; i < line.length; i++) {
-      const char = line[i];
-      
-      if (char === '"') {
-        if (inQuotes && line[i + 1] === '"') {
-          // Escaped quote
-          current += '"';
-          i++; // Skip next quote
-        } else {
-          // Toggle quote state
-          inQuotes = !inQuotes;
-        }
-      } else if (char === ',' && !inQuotes) {
-        // End of field
-        result.push(current);
-        current = '';
-      } else {
-        current += char;
-      }
-    }
-    
-    // Add the last field
-    result.push(current);
-    
-    return result;
   };
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -535,43 +415,37 @@ export default function LeadsPage() {
   const shouldRejectLead = (leadData: any): { rejected: boolean; reasons: string[] } => {
     const reasons: string[] = [];
     
-    // Check for missing required fields
-    if (!leadData.companyName || leadData.companyName.trim().length < 2) {
+    // Clean and validate company name
+    const cleanCompanyName = leadData.companyName?.trim() || '';
+    if (!cleanCompanyName || cleanCompanyName.length < 2 || cleanCompanyName.toLowerCase() === 'not available') {
       reasons.push('Invalid or missing company name');
     }
     
-    if (!leadData.personName || leadData.personName.trim().length < 2) {
+    // Clean and validate person name
+    const cleanPersonName = leadData.personName?.trim() || '';
+    if (!cleanPersonName || cleanPersonName.length < 2 || cleanPersonName.toLowerCase() === 'not available') {
       reasons.push('Invalid or missing contact name');
     }
     
-    if (!leadData.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(leadData.email)) {
+    // Clean and validate email (handle mailto: format)
+    const cleanEmail = leadData.email?.trim() || '';
+    const emailWithoutMailto = cleanEmail.split(':')[0]; // Remove mailto: prefix if present
+    if (!emailWithoutMailto || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailWithoutMailto)) {
       reasons.push('Invalid or missing email address');
     }
     
-    // Check for suspicious or incomplete data
-    if (leadData.companyName && leadData.companyName.trim().length < 3) {
-      reasons.push('Company name too short');
+    // Check for suspicious or incomplete data (only if we have the data)
+    if (emailWithoutMailto && (emailWithoutMailto.includes('example.com') || emailWithoutMailto.includes('test.com'))) {
+      reasons.push('Example/test email address detected');
     }
     
-    if (leadData.personName && leadData.personName.trim().length < 3) {
-      reasons.push('Contact name too short');
-    }
-    
-    if (leadData.email && leadData.email.includes('example.com')) {
-      reasons.push('Example email address detected');
-    }
-    
-    if (leadData.email && leadData.email.includes('test.com')) {
-      reasons.push('Test email address detected');
-    }
-    
-    if (leadData.phone && leadData.phone.length < 7) {
+    if (leadData.phone && leadData.phone.trim() && leadData.phone.trim().length < 7) {
       reasons.push('Phone number too short');
     }
     
     // Check for duplicate email (against both leads and rejected leads)
     const allEmails = [...leads, ...rejectedLeads].map(lead => lead.email);
-    if (leadData.email && allEmails.includes(leadData.email)) {
+    if (emailWithoutMailto && allEmails.includes(emailWithoutMailto)) {
       reasons.push('Duplicate email address');
     }
     

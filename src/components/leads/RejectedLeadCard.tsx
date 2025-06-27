@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { AlertTriangle, Mail, Phone, MapPin, ExternalLink, CheckCircle, XCircle, Edit } from 'lucide-react';
 import { Lead } from '@/types';
 
@@ -17,6 +18,7 @@ interface RejectedLeadCardProps {
 
 export default function RejectedLeadCard({ lead, onApprove, onDelete, onUpdate }: RejectedLeadCardProps) {
   const [isEditModalOpen, setIsEditModalOpen] = React.useState(false);
+  const [isConfirmApproveOpen, setIsConfirmApproveOpen] = React.useState(false);
   const [editData, setEditData] = React.useState({
     companyName: lead.companyName,
     personName: lead.personName,
@@ -25,38 +27,12 @@ export default function RejectedLeadCard({ lead, onApprove, onDelete, onUpdate }
     linkedinProfileUrl: lead.linkedinProfileUrl || '',
     country: lead.country || ''
   });
-  const [validationErrors, setValidationErrors] = React.useState<Record<string, string>>({});
 
   const handleCardClick = () => {
     setIsEditModalOpen(true);
   };
 
-  const validateForm = () => {
-    const errors: Record<string, string> = {};
-    
-    if (!editData.companyName.trim() || editData.companyName.trim().length < 3) {
-      errors.companyName = 'Company name must be at least 3 characters';
-    }
-    
-    if (!editData.personName.trim() || editData.personName.trim().length < 3) {
-      errors.personName = 'Contact name must be at least 3 characters';
-    }
-    
-    if (!editData.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(editData.email)) {
-      errors.email = 'Please enter a valid email address';
-    }
-    
-    if (editData.phone && editData.phone.length < 7) {
-      errors.phone = 'Phone number must be at least 7 characters';
-    }
-    
-    setValidationErrors(errors);
-    return Object.keys(errors).length === 0;
-  };
-
   const handleSave = () => {
-    if (!validateForm()) return;
-    
     if (onUpdate) {
       onUpdate(lead.id, editData);
     }
@@ -73,13 +49,15 @@ export default function RejectedLeadCard({ lead, onApprove, onDelete, onUpdate }
       linkedinProfileUrl: lead.linkedinProfileUrl || '',
       country: lead.country || ''
     });
-    setValidationErrors({});
     setIsEditModalOpen(false);
   };
 
   const handleApprove = () => {
-    if (!validateForm()) return;
-    
+    // Open confirmation dialog
+    setIsConfirmApproveOpen(true);
+  };
+
+  const handleConfirmApprove = () => {
     if (onUpdate) {
       onUpdate(lead.id, editData);
     }
@@ -89,6 +67,7 @@ export default function RejectedLeadCard({ lead, onApprove, onDelete, onUpdate }
     }
     
     setIsEditModalOpen(false);
+    setIsConfirmApproveOpen(false);
   };
 
   return (
@@ -201,106 +180,156 @@ export default function RejectedLeadCard({ lead, onApprove, onDelete, onUpdate }
 
       {/* Edit Modal */}
       <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
-        <DialogContent className="max-w-md w-[90vw] max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Edit className="h-5 w-5" />
-              Edit Rejected Lead
+        <DialogContent className="max-w-2xl w-[95vw] bg-white dark:bg-gray-900">
+          <DialogHeader className="pb-6">
+            <DialogTitle className="text-xl font-semibold flex items-center gap-3">
+              <div className="p-2 bg-red-100 dark:bg-red-900/20 rounded-lg">
+                <Edit className="h-5 w-5 text-red-600 dark:text-red-400" />
+              </div>
+              <div>
+                <div>Edit Rejected Lead</div>
+                <div className="text-sm font-normal text-muted-foreground mt-1">
+                  Fix the issues and approve this lead
+                </div>
+              </div>
             </DialogTitle>
           </DialogHeader>
           
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="companyName" className="text-sm">Company Name *</Label>
-              <Input
-                id="companyName"
-                value={editData.companyName}
-                onChange={(e) => setEditData(prev => ({ ...prev, companyName: e.target.value }))}
-                className={validationErrors.companyName ? 'border-red-500' : ''}
-                placeholder="Enter company name"
-              />
-              {validationErrors.companyName && (
-                <p className="text-xs text-red-500">{validationErrors.companyName}</p>
-              )}
+          <div className="space-y-6">
+            {/* Current Lead Info */}
+            <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
+              <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Current Information</h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                <div>
+                  <span className="text-gray-500 dark:text-gray-400">Company:</span>
+                  <span className="ml-2 font-medium">{lead.companyName}</span>
+                </div>
+                <div>
+                  <span className="text-gray-500 dark:text-gray-400">Contact:</span>
+                  <span className="ml-2 font-medium">{lead.personName}</span>
+                </div>
+                <div>
+                  <span className="text-gray-500 dark:text-gray-400">Email:</span>
+                  <span className="ml-2 font-medium">{lead.email}</span>
+                </div>
+                <div>
+                  <span className="text-gray-500 dark:text-gray-400">Phone:</span>
+                  <span className="ml-2 font-medium">{lead.phone || 'Not provided'}</span>
+                </div>
+              </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="personName" className="text-sm">Contact Name *</Label>
-              <Input
-                id="personName"
-                value={editData.personName}
-                onChange={(e) => setEditData(prev => ({ ...prev, personName: e.target.value }))}
-                className={validationErrors.personName ? 'border-red-500' : ''}
-                placeholder="Enter contact name"
-              />
-              {validationErrors.personName && (
-                <p className="text-xs text-red-500">{validationErrors.personName}</p>
-              )}
-            </div>
+            {/* Rejection Reasons */}
+            {lead.rejectionReasons && lead.rejectionReasons.length > 0 && (
+              <div className="bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800 rounded-lg p-4">
+                <h4 className="text-sm font-medium text-red-700 dark:text-red-400 mb-3 flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4" />
+                  Issues to Fix
+                </h4>
+                <div className="space-y-2">
+                  {lead.rejectionReasons.map((reason, index) => (
+                    <div key={index} className="flex items-start gap-2 text-sm text-red-600 dark:text-red-400">
+                      <XCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                      <span>{reason}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
-            <div className="space-y-2">
-              <Label htmlFor="email" className="text-sm">Email Address *</Label>
-              <Input
-                id="email"
-                type="email"
-                value={editData.email}
-                onChange={(e) => setEditData(prev => ({ ...prev, email: e.target.value }))}
-                className={validationErrors.email ? 'border-red-500' : ''}
-                placeholder="Enter email address"
-              />
-              {validationErrors.email && (
-                <p className="text-xs text-red-500">{validationErrors.email}</p>
-              )}
-            </div>
+            {/* Edit Form */}
+            <div className="space-y-4">
+              <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">Update Information</h4>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="companyName" className="text-sm font-medium">
+                    Company Name <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="companyName"
+                    value={editData.companyName}
+                    onChange={(e) => setEditData(prev => ({ ...prev, companyName: e.target.value }))}
+                    placeholder="Enter company name"
+                  />
+                </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="phone" className="text-sm">Phone Number</Label>
-              <Input
-                id="phone"
-                value={editData.phone}
-                onChange={(e) => setEditData(prev => ({ ...prev, phone: e.target.value }))}
-                className={validationErrors.phone ? 'border-red-500' : ''}
-                placeholder="Enter phone number"
-              />
-              {validationErrors.phone && (
-                <p className="text-xs text-red-500">{validationErrors.phone}</p>
-              )}
-            </div>
+                <div className="space-y-2">
+                  <Label htmlFor="personName" className="text-sm font-medium">
+                    Contact Name <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="personName"
+                    value={editData.personName}
+                    onChange={(e) => setEditData(prev => ({ ...prev, personName: e.target.value }))}
+                    placeholder="Enter contact name"
+                  />
+                </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="linkedinProfileUrl" className="text-sm">LinkedIn Profile URL</Label>
-              <Input
-                id="linkedinProfileUrl"
-                value={editData.linkedinProfileUrl}
-                onChange={(e) => setEditData(prev => ({ ...prev, linkedinProfileUrl: e.target.value }))}
-                placeholder="Enter LinkedIn URL"
-              />
-            </div>
+                <div className="space-y-2">
+                  <Label htmlFor="email" className="text-sm font-medium">
+                    Email Address <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={editData.email}
+                    onChange={(e) => setEditData(prev => ({ ...prev, email: e.target.value }))}
+                    placeholder="Enter email address"
+                  />
+                </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="country" className="text-sm">Country</Label>
-              <Input
-                id="country"
-                value={editData.country}
-                onChange={(e) => setEditData(prev => ({ ...prev, country: e.target.value }))}
-                placeholder="Enter country"
-              />
+                <div className="space-y-2">
+                  <Label htmlFor="phone" className="text-sm font-medium">Phone Number</Label>
+                  <Input
+                    id="phone"
+                    value={editData.phone}
+                    onChange={(e) => setEditData(prev => ({ ...prev, phone: e.target.value }))}
+                    placeholder="Enter phone number"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="linkedinProfileUrl" className="text-sm font-medium">LinkedIn Profile URL</Label>
+                  <Input
+                    id="linkedinProfileUrl"
+                    value={editData.linkedinProfileUrl}
+                    onChange={(e) => setEditData(prev => ({ ...prev, linkedinProfileUrl: e.target.value }))}
+                    placeholder="https://linkedin.com/in/username"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="country" className="text-sm font-medium">Country</Label>
+                  <Input
+                    id="country"
+                    value={editData.country}
+                    onChange={(e) => setEditData(prev => ({ ...prev, country: e.target.value }))}
+                    placeholder="Enter country"
+                  />
+                </div>
+              </div>
             </div>
           </div>
 
-          <DialogFooter className="flex flex-col sm:flex-row gap-2 pt-4">
-            <Button variant="outline" onClick={handleCancel} className="w-full sm:w-auto">
+          <DialogFooter className="flex flex-col sm:flex-row gap-3 pt-6 border-t border-gray-200 dark:border-gray-700">
+            <Button 
+              variant="outline" 
+              onClick={handleCancel}
+              className="w-full sm:w-auto order-3 sm:order-1"
+            >
               Cancel
             </Button>
             <Button 
               variant="outline" 
-              className="text-green-600 border-green-200 hover:bg-green-50 w-full sm:w-auto"
+              className="text-green-600 border-green-200 hover:bg-green-50 dark:hover:bg-green-900/20 w-full sm:w-auto order-2"
               onClick={handleSave}
             >
+              <Edit className="h-4 w-4 mr-2" />
               Save Changes
             </Button>
             <Button 
-              className="bg-green-600 hover:bg-green-700 w-full sm:w-auto"
+              className="bg-green-600 hover:bg-green-700 w-full sm:w-auto order-1 sm:order-3"
               onClick={handleApprove}
             >
               <CheckCircle className="h-4 w-4 mr-2" />
@@ -309,6 +338,53 @@ export default function RejectedLeadCard({ lead, onApprove, onDelete, onUpdate }
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Confirmation Dialog for Approval */}
+      <AlertDialog open={isConfirmApproveOpen} onOpenChange={setIsConfirmApproveOpen}>
+        <AlertDialogContent className="max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <CheckCircle className="h-5 w-5 text-green-600" />
+              Approve Lead?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-left">
+              <div className="space-y-3">
+                <p>
+                  Are you sure you want to approve this lead? This will:
+                </p>
+                <ul className="list-disc list-inside space-y-1 text-sm text-gray-600 dark:text-gray-400">
+                  <li>Move the lead from "Rejected" to "Accepted"</li>
+                  <li>Set the lead status to "New"</li>
+                  <li>Make it available for normal lead management</li>
+                </ul>
+                <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 mt-3">
+                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Lead Details:</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    <strong>{editData.companyName}</strong> - {editData.personName}
+                  </p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">{editData.email}</p>
+                </div>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex flex-row gap-3 pt-2">
+            <Button
+              variant="outline"
+              onClick={() => setIsConfirmApproveOpen(false)}
+              className="w-full sm:w-auto h-11 rounded-[4px] border border-[#2B2521] text-[#2B2521] font-medium text-base hover:bg-[#F8F7F3] transition"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleConfirmApprove}
+              className="w-full sm:w-auto h-11 rounded-[4px] bg-[#34A853] hover:bg-[#25953c] text-white font-semibold text-base flex items-center justify-center gap-2 px-6 transition"
+            >
+              <CheckCircle className="h-5 w-5 mr-1 -ml-1" />
+              Approve
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 } 
