@@ -23,9 +23,10 @@ import { Label } from '@/components/ui/label';
 interface AccountCardProps {
   account: Account;
   view?: 'grid' | 'table';
+  onNewOpportunity?: () => void;
 }
 
-export default function AccountCard({ account, view = 'grid' }: AccountCardProps) {
+export default function AccountCard({ account, view = 'grid', onNewOpportunity }: AccountCardProps) {
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [dailySummary, setDailySummary] = useState<AIDailySummary | null>(null);
   const [isLoadingSummary, setIsLoadingSummary] = useState(false);
@@ -125,15 +126,8 @@ export default function AccountCard({ account, view = 'grid' }: AccountCardProps
     setEditMode(false);
   };
 
-  // Card click handler: only open dialog if not already open and click is not inside dialog
-  const handleCardClick = (e: React.MouseEvent) => {
-    // If the dialog is open and the click is inside the dialog content, do nothing
-    if (dialogOpen) return;
-    setDialogOpen(true);
-  };
-
   return (
-    <Card className="shadow-md hover:shadow-lg transition-shadow duration-300 flex flex-col h-full bg-white" onClick={handleCardClick}>
+    <Card className="shadow-md hover:shadow-lg transition-shadow duration-300 flex flex-col h-full bg-white">
       <CardHeader className="pb-3">
         <div className="flex justify-between items-start mb-1">
           <CardTitle className="text-xl font-headline flex items-center text-foreground">
@@ -153,7 +147,7 @@ export default function AccountCard({ account, view = 'grid' }: AccountCardProps
             {account.industry && <span className="text-xs">{account.industry}</span>}
         </CardDescription>
       </CardHeader>
-      <CardContent className="flex-grow space-y-3 text-sm">
+      <CardContent className="flex-grow space-y-3 text-sm" onClick={() => setDialogOpen(true)} style={{ cursor: 'pointer' }}>
         <p className="text-muted-foreground line-clamp-2">{account.description}</p>
         
         {account.contactPersonName && (
@@ -217,7 +211,13 @@ export default function AccountCard({ account, view = 'grid' }: AccountCardProps
           )}
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button size="sm" asChild variant="add" className="rounded-[4px] p-2"><Link href={`/opportunities/new?accountId=${account.id}`}><PlusCircle className="h-4 w-4" /></Link></Button>
+              <Button size="sm" variant="add" className="rounded-[4px] p-2" onClick={e => {
+                e.stopPropagation();
+                if (typeof onNewOpportunity === 'function') {
+                  setDialogOpen(false); // Ensure details dialog is closed
+                  onNewOpportunity();
+                }
+              }}><PlusCircle className="h-4 w-4" /></Button>
             </TooltipTrigger>
             <TooltipContent>New Opportunity</TooltipContent>
           </Tooltip>
@@ -246,7 +246,7 @@ export default function AccountCard({ account, view = 'grid' }: AccountCardProps
         </TooltipProvider>
       </CardFooter>
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-lg bg-white" onClick={e => e.stopPropagation()}>
+        <DialogContent className="sm:max-w-xl bg-white" onClick={e => e.stopPropagation()}>
           <DialogHeader>
             <DialogTitle className="flex items-center justify-between">
               {editMode ? (
@@ -263,7 +263,7 @@ export default function AccountCard({ account, view = 'grid' }: AccountCardProps
                 {editMode ? <X className="h-5 w-5" /> : <Pencil className="h-5 w-5" />}
               </Button>
             </DialogTitle>
-            <div className="grid grid-cols-1 gap-2 mt-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 mt-2">
               <div>
                 <span className="font-semibold">Contact Person:</span>{' '}
                 {editMode ? (
@@ -316,7 +316,7 @@ export default function AccountCard({ account, view = 'grid' }: AccountCardProps
                   editAccount.industry || 'N/A'
                 )}
               </div>
-              <div>
+              <div className="col-span-2">
                 <span className="font-semibold">Description:</span>{' '}
                 {editMode ? (
                   <Textarea
@@ -337,33 +337,32 @@ export default function AccountCard({ account, view = 'grid' }: AccountCardProps
               {logs.length === 0 ? 'No log found' : ''}
             </div>
             {logs.length > 0 && (
-              <div className="space-y-2 max-h-36 overflow-y-auto pr-1">
-                {logs.slice(0, 2).map((log, idx) => (
-                  <div key={log.id} className="flex items-start space-x-3 p-3 rounded-lg bg-muted/30 border-l-4 border-muted">
-                    <div className="flex-shrink-0 mt-1">
-                      <ListChecks className="h-4 w-4 text-primary shrink-0" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between mb-1">
-                        <p className="text-sm font-medium text-foreground line-clamp-2">
-                          {log.content}
-                        </p>
-                        <span className="text-xs text-muted-foreground ml-2">
-                          {format(new Date(log.date), 'MMM dd')}
-                        </span>
+              <div className="relative">
+                <div className="space-y-2 max-h-36 overflow-y-auto pr-1">
+                  {logs.map((log, idx) => (
+                    <div key={log.id} className="flex items-start space-x-3 p-3 rounded-r-sm bg-muted/30 border-l-4 border-muted">
+                      <div className="flex-shrink-0 mt-1">
+                        <ListChecks className="h-4 w-4 text-primary shrink-0" />
                       </div>
-                      <div className="flex items-center space-x-2">
-                        <span className="text-xs text-muted-foreground">{log.type}</span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-1">
+                          <p className="text-sm font-medium text-foreground line-clamp-2">
+                            {log.content}
+                          </p>
+                          <span className="text-xs text-muted-foreground ml-2">
+                            {format(new Date(log.date), 'MMM dd')}
+                          </span>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <span className="text-xs text-muted-foreground">{log.type}</span>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
-                {logs.length > 2 && (
-                  <div className="flex items-center justify-center pt-2 border-t border-muted/30 overflow-hidden max-h-8 opacity-70">
-                    <p className="text-xs text-muted-foreground truncate">
-                      +{logs.length - 2} more activities
-                    </p>
-                  </div>
+                  ))}
+                </div>
+                {/* Gradient overlay at the bottom, only if more than one log */}
+                {logs.length > 1 && (
+                  <div className="pointer-events-none absolute left-0 right-0 bottom-0 h-8" style={{background: 'linear-gradient(to bottom, transparent, #fff 90%)'}} />
                 )}
               </div>
             )}
@@ -373,20 +372,45 @@ export default function AccountCard({ account, view = 'grid' }: AccountCardProps
                 <Button variant="add" onClick={handleSaveEdit}>Save</Button>
               </div>
             ) : (
-              <form className="space-y-4">
-                <div>
-                  <Label htmlFor="update-type">Update Type *</Label>
-                  <Select value={updateType} onValueChange={value => setUpdateType(value as UpdateType)}>
-                    <SelectTrigger id="update-type" className="w-full mt-1">
-                      <SelectValue placeholder="Select update type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="General">General</SelectItem>
-                      <SelectItem value="Call">Call</SelectItem>
-                      <SelectItem value="Meeting">Meeting</SelectItem>
-                      <SelectItem value="Email">Email</SelectItem>
-                    </SelectContent>
-                  </Select>
+              <form className="space-y-4 mt-3">
+                <div className="flex flex-col md:flex-row gap-2">
+                  <div className="flex-1 min-w-0">
+                    <Label htmlFor="update-type">Update Type *</Label>
+                    <Select value={updateType} onValueChange={value => setUpdateType(value as UpdateType)}>
+                      <SelectTrigger id="update-type" className="w-full mt-1">
+                        <SelectValue placeholder="Select update type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="General">General</SelectItem>
+                        <SelectItem value="Call">Call</SelectItem>
+                        <SelectItem value="Meeting">Meeting</SelectItem>
+                        <SelectItem value="Email">Email</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <Label htmlFor="update-date">Date *</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Input
+                          id="update-date"
+                          type="text"
+                          value={updateDate ? format(updateDate, 'dd/MM/yyyy') : ''}
+                          placeholder="dd/mm/yyyy"
+                          readOnly
+                          className="mt-1 cursor-pointer bg-white"
+                        />
+                      </PopoverTrigger>
+                      <PopoverContent align="start" className="p-0 w-auto border-none bg-[#CFD4C9] rounded-sm">
+                        <Calendar
+                          mode="single"
+                          selected={updateDate}
+                          onSelect={setUpdateDate}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
                 </div>
                 <div>
                   <Label htmlFor="update-content">Content *</Label>
@@ -398,27 +422,9 @@ export default function AccountCard({ account, view = 'grid' }: AccountCardProps
                     className="min-h-[80px] resize-none"
                   />
                 </div>
-                <div>
-                  <Label>Date *</Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button variant="outline" className="w-full justify-start">
-                        {updateDate ? format(updateDate, 'dd/MM/yyyy') : 'dd/mm/yyyy'}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent align="start" className="p-0 w-auto border-none bg-[#CFD4C9] rounded-sm">
-                      <Calendar
-                        mode="single"
-                        selected={updateDate}
-                        onSelect={setUpdateDate}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
-                </div>
                 <DialogFooter>
                   <Button type="button" variant="add" className="w-full mt-2" onClick={handleLogUpdate} disabled={isLogging}>
-                    {isLogging ? 'Logging...' : 'Log Update'}
+                    {isLogging ? 'Adding...' : 'Add Activity'}
                   </Button>
                 </DialogFooter>
               </form>

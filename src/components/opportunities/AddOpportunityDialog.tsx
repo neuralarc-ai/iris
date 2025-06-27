@@ -1,7 +1,6 @@
-
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,16 +23,23 @@ interface AddOpportunityDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onOpportunityAdded?: (newOpportunity: Opportunity) => void;
+  accountId?: string | null;
 }
 
-export default function AddOpportunityDialog({ open, onOpenChange, onOpportunityAdded }: AddOpportunityDialogProps) {
+export default function AddOpportunityDialog({ open, onOpenChange, onOpportunityAdded, accountId }: AddOpportunityDialogProps) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [value, setValue] = useState<number | string>('');
-  const [selectedAccountId, setSelectedAccountId] = useState<string | ''>('');
+  const [selectedAccountId, setSelectedAccountId] = useState<string | ''>(accountId || '');
 
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+
+  useEffect(() => {
+    if (open) {
+      setSelectedAccountId(accountId || '');
+    }
+  }, [open, accountId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -98,7 +104,7 @@ export default function AddOpportunityDialog({ open, onOpenChange, onOpportunity
           
           <div>
             <Label htmlFor="opportunity-account">Associated Account <span className="text-destructive">*</span></Label>
-            <Select value={selectedAccountId} onValueChange={(value: string) => setSelectedAccountId(value)} disabled={isLoading}>
+            <Select value={selectedAccountId} onValueChange={(value: string) => setSelectedAccountId(value)} disabled={isLoading || !!accountId}>
               <SelectTrigger id="opportunity-account">
                 <SelectValue placeholder="Select an account" />
               </SelectTrigger>

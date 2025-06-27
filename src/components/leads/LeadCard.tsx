@@ -281,7 +281,7 @@ export default function LeadCard({ lead, onLeadConverted, onLeadDeleted, selectM
         </CardFooter>
       </Card>
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-lg bg-white">
+        <DialogContent className="sm:max-w-xl bg-white">
           <DialogHeader>
             <DialogTitle className="flex items-center justify-between">
               {editMode ? (
@@ -298,7 +298,7 @@ export default function LeadCard({ lead, onLeadConverted, onLeadDeleted, selectM
                 {editMode ? <X className="h-5 w-5" /> : <Pencil className="h-5 w-5" />}
               </Button>
             </DialogTitle>
-            <div className="grid grid-cols-1 gap-2 mt-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 mt-2">
               <div>
                 <span className="font-semibold">Name:</span>{' '}
                 {editMode ? (
@@ -359,33 +359,32 @@ export default function LeadCard({ lead, onLeadConverted, onLeadDeleted, selectM
               {logs.length === 0 ? 'No log found' : ''}
             </div>
             {logs.length > 0 && (
-              <div className="space-y-2 max-h-36 overflow-y-auto pr-1">
-                {logs.slice(0, 2).map((log, idx) => (
-                  <div key={log.id} className="flex items-start space-x-3 p-3 rounded-lg bg-muted/30 border-l-4 border-muted">
-                    <div className="flex-shrink-0 mt-1">
-                      <CheckSquare className="h-4 w-4 text-primary shrink-0" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between mb-1">
-                        <p className="text-sm font-medium text-foreground line-clamp-2">
-                          {log.content}
-                        </p>
-                        <span className="text-xs text-muted-foreground ml-2">
-                          {format(new Date(log.date), 'MMM dd')}
-                        </span>
+              <div className="relative">
+                <div className="space-y-2 max-h-36 overflow-y-auto pr-1">
+                  {logs.map((log, idx) => (
+                    <div key={log.id} className="flex items-start space-x-3 p-3 rounded-r-sm bg-muted/30 border-l-4 border-muted">
+                      <div className="flex-shrink-0 mt-1">
+                        <CheckSquare className="h-4 w-4 text-primary shrink-0" />
                       </div>
-                      <div className="flex items-center space-x-2">
-                        <span className="text-xs text-muted-foreground">{log.type}</span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-1">
+                          <p className="text-sm font-medium text-foreground line-clamp-2">
+                            {log.content}
+                          </p>
+                          <span className="text-xs text-muted-foreground ml-2">
+                            {format(new Date(log.date), 'MMM dd')}
+                          </span>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <span className="text-xs text-muted-foreground">{log.type}</span>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
-                {logs.length > 2 && (
-                  <div className="flex items-center justify-center pt-2 border-t border-muted/30 overflow-hidden max-h-8 opacity-70">
-                    <p className="text-xs text-muted-foreground truncate">
-                      +{logs.length - 2} more activities
-                    </p>
-                  </div>
+                  ))}
+                </div>
+                {/* Gradient overlay at the bottom, only if more than one log */}
+                {logs.length > 1 && (
+                  <div className="pointer-events-none absolute left-0 right-0 bottom-0 h-8" style={{background: 'linear-gradient(to bottom, transparent, #fff 90%)'}} />
                 )}
               </div>
             )}
@@ -395,19 +394,44 @@ export default function LeadCard({ lead, onLeadConverted, onLeadDeleted, selectM
                 <Button variant="add" onClick={handleSaveEdit}>Save</Button>
               </div>
             ) : (
-              <form className="space-y-4">
-                <div>
-                  <Label htmlFor="update-type">Update Type *</Label>
-                  <Select value={updateType} onValueChange={setUpdateType}>
-                    <SelectTrigger id="update-type" className="w-full mt-1">
-                      <SelectValue placeholder="Select update type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {updateTypes.map(type => (
-                        <SelectItem key={type} value={type}>{type}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+              <form className="space-y-4 mt-3">
+                <div className="flex flex-col md:flex-row gap-2">
+                  <div className="flex-1 min-w-0">
+                    <Label htmlFor="update-type">Update Type *</Label>
+                    <Select value={updateType} onValueChange={setUpdateType}>
+                      <SelectTrigger id="update-type" className="w-full mt-1">
+                        <SelectValue placeholder="Select update type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {updateTypes.map(type => (
+                          <SelectItem key={type} value={type}>{type}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <Label htmlFor="update-date">Date *</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Input
+                          id="update-date"
+                          type="text"
+                          value={updateDate ? format(updateDate, 'dd/MM/yyyy') : ''}
+                          placeholder="dd/mm/yyyy"
+                          readOnly
+                          className="mt-1 cursor-pointer bg-white"
+                        />
+                      </PopoverTrigger>
+                      <PopoverContent align="start" className="p-0 w-auto border-none bg-[#CFD4C9] rounded-sm">
+                        <Calendar
+                          mode="single"
+                          selected={updateDate}
+                          onSelect={setUpdateDate}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
                 </div>
                 <div>
                   <Label htmlFor="update-content">Content *</Label>
@@ -419,27 +443,9 @@ export default function LeadCard({ lead, onLeadConverted, onLeadDeleted, selectM
                     className="min-h-[80px] resize-none"
                   />
                 </div>
-                <div>
-                  <Label>Date *</Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button variant="outline" className="w-full justify-start">
-                        {updateDate ? format(updateDate, 'dd/MM/yyyy') : 'dd/mm/yyyy'}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent align="start" className="p-0 w-auto border-none bg-[#CFD4C9] rounded-sm">
-                      <Calendar
-                        mode="single"
-                        selected={updateDate}
-                        onSelect={setUpdateDate}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
-                </div>
                 <DialogFooter>
                   <Button type="button" variant="add" className="w-full mt-2" onClick={handleLogUpdate} disabled={isLogging}>
-                    {isLogging ? 'Logging...' : 'Log Update'}
+                    {isLogging ? 'Adding...' : 'Add Activity'}
                   </Button>
                 </DialogFooter>
               </form>

@@ -15,6 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
+import AddOpportunityDialog from '@/components/opportunities/AddOpportunityDialog';
 
 
 export default function AccountsPage() {
@@ -24,6 +25,8 @@ export default function AccountsPage() {
   const [typeFilter, setTypeFilter] = useState<AccountType | 'all'>('all');
   const [isAddAccountDialogOpen, setIsAddAccountDialogOpen] = useState(false);
   const [view, setView] = useState<'grid' | 'table'>('grid');
+  const [isAddOpportunityDialogOpen, setIsAddOpportunityDialogOpen] = useState(false);
+  const [opportunityAccountId, setOpportunityAccountId] = useState<string | null>(null);
 
   useEffect(() => {
     setAccounts([...initialMockAccounts]);
@@ -130,7 +133,14 @@ export default function AccountsPage() {
         view === 'grid' ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-8">
             {filteredAccounts.map((account) => (
-              <AccountCard key={account.id} account={account} />
+              <AccountCard
+                key={account.id}
+                account={account}
+                onNewOpportunity={() => {
+                  setOpportunityAccountId(account.id);
+                  setIsAddOpportunityDialogOpen(true);
+                }}
+              />
             ))}
           </div>
         ) : (
@@ -164,7 +174,10 @@ export default function AccountsPage() {
                         </Tooltip>
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <Button size="sm" asChild variant="add" className="rounded-[4px] p-2"><a href={`/opportunities/new?accountId=${account.id}`}><PlusCircle className="h-4 w-4" /></a></Button>
+                            <Button size="sm" variant="add" className="rounded-[4px] p-2" onClick={() => {
+                              setOpportunityAccountId(account.id);
+                              setIsAddOpportunityDialogOpen(true);
+                            }}><PlusCircle className="h-4 w-4" /></Button>
                           </TooltipTrigger>
                           <TooltipContent>New Opportunity</TooltipContent>
                         </Tooltip>
@@ -195,6 +208,19 @@ export default function AccountsPage() {
             }
              // Optionally, refresh leads list on the Leads page if it were visible or if global state existed
         }}
+      />
+      <AddOpportunityDialog
+        open={isAddOpportunityDialogOpen}
+        onOpenChange={(open) => {
+          setIsAddOpportunityDialogOpen(open);
+          if (!open) setOpportunityAccountId(null);
+        }}
+        onOpportunityAdded={() => {
+          setIsAddOpportunityDialogOpen(false);
+          setOpportunityAccountId(null);
+          // Optionally, refresh opportunities list here if needed
+        }}
+        accountId={opportunityAccountId || undefined}
       />
     </div>
   );
