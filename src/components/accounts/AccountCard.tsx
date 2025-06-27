@@ -248,95 +248,102 @@ export default function AccountCard({ account, view = 'grid', onNewOpportunity }
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-xl bg-white" onClick={e => e.stopPropagation()}>
           <DialogHeader>
-            <DialogTitle className="flex items-center justify-between">
+            <DialogTitle className="flex items-center gap-2">
               {editMode ? (
                 <Input
                   value={editAccount.name}
                   onChange={e => handleEditChange('name', e.target.value)}
-                  className="font-semibold text-lg border-none bg-transparent px-0 focus:ring-0 focus:outline-none"
+                  className="font-bold text-3xl border-none bg-transparent px-0 focus:ring-0 focus:outline-none"
                   placeholder="Account Name"
                 />
               ) : (
-                editAccount.name
+                <span className="font-bold text-3xl">{editAccount.name}</span>
               )}
-              <Button variant="ghost" size="icon" className="ml-2" onClick={() => setEditMode(e => !e)}>
-                {editMode ? <X className="h-5 w-5" /> : <Pencil className="h-5 w-5" />}
-              </Button>
+              {!editMode && (
+                <Button variant="ghost" size="icon" className="ml-2" onClick={() => setEditMode(true)}>
+                  <Pencil className="h-5 w-5" />
+                </Button>
+              )}
             </DialogTitle>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 mt-2">
-              <div>
-                <span className="font-semibold">Contact Person:</span>{' '}
+            <div className="flex flex-col gap-2 mt-2">
+              <div className="flex flex-col gap-1">
+                <span className="font-semibold text-[#55504C]">Contact Person:</span>
                 {editMode ? (
                   <Input
                     value={editAccount.contactPersonName}
                     onChange={e => handleEditChange('contactPersonName', e.target.value)}
-                    className="border-none bg-transparent px-0 focus:ring-0 focus:outline-none"
+                    className="border border-muted/30 bg-[#EFEDE7] px-2 py-1 rounded focus:ring-0 focus:outline-none"
                     placeholder="Contact Person"
                   />
                 ) : (
-                  editAccount.contactPersonName || 'N/A'
+                  <span className="text-[#282828]">{editAccount.contactPersonName || 'N/A'}</span>
                 )}
               </div>
-              <div>
-                <span className="font-semibold">Email:</span>{' '}
+              <div className="flex flex-col gap-1">
+                <span className="font-semibold text-[#55504C]">Email:</span>
                 {editMode ? (
                   <Input
                     value={editAccount.contactEmail}
                     onChange={e => handleEditChange('contactEmail', e.target.value)}
-                    className="border-none bg-transparent px-0 focus:ring-0 focus:outline-none"
+                    className="border border-muted/30 bg-[#EFEDE7] px-2 py-1 rounded focus:ring-0 focus:outline-none"
                     placeholder="Email"
                   />
                 ) : (
-                  editAccount.contactEmail || 'N/A'
+                  <span className="text-[#282828]">{editAccount.contactEmail || 'N/A'}</span>
                 )}
               </div>
-              <div>
-                <span className="font-semibold">Phone:</span>{' '}
+              <div className="flex flex-col gap-1">
+                <span className="font-semibold text-[#55504C]">Phone:</span>
                 {editMode ? (
                   <Input
                     value={editAccount.contactPhone}
                     onChange={e => handleEditChange('contactPhone', e.target.value)}
-                    className="border-none bg-transparent px-0 focus:ring-0 focus:outline-none"
+                    className="border border-muted/30 bg-[#EFEDE7] px-2 py-1 rounded focus:ring-0 focus:outline-none"
                     placeholder="Phone"
                   />
                 ) : (
-                  editAccount.contactPhone || 'N/A'
+                  <span className="text-[#282828]">{editAccount.contactPhone || 'N/A'}</span>
                 )}
               </div>
-              <div>
-                <span className="font-semibold">Industry:</span>{' '}
+              <div className="flex flex-col gap-1">
+                <span className="font-semibold text-[#55504C]">Industry:</span>
                 {editMode ? (
-                  <Input
-                    value={editAccount.industry}
-                    onChange={e => handleEditChange('industry', e.target.value)}
-                    className="border-none bg-transparent px-0 focus:ring-0 focus:outline-none"
-                    placeholder="Industry"
-                  />
+                  <Select value={editAccount.industry} onValueChange={value => handleEditChange('industry', value)}>
+                    <SelectTrigger className="border border-muted/30 bg-[#EFEDE7] px-2 py-1 rounded focus:ring-0 focus:outline-none">
+                      <SelectValue placeholder="Select industry" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Technology">Technology</SelectItem>
+                      <SelectItem value="Consulting">Consulting</SelectItem>
+                      <SelectItem value="Manufacturing">Manufacturing</SelectItem>
+                      <SelectItem value="Finance">Finance</SelectItem>
+                      <SelectItem value="Healthcare">Healthcare</SelectItem>
+                      <SelectItem value="Education">Education</SelectItem>
+                      <SelectItem value="Retail">Retail</SelectItem>
+                      <SelectItem value="Other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
                 ) : (
-                  editAccount.industry || 'N/A'
+                  <span className="text-[#282828]">{editAccount.industry || 'N/A'}</span>
                 )}
               </div>
-              <div className="col-span-2">
-                <span className="font-semibold">Description:</span>{' '}
+              <div className="flex flex-col gap-1">
+                <span className="font-semibold text-[#55504C]">Description:</span>
                 {editMode ? (
                   <Textarea
                     value={editAccount.description}
                     onChange={e => handleEditChange('description', e.target.value)}
-                    className="border-none bg-transparent px-0 focus:ring-0 focus:outline-none min-h-[60px]"
+                    className="border border-muted/30 bg-[#EFEDE7] px-2 py-1 rounded focus:ring-0 focus:outline-none min-h-[60px]"
                     placeholder="Description"
                   />
                 ) : (
-                  editAccount.description || 'N/A'
+                  <span className="text-[#282828]">{editAccount.description || 'N/A'}</span>
                 )}
               </div>
             </div>
           </DialogHeader>
           <div className="mt-4">
-            <div className="mb-2 text-sm font-semibold">Account: {editAccount.name}</div>
-            <div className="mb-2 text-muted-foreground text-xs">
-              {logs.length === 0 ? 'No log found' : ''}
-            </div>
-            {logs.length > 0 && (
+            {!editMode && logs.length > 0 && (
               <div className="relative">
                 <div className="space-y-2 max-h-36 overflow-y-auto pr-1">
                   {logs.map((log, idx) => (

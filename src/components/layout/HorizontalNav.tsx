@@ -97,7 +97,7 @@ export default function HorizontalNav() {
                         size="icon"
                         asChild
                         className={cn(
-                          "w-12 h-12 p-0 flex items-center rounded-sm justify-center hover:bg-muted/20 text-black",
+                          "w-10 h-10 p-0 flex items-center rounded-sm justify-center hover:bg-muted/20 text-black",
                           (pathname === item.href ||
                             (pathname.startsWith(item.href) &&
                               item.href !== "/dashboard" &&
@@ -105,7 +105,7 @@ export default function HorizontalNav() {
                             "bg-muted/20 font-semibold text-black"
                         )}
                       >
-                        <Link href={item.href}>
+                        <Link href={item.href} className="w-10 h-10">
                           <item.icon className="h-10 w-10"/>
                         </Link>
                       </Button>
