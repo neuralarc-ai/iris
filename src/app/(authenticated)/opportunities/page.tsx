@@ -13,37 +13,82 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import AddOpportunityDialog from '@/components/opportunities/AddOpportunityDialog';
+import { supabase } from '@/lib/supabaseClient';
+import { useAuth } from '@/hooks/use-auth';
+import { Loader2 } from 'lucide-react';
 
 export default function OpportunitiesPage() {
-  const [opportunities, setOpportunities] = useState<Opportunity[]>(initialMockOpportunities);
+  const [opportunities, setOpportunities] = useState<any[]>([]);
+  const [accounts, setAccounts] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<OpportunityStatus | 'all'>('all');
-  const [accountFilter, setAccountFilter] = useState<string | 'all'>('all'); 
+  const [accountFilter, setAccountFilter] = useState<string | 'all'>('all');
   const [isAddOpportunityDialogOpen, setIsAddOpportunityDialogOpen] = useState(false);
-
-  const opportunityStatusOptions: OpportunityStatus[] = ["Need Analysis", "Negotiation", "In Progress", "On Hold", "Completed", "Cancelled"];
-
-  const accountOptions = mockAccounts.map(account => ({ id: account.id, name: account.name }));
+  const [isLoading, setIsLoading] = useState(true);
+  const [role, setRole] = useState<string>('user');
+  const [userId, setUserId] = useState<string>('');
 
   useEffect(() => {
-    // This effect ensures that if mockOpportunities is updated (e.g. by adding through dialog), the local state reflects it.
-    // However, addOpportunity in lib/data.ts modifies the array directly, so this might just re-sync.
-    // For a more robust solution with external data, you'd fetch/re-fetch here.
-    setOpportunities([...initialMockOpportunities]);
-  }, []);
+    const fetchData = async () => {
+      setIsLoading(true);
+      const localUserId = localStorage.getItem('user_id');
+      setUserId(localUserId || '');
+      // Fetch user role
+      const { data: userData } = await supabase.from('users').select('role').eq('id', localUserId).single();
+      setRole(userData?.role || 'user');
+      // Fetch accounts
+      const { data: accountsData } = await supabase.from('account').select('id, name');
+      setAccounts(accountsData || []);
+      // Fetch opportunities
+      let query = supabase.from('opportunity').select('*').order('updated_at', { ascending: false });
+      if (userData?.role !== 'admin') {
+        query = query.eq('owner_id', localUserId);
+      }
+      const { data, error } = await query;
+      if (!error && data) {
+        setOpportunities(data);
+      } else {
+        setOpportunities([]);
+      }
+      setIsLoading(false);
+    };
+    fetchData();
+  }, [isAddOpportunityDialogOpen]);
 
+  const opportunityStatusOptions: OpportunityStatus[] = ["Need Analysis", "Negotiation", "In Progress", "On Hold", "Completed", "Cancelled"];
+  const accountOptions = accounts.map(account => ({ id: account.id, name: account.name }));
 
   const filteredOpportunities = opportunities.filter(opportunity => {
     const matchesSearch = opportunity.name.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'all' || opportunity.status === statusFilter;
-    const matchesAccount = accountFilter === 'all' || opportunity.accountId === accountFilter;
+    const matchesAccount = accountFilter === 'all' || opportunity.account_id === accountFilter;
     return matchesSearch && matchesStatus && matchesAccount;
-  }).sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+  }).sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
 
-  const handleOpportunityAdded = (newOpportunity: Opportunity) => {
-    // Add to the beginning for visibility and to ensure the list state is updated
+  const handleOpportunityAdded = (newOpportunity: any) => {
     setOpportunities(prevOpportunities => [newOpportunity, ...prevOpportunities.filter(op => op.id !== newOpportunity.id)]);
   };
+
+  function mapOpportunityFromSupabase(opp: any) {
+    return {
+      ...opp,
+      accountId: opp.account_id,
+      startDate: opp.start_date,
+      endDate: opp.end_date,
+      ownerId: opp.owner_id,
+      createdAt: opp.created_at,
+      updatedAt: opp.updated_at,
+      // add other fields as needed
+    };
+  }
+
+  if (isLoading) {
+    return (
+      <div className="min-h-[300px] flex items-center justify-center">
+        <Loader2 className="h-10 w-10 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-[1440px] px-4 mx-auto w-full space-y-6">
@@ -110,7 +155,7 @@ export default function OpportunitiesPage() {
       {filteredOpportunities.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-8">
           {filteredOpportunities.map((opportunity) => (
-            <OpportunityCard key={opportunity.id} opportunity={opportunity} />
+            <OpportunityCard key={opportunity.id} opportunity={mapOpportunityFromSupabase(opportunity)} accountName={accounts.find(a => a.id === opportunity.account_id)?.name || ''} />
           ))}
         </div>
       ) : (

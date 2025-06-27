@@ -6,7 +6,7 @@ import AccountCard from '@/components/accounts/AccountCard';
 import { mockAccounts as initialMockAccounts } from '@/lib/data';
 import type { Account, AccountType, AccountStatus } from '@/types';
 import { Button } from '@/components/ui/button';
-import { Search, ListFilter, List, Grid, Eye, PlusCircle } from 'lucide-react';
+import { Search, ListFilter, List, Grid, Eye, PlusCircle, Loader2 } from 'lucide-react';
 import Image from 'next/image';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -16,10 +16,13 @@ import { Label } from '@/components/ui/label';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
 import AddOpportunityDialog from '@/components/opportunities/AddOpportunityDialog';
+import { supabase } from '@/lib/supabaseClient';
+import { useAuth } from '@/hooks/use-auth';
 
 
 export default function AccountsPage() {
   const [accounts, setAccounts] = useState<Account[]>([]);
+  const [owners, setOwners] = useState<Record<string, { name: string; email: string }>>({});
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<AccountStatus | 'all'>('all');
   const [typeFilter, setTypeFilter] = useState<AccountType | 'all'>('all');
@@ -27,17 +30,53 @@ export default function AccountsPage() {
   const [view, setView] = useState<'grid' | 'table'>('grid');
   const [isAddOpportunityDialogOpen, setIsAddOpportunityDialogOpen] = useState(false);
   const [opportunityAccountId, setOpportunityAccountId] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [role, setRole] = useState<string>('user');
+  const [userId, setUserId] = useState<string>('');
 
   useEffect(() => {
-    setAccounts([...initialMockAccounts]);
-  }, []);
+    const fetchAccounts = async () => {
+      setIsLoading(true);
+      const localUserId = localStorage.getItem('user_id');
+      setUserId(localUserId || '');
+      // Fetch user role
+      const { data: userData } = await supabase.from('users').select('role').eq('id', localUserId).single();
+      setRole(userData?.role || 'user');
+      // Fetch accounts
+      let query = supabase.from('account').select('*').order('updated_at', { ascending: false });
+      if (userData?.role !== 'admin') {
+        query = query.eq('owner_id', localUserId);
+      }
+      const { data, error } = await query;
+      if (!error && data) {
+        setAccounts(data);
+        // Fetch owners for all unique owner_ids
+        const ownerIds = Array.from(new Set(data.map((acc: any) => acc.owner_id).filter(Boolean)));
+        if (ownerIds.length > 0) {
+          const { data: usersData } = await supabase.from('users').select('id, name, email').in('id', ownerIds);
+          const ownersMap: Record<string, { name: string; email: string }> = {};
+          usersData?.forEach((user: any) => {
+            ownersMap[user.id] = { name: user.name, email: user.email };
+          });
+          setOwners(ownersMap);
+        } else {
+          setOwners({});
+        }
+      } else {
+        setAccounts([]);
+        setOwners({});
+      }
+      setIsLoading(false);
+    };
+    fetchAccounts();
+  }, [isAddAccountDialogOpen]);
 
   const filteredAccounts = accounts.filter(account => {
-    const matchesSearch = account.name.toLowerCase().includes(searchTerm.toLowerCase()) || (account.contactEmail && account.contactEmail.toLowerCase().includes(searchTerm.toLowerCase()));
+    const matchesSearch = account.name.toLowerCase().includes(searchTerm.toLowerCase()) || (account.contact_email && account.contact_email.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesStatus = statusFilter === 'all' || account.status === statusFilter;
     const matchesType = typeFilter === 'all' || account.type === typeFilter;
     return matchesSearch && matchesStatus && matchesType;
-  }).sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+  }).sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
 
 
   const handleAccountAddedOrUpdated = (updatedAccount: Account) => {
@@ -51,6 +90,31 @@ export default function AccountsPage() {
       return [updatedAccount, ...prevAccounts];
     });
   };
+
+  // Add a handler to refresh accounts after delete
+  const handleAccountDeleted = (deletedId: string) => {
+    setAccounts(prev => prev.filter(acc => acc.id !== deletedId));
+  };
+
+  const handleAccountUpdated = (updatedAccount: Account) => {
+    setAccounts(prevAccounts => {
+      const existingIndex = prevAccounts.findIndex(acc => acc.id === updatedAccount.id);
+      if (existingIndex > -1) {
+        const newAccounts = [...prevAccounts];
+        newAccounts[existingIndex] = updatedAccount;
+        return newAccounts;
+      }
+      return [updatedAccount, ...prevAccounts];
+    });
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-[300px] flex items-center justify-center">
+        <Loader2 className="h-10 w-10 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-[1440px] mx-auto w-full space-y-6 px-4">
@@ -136,6 +200,9 @@ export default function AccountsPage() {
               <AccountCard
                 key={account.id}
                 account={account}
+                owner={owners[account.owner_id]?.name || '-'}
+                onAccountDeleted={handleAccountDeleted}
+                onAccountUpdated={handleAccountUpdated}
                 onNewOpportunity={() => {
                   setOpportunityAccountId(account.id);
                   setIsAddOpportunityDialogOpen(true);
@@ -153,6 +220,7 @@ export default function AccountsPage() {
                   <TableHead className='text-[#282828]'>Email</TableHead>
                   <TableHead className='text-[#282828]'>Type</TableHead>
                   <TableHead className='text-[#282828]'>Status</TableHead>
+                  <TableHead className='text-[#282828]'>Assigned To</TableHead>
                   <TableHead className='text-[#282828] rounded-tr-[8px]'>Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -161,9 +229,10 @@ export default function AccountsPage() {
                   <TableRow key={account.id} className="hover:bg-transparent">
                     <TableCell className="font-semibold text-foreground">{account.name}</TableCell>
                     <TableCell>{account.contactPersonName || '-'}</TableCell>
-                    <TableCell>{account.contactEmail}</TableCell>
+                    <TableCell>{account.contact_email}</TableCell>
                     <TableCell>{account.type}</TableCell>
                     <TableCell>{account.status}</TableCell>
+                    <TableCell>{owners[account.owner_id]?.name || '-'}</TableCell>
                     <TableCell className="flex gap-2">
                       <TooltipProvider delayDuration={0}>
                         <Tooltip>

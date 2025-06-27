@@ -16,8 +16,11 @@ import {
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import type { Opportunity, Account } from '@/types';
-import { addOpportunity, mockAccounts } from '@/lib/data';
+import { supabase } from '@/lib/supabaseClient';
 import { Loader2, BarChartBig, Briefcase } from 'lucide-react';
+import { useAuth } from '@/hooks/use-auth';
+import { Calendar } from '@/components/ui/calendar';
+import { OpportunityStatus } from '@/types';
 
 interface AddOpportunityDialogProps {
   open: boolean;
@@ -34,37 +37,76 @@ export default function AddOpportunityDialog({ open, onOpenChange, onOpportunity
 
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
+  const [role, setRole] = useState<string>('user');
+  const [ownerId, setOwnerId] = useState<string>('');
+  const [status, setStatus] = useState<OpportunityStatus>('Need Analysis');
+  const [expectedCloseDate, setExpectedCloseDate] = useState<Date | undefined>(undefined);
+
+  const opportunityStatusOptions: OpportunityStatus[] = [
+    'Scope Of Work', 'Proposal', 'Negotiation', 'Win', 'Loss', 'On Hold'
+  ];
 
   useEffect(() => {
     if (open) {
       setSelectedAccountId(accountId || '');
+      const fetchData = async () => {
+        const { data, error } = await supabase.from('account').select('*').eq('status', 'Active');
+        if (!error && data) setAccounts(data);
+        else setAccounts([]);
+        const userId = localStorage.getItem('user_id');
+        if (userId) {
+          const { data: userData } = await supabase.from('users').select('role').eq('id', userId).single();
+          setRole(userData?.role || 'user');
+          setOwnerId(userId);
+          if (userData?.role === 'admin') {
+            const { data: usersData } = await supabase.from('users').select('id, name, email');
+            if (usersData) setUsers(usersData);
+          }
+        }
+      };
+      fetchData();
     }
   }, [open, accountId]);
 
+  useEffect(() => {
+    if (role === 'admin' && selectedAccountId) {
+      const account = accounts.find(a => a.id === selectedAccountId);
+      if (account && account.owner_id) setOwnerId(account.owner_id);
+    }
+  }, [selectedAccountId, accounts, role]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !selectedAccountId || value === '' || Number(value) <= 0) {
-      toast({ title: "Error", description: "Opportunity Name, associated Account, and a valid positive Quoted Amount are required.", variant: "destructive" });
+    if (!name.trim() || !selectedAccountId || value === '' || Number(value) <= 0 || !status || !expectedCloseDate) {
+      toast({ title: "Error", description: "All required fields must be filled, including Status and Expected Close Date.", variant: "destructive" });
       return;
     }
     setIsLoading(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      const newOpportunityData = {
-        name,
-        description,
-        value: Number(value),
-        accountId: selectedAccountId,
-      };
-      const newOpportunity = addOpportunity(newOpportunityData);
-      
+      if (!ownerId) throw new Error('User not authenticated');
+      const now = new Date();
+      const startDate = now.toISOString();
+      const endDate = expectedCloseDate.toISOString();
+      const { data, error } = await supabase.from('opportunity').insert([
+        {
+          name,
+          description,
+          value: Number(value),
+          account_id: selectedAccountId,
+          status,
+          start_date: startDate,
+          end_date: endDate,
+          owner_id: ownerId,
+        }
+      ]).select().single();
+      if (error || !data) throw error || new Error('Failed to create opportunity');
       toast({
         title: "Opportunity Created",
-        description: `Opportunity "${name}" has been successfully added for account ${mockAccounts.find(a => a.id === selectedAccountId)?.name}.`,
+        description: `Opportunity "${name}" has been successfully added for account ${accounts.find(a => a.id === selectedAccountId)?.name}.`,
       });
-      
-      onOpportunityAdded?.(newOpportunity);
+      onOpportunityAdded?.(data);
       resetForm();
       onOpenChange(false);
     } catch (error) {
@@ -80,6 +122,9 @@ export default function AddOpportunityDialog({ open, onOpenChange, onOpportunity
     setDescription('');
     setValue('');
     setSelectedAccountId('');
+    setOwnerId('');
+    setStatus('Need Analysis');
+    setExpectedCloseDate(undefined);
   };
 
   return (
@@ -109,7 +154,7 @@ export default function AddOpportunityDialog({ open, onOpenChange, onOpportunity
                 <SelectValue placeholder="Select an account" />
               </SelectTrigger>
               <SelectContent>
-                {mockAccounts.filter(account => account.status === 'Active').map(account => (
+                {accounts.map(account => (
                   <SelectItem key={account.id} value={account.id}>
                     <div className="flex items-center">
                       <Briefcase className="mr-2 h-4 w-4 text-muted-foreground" />
@@ -119,6 +164,51 @@ export default function AddOpportunityDialog({ open, onOpenChange, onOpportunity
                 ))}
               </SelectContent>
             </Select>
+          </div>
+
+          {role === 'admin' && (
+            <div>
+              <Label htmlFor="opportunity-owner">Assigned To <span className="text-destructive">*</span></Label>
+              <Select value={ownerId} onValueChange={setOwnerId}>
+                <SelectTrigger id="opportunity-owner">
+                  <SelectValue placeholder="Select user" />
+                </SelectTrigger>
+                <SelectContent>
+                  {users.map(user => (
+                    <SelectItem key={user.id} value={user.id}>{user.name} ({user.email})</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          <div>
+            <Label htmlFor="opportunity-status">Status <span className="text-destructive">*</span></Label>
+            <Select value={status} onValueChange={setStatus}>
+              <SelectTrigger id="opportunity-status">
+                <SelectValue placeholder="Select status" />
+              </SelectTrigger>
+              <SelectContent>
+                {opportunityStatusOptions.map(opt => (
+                  <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <Label htmlFor="opportunity-expected-close">Expected Close Date <span className="text-destructive">*</span></Label>
+            <div className="flex items-center gap-2">
+              <Calendar
+                mode="single"
+                selected={expectedCloseDate}
+                onSelect={setExpectedCloseDate}
+                initialFocus
+              />
+              {expectedCloseDate && (
+                <span className="text-xs text-muted-foreground ml-2">{expectedCloseDate.toLocaleDateString()}</span>
+              )}
+            </div>
           </div>
 
           <div>

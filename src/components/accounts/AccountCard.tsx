@@ -19,14 +19,24 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { format } from 'date-fns';
 import { Label } from '@/components/ui/label';
+import { supabase } from '@/lib/supabaseClient';
+import { useAuth } from '@/hooks/use-auth';
 
 interface AccountCardProps {
   account: Account;
   view?: 'grid' | 'table';
   onNewOpportunity?: () => void;
+  owner?: string;
+  onAccountDeleted?: (accountId: string) => void;
+  onAccountUpdated?: (updatedAccount: any) => void;
 }
 
-export default function AccountCard({ account, view = 'grid', onNewOpportunity }: AccountCardProps) {
+export default function AccountCard({ account, view = 'grid', onNewOpportunity, owner, onAccountDeleted, onAccountUpdated }: AccountCardProps) {
+  const { isAuthenticated } = useAuth();
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [role, setRole] = useState<string>('user');
+  const [users, setUsers] = useState<any[]>([]);
+  const [editOwnerId, setEditOwnerId] = useState<string>((account as any).owner_id || '');
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [dailySummary, setDailySummary] = useState<AIDailySummary | null>(null);
   const [isLoadingSummary, setIsLoadingSummary] = useState(false);
@@ -40,9 +50,9 @@ export default function AccountCard({ account, view = 'grid', onNewOpportunity }
   const [editMode, setEditMode] = useState(false);
   const [editAccount, setEditAccount] = useState({
     name: account.name,
-    contactPersonName: account.contactPersonName || '',
-    contactEmail: account.contactEmail || '',
-    contactPhone: account.contactPhone || '',
+    contactPersonName: (account as any).contact_person_name || '',
+    contactEmail: (account as any).contact_email || '',
+    contactPhone: (account as any).contact_phone || '',
     industry: account.industry || '',
     description: account.description || '',
   });
@@ -51,6 +61,29 @@ export default function AccountCard({ account, view = 'grid', onNewOpportunity }
     setOpportunities(getOpportunitiesByAccount(account.id));
     setLogs(mockUpdates.filter(u => u.accountId === account.id).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
   }, [account.id]);
+
+  useEffect(() => {
+    const fetchCurrentUser = async () => {
+      const userId = localStorage.getItem('user_id');
+      if (!userId) return;
+      const { data, error } = await supabase.from('users').select('*').eq('id', userId).single();
+      if (data) {
+        setCurrentUser(data);
+        setRole(data.role);
+      }
+    };
+    fetchCurrentUser();
+  }, []);
+
+  useEffect(() => {
+    if (role === 'admin') {
+      const fetchUsers = async () => {
+        const { data, error } = await supabase.from('users').select('id, name, email');
+        if (data) setUsers(data);
+      };
+      fetchUsers();
+    }
+  }, [role]);
 
   const fetchDailySummary = async () => {
     setIsLoadingSummary(true);
@@ -78,11 +111,15 @@ export default function AccountCard({ account, view = 'grid', onNewOpportunity }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [account.id, account.name, account.status]);
 
-  // Placeholder for delete handler
-  const handleDeleteAccount = () => {
-    // Implement actual delete logic as needed
+  const handleDeleteAccount = async () => {
+    // Use Supabase to delete the account
+    const { error } = await supabase.from('account').delete().eq('id', account.id);
+    if (!error) {
+      if (onAccountDeleted) onAccountDeleted(account.id);
+    } else {
+      alert('Failed to delete account: ' + error.message);
+    }
     setDeleteDialogOpen(false);
-    // Optionally show a toast or update parent state
   };
 
   const handleLogUpdate = async () => {
@@ -108,18 +145,32 @@ export default function AccountCard({ account, view = 'grid', onNewOpportunity }
     setEditAccount(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleSaveEdit = () => {
-    // In a real app, update backend here
-    setEditMode(false);
-    // Optionally update local state (not global/mock)
+  const handleSaveEdit = async () => {
+    // Update the account in Supabase
+    const { data, error } = await supabase.from('account').update({
+      name: editAccount.name,
+      contact_person_name: editAccount.contactPersonName,
+      contact_email: editAccount.contactEmail,
+      contact_phone: editAccount.contactPhone,
+      industry: editAccount.industry,
+      description: editAccount.description,
+      owner_id: role === 'admin' ? editOwnerId : (account as any).owner_id,
+      updated_at: new Date().toISOString(),
+    }).eq('id', account.id).select().single();
+    if (!error && data) {
+      setEditMode(false);
+      if (onAccountUpdated) onAccountUpdated(data);
+    } else {
+      alert('Failed to update account: ' + (error?.message || 'Unknown error'));
+    }
   };
 
   const handleCancelEdit = () => {
     setEditAccount({
       name: account.name,
-      contactPersonName: account.contactPersonName || '',
-      contactEmail: account.contactEmail || '',
-      contactPhone: account.contactPhone || '',
+      contactPersonName: (account as any).contact_person_name || '',
+      contactEmail: (account as any).contact_email || '',
+      contactPhone: (account as any).contact_phone || '',
       industry: account.industry || '',
       description: account.description || '',
     });
@@ -148,27 +199,25 @@ export default function AccountCard({ account, view = 'grid', onNewOpportunity }
         </CardDescription>
       </CardHeader>
       <CardContent className="flex-grow space-y-3 text-sm" onClick={() => setDialogOpen(true)} style={{ cursor: 'pointer' }}>
-        <p className="text-muted-foreground line-clamp-2">{account.description}</p>
+        <p className="text-muted-foreground line-clamp-2">{account.description || 'N/A'}</p>
         
-        {account.contactPersonName && (
-            <div className="flex items-center text-muted-foreground">
-                <Users className="mr-2 h-4 w-4 shrink-0"/>
-                {account.contactPersonName}
-            </div>
+        <div className="flex items-center text-muted-foreground">
+          <Users className="mr-2 h-4 w-4 shrink-0"/>
+          {(account as any).contact_person_name || 'N/A'}
+        </div>
+        <div className="flex items-center text-muted-foreground">
+          <Mail className="mr-2 h-4 w-4 shrink-0"/>
+          {(account as any).contact_email || 'N/A'}
+        </div>
+        <div className="flex items-center text-muted-foreground">
+          <Phone className="mr-2 h-4 w-4 shrink-0"/>
+          {(account as any).contact_phone || 'N/A'}
+        </div>
+        {owner && (
+          <div className="flex items-center text-muted-foreground">
+            <span className="font-semibold mr-2">Assigned To:</span> {owner}
+          </div>
         )}
-        {account.contactEmail && (
-            <div className="flex items-center text-muted-foreground">
-                <Mail className="mr-2 h-4 w-4 shrink-0"/>
-                {account.contactEmail}
-            </div>
-        )}
-         {account.contactPhone && (
-            <div className="flex items-center text-muted-foreground">
-                <Phone className="mr-2 h-4 w-4 shrink-0"/>
-                {account.contactPhone}
-            </div>
-        )}
-
         <div className="text-sm flex items-center text-foreground font-medium">
           <ListChecks className="mr-2 h-4 w-4 text-primary" />
           <span>{opportunities.length} Active Opportunit{opportunities.length !== 1 ? 'ies' : 'y'}</span> 
@@ -340,6 +389,21 @@ export default function AccountCard({ account, view = 'grid', onNewOpportunity }
                   <span className="text-[#282828]">{editAccount.description || 'N/A'}</span>
                 )}
               </div>
+              {editMode && role === 'admin' && (
+                <div className="flex flex-col gap-1">
+                  <span className="font-semibold text-[#55504C]">Assigned To:</span>
+                  <Select value={editOwnerId} onValueChange={setEditOwnerId}>
+                    <SelectTrigger className="border border-muted/30 bg-[#EFEDE7] px-2 py-1 rounded focus:ring-0 focus:outline-none">
+                      <SelectValue placeholder="Select user" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {users.map(user => (
+                        <SelectItem key={user.id} value={user.id}>{user.name} ({user.email})</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             </div>
           </DialogHeader>
           <div className="mt-4">

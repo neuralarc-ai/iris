@@ -1,6 +1,6 @@
 export type AccountType = "Client" | "Channel Partner";
 export type AccountStatus = "Active" | "Inactive";
-export type OpportunityStatus = "Need Analysis" | "Negotiation" | "In Progress" | "On Hold" | "Completed" | "Cancelled";
+export type OpportunityStatus = 'Scope Of Work' | 'Proposal' | 'Negotiation' | 'Win' | 'Loss' | 'On Hold';
 export type UpdateType = "General" | "Call" | "Meeting" | "Email";
 export type LeadStatus = "New" | "Contacted" | "Qualified" | "Proposal Sent" | "Converted to Account" | "Lost" | "Rejected";
 

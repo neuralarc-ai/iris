@@ -122,3 +122,10 @@ CREATE TABLE leadimport (
 -- - Regular users (role = 'user') can only view and manage:
 --   - Accounts, Leads, Opportunities, and Updates where they are the owner_id or updated_by_user_id.
 --   - Records assigned to them by the admin.
+
+
+
+ALTER TABLE opportunity
+  DROP CONSTRAINT opportunity_status_check,
+  ADD CONSTRAINT opportunity_status_check
+    CHECK (status IN ('Scope Of Work', 'Proposal', 'Negotiation', 'Win', 'Loss', 'On Hold'));

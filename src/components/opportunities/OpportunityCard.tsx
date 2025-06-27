@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { BarChartBig, DollarSign, CalendarDays, Eye, AlertTriangle, CheckCircle2, Briefcase, Lightbulb, TrendingUp, Users, Clock, MessageSquarePlus, Calendar as CalendarIcon, Sparkles } from 'lucide-react';
 import type { Opportunity, OpportunityForecast as AIOpportunityForecast, Account, OpportunityStatus, Update } from '@/types';
 import { Progress } from "@/components/ui/progress";
-import {format, differenceInDays, parseISO, formatDistanceToNowStrict} from 'date-fns';
+import {format, differenceInDays, parseISO, isValid, formatDistanceToNowStrict} from 'date-fns';
 import { aiPoweredOpportunityForecasting } from '@/ai/flows/ai-powered-opportunity-forecasting';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { getAccountById } from '@/lib/data';
@@ -26,47 +26,36 @@ interface OpportunityCardProps {
 
 const getStatusBadgeColorClasses = (status: Opportunity['status']): string => {
   switch (status) {
-    case 'Need Analysis': return 'bg-sky-500/20 text-sky-700 border-sky-500/30';
+    case 'Scope Of Work': return 'bg-sky-500/20 text-sky-700 border-sky-500/30';
+    case 'Proposal': return 'bg-blue-500/20 text-blue-700 border-blue-500/30';
     case 'Negotiation': return 'bg-amber-500/20 text-amber-700 border-amber-500/30';
-    case 'In Progress': return 'bg-blue-500/20 text-blue-700 border-blue-500/30';
+    case 'Win': return 'bg-green-500/20 text-green-700 border-green-500/30';
+    case 'Loss': return 'bg-red-500/20 text-red-700 border-red-500/30';
     case 'On Hold': return 'bg-slate-500/20 text-slate-700 border-slate-500/30';
-    case 'Completed': return 'bg-green-500/20 text-green-700 border-green-500/30';
-    case 'Cancelled': return 'bg-red-500/20 text-red-700 border-red-500/30';
     default: return 'bg-gray-500/20 text-gray-700 border-gray-500/30';
   }
 };
 
+// Utility to safely parse ISO date strings
+function safeParseISO(dateString?: string): Date | null {
+  if (!dateString) return null;
+  const parsed = parseISO(dateString);
+  return isValid(parsed) ? parsed : null;
+}
 
 function calculateProgress(startDate: string, endDate: string, status: OpportunityStatus): number {
-  switch (status) {
-    case 'Completed':
-      return 100;
-    case 'Cancelled':
-      return 0;
-    case 'Need Analysis':
-      if (new Date() < parseISO(startDate)) return 0;
-      break;
-    case 'Negotiation':
-    case 'In Progress':
-    case 'On Hold':
-      break;
-    default:
-      return 0;
-  }
-
-  const start = parseISO(startDate);
-  const end = parseISO(endDate);
+  const start = safeParseISO(startDate);
+  const end = safeParseISO(endDate);
+  if (!start || !end) return 0;
   const today = new Date();
-
-  if (today < start) return 5; // Slight progress if it hasn't started but not cancelled
-  if (today >= end) return 95; // Near completion if past end date but not marked complete
-
+  if (status === 'Win') return 100;
+  if (status === 'Loss') return 0;
+  if (today < start) return 5;
+  if (today >= end) return 95;
   const totalDuration = differenceInDays(end, start);
   const elapsedDuration = differenceInDays(today, start);
-
-  if (totalDuration <= 0) return (status === 'In Progress' || status === 'Negotiation' || status === 'On Hold') ? 50 : 0;
-
-  return Math.min(98, Math.max(5, (elapsedDuration / totalDuration) * 100)); // Ensure progress is between 5 and 98 unless completed/cancelled
+  if (totalDuration <= 0) return (status === 'Negotiation' || status === 'Proposal' || status === 'On Hold') ? 50 : 0;
+  return Math.min(98, Math.max(5, (elapsedDuration / totalDuration) * 100));
 }
 
 
@@ -93,10 +82,13 @@ export default function OpportunityCard({ opportunity }: OpportunityCardProps) {
   const fetchForecast = async () => {
     setIsLoadingForecast(true);
     try {
+      const start = safeParseISO(opportunity.startDate);
+      const end = safeParseISO(opportunity.endDate);
+      const timeline = start && end ? `Start: ${format(start, 'MMM dd, yyyy')}, End: ${format(end, 'MMM dd, yyyy')}` : 'N/A';
       const forecastData = await aiPoweredOpportunityForecasting({
         opportunityName: opportunity.name,
         opportunityDescription: opportunity.description,
-        opportunityTimeline: `Start: ${format(parseISO(opportunity.startDate), 'MMM dd, yyyy')}, End: ${format(parseISO(opportunity.endDate), 'MMM dd, yyyy')}`,
+        opportunityTimeline: timeline,
         opportunityValue: opportunity.value,
         opportunityStatus: opportunity.status,
         recentUpdates: "Placeholder: Updates show steady progress.",
@@ -140,7 +132,8 @@ export default function OpportunityCard({ opportunity }: OpportunityCardProps) {
   const accountName = associatedAccount?.name;
   function timeRemaining(status: OpportunityStatus): string {
     if (status === 'Completed' || status === 'Cancelled') return status;
-    const end = parseISO(opportunity.endDate);
+    const end = safeParseISO(opportunity.endDate);
+    if (!end) return 'N/A';
     const now = new Date();
     if (now > end) return `Overdue by ${formatDistanceToNowStrict(end, {addSuffix: false})}`;
     return `${formatDistanceToNowStrict(end, {addSuffix: false})} left`;
@@ -169,19 +162,22 @@ export default function OpportunityCard({ opportunity }: OpportunityCardProps) {
     }
   };
 
-  const renderActivityLogItem = (log: Update) => (
-    <div key={log.id} className="flex items-start space-x-3 p-3 rounded-r-lg bg-muted/30 border-l-4 border-muted">
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center justify-between mb-1">
-          <p className="text-sm font-medium text-foreground line-clamp-2">{log.content}</p>
-          <span className="text-xs flex-shrink-0 text-muted-foreground ml-2">{format(parseISO(log.date), 'MMM dd')}</span>
-        </div>
-        <div className="flex items-center space-x-2">
-          <Badge variant="outline" className="text-xs">{log.type}</Badge>
+  const renderActivityLogItem = (log: Update) => {
+    const logDate = safeParseISO(log.date);
+    return (
+      <div key={log.id} className="flex items-start space-x-3 p-3 rounded-r-lg bg-muted/30 border-l-4 border-muted">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between mb-1">
+            <p className="text-sm font-medium text-foreground line-clamp-2">{log.content}</p>
+            <span className="text-xs flex-shrink-0 text-muted-foreground ml-2">{logDate ? format(logDate, 'MMM dd') : 'N/A'}</span>
+          </div>
+          <div className="flex items-center space-x-2">
+            <Badge variant="outline" className="text-xs">{log.type}</Badge>
+          </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   const toggleAiInsights = () => setShowAiInsights((prev) => !prev);
 
@@ -214,7 +210,16 @@ export default function OpportunityCard({ opportunity }: OpportunityCardProps) {
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
             <div className="flex items-center text-muted-foreground text-xs">
               <CalendarDays className="mr-2 h-4 w-4 shrink-0" />
-              <span>{format(parseISO(opportunity.startDate), 'MMM dd, yyyy')} - {format(parseISO(opportunity.endDate), 'MMM dd, yyyy')}</span>
+              <span>{
+                (() => {
+                  const start = safeParseISO(opportunity.startDate);
+                  const end = safeParseISO(opportunity.endDate);
+                  if (start && end) {
+                    return `${format(start, 'MMM dd, yyyy')} - ${format(end, 'MMM dd, yyyy')}`;
+                  }
+                  return 'N/A';
+                })()
+              }</span>
             </div>
             <div className="flex items-center text-muted-foreground text-xs">
               <Clock className="mr-1 h-3 w-3 shrink-0"/>{timeRemaining(opportunity.status as OpportunityStatus)}
@@ -282,7 +287,16 @@ export default function OpportunityCard({ opportunity }: OpportunityCardProps) {
               </div>
               <div className="bg-white/30 p-3 rounded-lg">
                 <div className="text-sm font-medium text-muted-foreground">Timeline</div>
-                <div className="text-xs text-muted-foreground">{format(parseISO(opportunity.startDate), 'MMM dd, yyyy')} - {format(parseISO(opportunity.endDate), 'MMM dd, yyyy')}</div>
+                <div className="text-xs text-muted-foreground">{
+                  (() => {
+                    const start = safeParseISO(opportunity.startDate);
+                    const end = safeParseISO(opportunity.endDate);
+                    if (start && end) {
+                      return `${format(start, 'MMM dd, yyyy')} - ${format(end, 'MMM dd, yyyy')}`;
+                    }
+                    return 'N/A';
+                  })()
+                }</div>
               </div>
             </div>
             {/* Progress & Health */}
