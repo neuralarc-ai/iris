@@ -18,6 +18,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import { countries } from '@/lib/countryData';
 
 interface LeadCardProps {
   lead: Lead;
@@ -283,110 +284,115 @@ export default function LeadCard({ lead, onLeadConverted, onLeadDeleted, selectM
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="sm:max-w-xl bg-white">
           <DialogHeader>
-            <DialogTitle className="flex items-center justify-between">
+            <DialogTitle className="flex items-center gap-2">
               {editMode ? (
                 <Input
                   value={editLead.companyName}
                   onChange={e => handleEditChange('companyName', e.target.value)}
-                  className="font-semibold text-lg border-none bg-transparent px-0 focus:ring-0 focus:outline-none"
+                  className="font-bold text-3xl border-none bg-transparent px-0 focus:ring-0 focus:outline-none"
                   placeholder="Company Name"
                 />
               ) : (
-                editLead.companyName
+                <span className="font-bold text-3xl">{editLead.companyName}</span>
               )}
-              <Button variant="ghost" size="icon" className="ml-2" onClick={() => setEditMode(e => !e)}>
-                {editMode ? <X className="h-5 w-5" /> : <Pencil className="h-5 w-5" />}
-              </Button>
+              {!editMode && (
+                <Button variant="ghost" size="icon" className="ml-2" onClick={() => setEditMode(true)}>
+                  <Pencil className="h-5 w-5" />
+                </Button>
+              )}
             </DialogTitle>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 mt-2">
-              <div>
-                <span className="font-semibold">Name:</span>{' '}
+            <div className="flex flex-col gap-2 mt-2">
+              <div className="flex flex-col gap-1">
+                <span className="font-semibold text-[#55504C]">Name:</span>
                 {editMode ? (
                   <Input
                     value={editLead.personName}
                     onChange={e => handleEditChange('personName', e.target.value)}
-                    className="border-none bg-transparent px-0 focus:ring-0 focus:outline-none"
+                    className="border border-muted/30 bg-[#EFEDE7] px-2 py-1 rounded focus:ring-0 focus:outline-none"
                     placeholder="Person Name"
                   />
                 ) : (
-                  editLead.personName
+                  <span className="text-[#282828]">{editLead.personName}</span>
                 )}
               </div>
               <div>
-                <span className="font-semibold">Email:</span>{' '}
+                <span className="font-semibold text-[#55504C]">Email:</span>{' '}
                 {editMode ? (
                   <Input
                     value={editLead.email}
                     onChange={e => handleEditChange('email', e.target.value)}
-                    className="border-none bg-transparent px-0 focus:ring-0 focus:outline-none"
+                    className="border-muted/30 bg-[#EFEDE7] px-2 py-1 focus:ring-0 focus:outline-none"
                     placeholder="Email"
                   />
                 ) : (
-                  editLead.email
+                  <span className="text-[#282828]">{editLead.email}</span>
                 )}
               </div>
               <div>
-                <span className="font-semibold">Number:</span>{' '}
+                <span className="font-semibold text-[#55504C]">Number:</span>{' '}
                 {editMode ? (
                   <Input
                     value={editLead.phone}
                     onChange={e => handleEditChange('phone', e.target.value)}
-                    className="border-none bg-transparent px-0 focus:ring-0 focus:outline-none"
+                    className="border-muted/30 bg-[#EFEDE7] px-2 py-1 focus:ring-0 focus:outline-none"
                     placeholder="Phone"
                   />
                 ) : (
-                  editLead.phone || 'N/A'
+                  <span className="text-[#282828]">{editLead.phone || 'N/A'}</span>
                 )}
               </div>
               <div>
-                <span className="font-semibold">Location:</span>{' '}
+                <span className="font-semibold text-[#55504C]">Location:</span>
                 {editMode ? (
-                  <Input
-                    value={editLead.country}
-                    onChange={e => handleEditChange('country', e.target.value)}
-                    className="border-none bg-transparent px-0 focus:ring-0 focus:outline-none"
-                    placeholder="Location"
-                  />
+                  <Select value={editLead.country} onValueChange={value => handleEditChange('country', value)}>
+                    <SelectTrigger className="border border-muted/30 bg-[#EFEDE7] px-2 py-1 rounded focus:ring-0 focus:outline-none">
+                      <SelectValue placeholder="Select country" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {countries.map(c => (
+                        <SelectItem key={c.code} value={c.name}>{c.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 ) : (
-                  editLead.country || 'N/A'
+                  <span className="text-[#282828]">{editLead.country || 'N/A'}</span>
                 )}
               </div>
             </div>
           </DialogHeader>
           <div className="mt-4">
-            <div className="mb-2 text-sm font-semibold">Lead: {editLead.companyName}</div>
-            <div className="mb-2 text-muted-foreground text-xs">
-              {logs.length === 0 ? 'No log found' : ''}
-            </div>
-            {logs.length > 0 && (
-              <div className="relative">
-                <div className="space-y-2 max-h-36 overflow-y-auto pr-1">
-                  {logs.map((log, idx) => (
-                    <div key={log.id} className="flex items-start space-x-3 p-3 rounded-r-sm bg-muted/30 border-l-4 border-muted">
-                      <div className="flex-shrink-0 mt-1">
-                        <CheckSquare className="h-4 w-4 text-primary shrink-0" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between mb-1">
-                          <p className="text-sm font-medium text-foreground line-clamp-2">
-                            {log.content}
-                          </p>
-                          <span className="text-xs text-muted-foreground ml-2">
-                            {format(new Date(log.date), 'MMM dd')}
-                          </span>
+            {!editMode && logs.length > 0 && (
+              <>
+                <div className="text-xs font-semibold text-muted-foreground uppercase mb-1">Activity</div>
+                <div className="relative">
+                  <div className="space-y-2 max-h-36 overflow-y-auto pr-1">
+                    {logs.map((log, idx) => (
+                      <div key={log.id} className="flex items-start space-x-3 p-3 rounded-r-sm bg-muted/30 border-l-4 border-muted">
+                        <div className="flex-shrink-0 mt-1">
+                          <CheckSquare className="h-4 w-4 text-primary shrink-0" />
                         </div>
-                        <div className="flex items-center space-x-2">
-                          <span className="text-xs text-muted-foreground">{log.type}</span>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between mb-1">
+                            <p className="text-sm font-medium text-foreground line-clamp-2">
+                              {log.content}
+                            </p>
+                            <span className="text-xs text-muted-foreground ml-2">
+                              {format(new Date(log.date), 'MMM dd')}
+                            </span>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <span className="text-xs text-muted-foreground">{log.type}</span>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
+                  {/* Gradient overlay at the bottom, only if more than one log */}
+                  {logs.length > 1 && (
+                    <div className="pointer-events-none absolute left-0 right-0 bottom-0 h-8" style={{background: 'linear-gradient(to bottom, transparent, #fff 90%)'}} />
+                  )}
                 </div>
-                {/* Gradient overlay at the bottom, only if more than one log */}
-                {logs.length > 1 && (
-                  <div className="pointer-events-none absolute left-0 right-0 bottom-0 h-8" style={{background: 'linear-gradient(to bottom, transparent, #fff 90%)'}} />
-                )}
-              </div>
+              </>
             )}
             {editMode ? (
               <div className="flex justify-end gap-2 mt-4">

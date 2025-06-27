@@ -14,6 +14,7 @@ import Link from 'next/link';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { format, parseISO } from 'date-fns';
 import UpdateItem from '@/components/updates/UpdateItem';
+import OpportunityCard from '@/components/opportunities/OpportunityCard';
 
 interface OpportunityWithForecast extends Opportunity {
   forecast?: OpportunityForecast;
@@ -96,7 +97,7 @@ export default function DashboardPage() {
   }, []);
 
   return (
-    <div className="max-w-[1440px] px-4 mx-auto w-full space-y-8"> 
+    <div className="max-w-[1440px] px-4 mx-auto w-full space-y-10 md:space-y-12"> 
       <PageTitle title="Intelligent Sales Dashboard">
         <div className="flex items-center gap-2">
           {lastRefreshed && (
@@ -127,136 +128,37 @@ export default function DashboardPage() {
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-6">
-          <div>
-            <h2 className="text-2xl font-semibold flex items-center text-foreground mb-4">
-                <History className="mr-3 h-6 w-6 text-blue-500" />
-                Recent Activity Stream
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6"> 
-                {isLoading && recentUpdates.length === 0 ? (
-                    Array.from({ length: 2 }).map((_, i) => (
-                        <Card key={`update-skeleton-${i}`} className="shadow-md animate-pulse h-full">
-                            <CardHeader><div className="h-5 bg-muted/50 rounded w-1/2"></div></CardHeader>
-                            <CardContent className="space-y-2">
-                                <div className="h-4 bg-muted/50 rounded w-full"></div>
-                                <div className="h-4 bg-muted/50 rounded w-3/4"></div>
-                            </CardContent>
-                        </Card>
-                    ))
-                ) : recentUpdates.length > 0 ? (
-                    recentUpdates.map(update => (
-                        <UpdateItem key={update.id} update={update} />
-                    ))
-                ) : (
-                    !isLoading && <p className="text-muted-foreground text-center py-4 md:col-span-2">No recent updates found.</p>
-                )}
-            </div>
-          </div>
-
-          <div>
-            <h2 className="text-2xl font-semibold flex items-center text-foreground mb-4 mt-8">
-                <Lightbulb className="mr-3 h-6 w-6 text-yellow-500" />
-                Key Opportunity Insights
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6"> 
-                {isLoading && forecastedOpportunities.length === 0 ? (
-                Array.from({ length: 2 }).map((_, i) => ( 
-                    <Card key={i} className="shadow-md animate-pulse h-full">
-                    <CardHeader>
-                        <div className="h-6 bg-muted/50 rounded w-3/4 mb-2"></div>
-                        <div className="h-4 bg-muted/50 rounded w-1/2"></div>
-                    </CardHeader>
-                    <CardContent className="space-y-2">
-                        <div className="h-4 bg-muted/50 rounded w-full"></div>
-                        <div className="h-4 bg-muted/50 rounded w-5/6"></div>
-                        <div className="h-4 bg-muted/50 rounded w-full mt-2"></div>
-                    </CardContent>
-                    </Card>
-                ))
-                ) : forecastedOpportunities.length > 0 ? (
-                forecastedOpportunities.map((opp) => (
-                    <Card key={opp.id} className="shadow-md hover:shadow-xl transition-shadow duration-300 flex flex-col h-full">
-                    <CardHeader className="pb-3">
-                        <div className="flex justify-between items-start">
-                        <CardTitle className="text-lg">{opp.name}</CardTitle>
-                        <Badge variant={getStatusBadgeVariant(opp.status)} className={`${opp.status === 'Completed' ? 'bg-green-500 text-white' : ''} ${getStatusBadgeVariant(opp.status) === 'default' && opp.status !== 'Completed' ? 'bg-blue-500 text-white' : ''}`}>
-                            {opp.status}
-                        </Badge>
-                        </div>
-                        <CardDescription className="flex items-center text-sm pt-1">
-                        <DollarSign className="mr-1 h-4 w-4 text-muted-foreground" /> Value: ${opp.value.toLocaleString()}
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-2 text-sm flex-grow">
-                        {opp.forecast ? (
-                        <>
-                            <div className="flex items-center">
-                            <CalendarClock className="mr-2 h-4 w-4 text-muted-foreground" />
-                            <span className="font-medium text-foreground">Est. Completion:</span>
-                            <span className="ml-1 text-muted-foreground">{opp.forecast.completionDateEstimate}</span>
-                            </div>
-                            <div className="flex items-center">
-                            <TrendingUp className="mr-2 h-4 w-4 text-muted-foreground" />
-                            <span className="font-medium text-foreground">Revenue Forecast:</span>
-                            <span className="ml-1 text-muted-foreground">${opp.forecast.revenueForecast.toLocaleString()}</span>
-                            </div>
-                            <div className="flex items-start">
-                            {opp.forecast.bottleneckIdentification && opp.forecast.bottleneckIdentification.toLowerCase() !== "none identified" && opp.forecast.bottleneckIdentification.toLowerCase() !== "none" && opp.forecast.bottleneckIdentification.length > 0 && !opp.forecast.bottleneckIdentification.startsWith("Error") && !opp.forecast.bottleneckIdentification.startsWith("AI could not generate") && !opp.forecast.bottleneckIdentification.startsWith("Rate limit") ? <AlertCircle className="mr-2 h-4 w-4 text-destructive mt-0.5 shrink-0" /> : <CheckCircle className="mr-2 h-4 w-4 text-green-500 mt-0.5 shrink-0" />}
-                            <div>
-                                <span className="font-medium text-foreground">Potential Bottlenecks:</span>
-                                <p className="ml-1 text-muted-foreground leading-snug">{opp.forecast.bottleneckIdentification || "None identified"}</p>
-                            </div>
-                            </div>
-                        </>
-                        ) : (
-                        <p className="text-muted-foreground">AI forecast not available.</p>
-                        )}
-                    </CardContent>
-                    <CardFooter className="pt-4 border-t mt-auto">
-                        <Button variant="outline" size="sm" asChild className="ml-auto">
-                        <Link href={`/opportunities/${opp.id}`}>View Opportunity</Link>
-                        </Button>
-                    </CardFooter>
-                    </Card>
-                ))
-                ) : (
-                !isLoading && <p className="text-muted-foreground md:col-span-2 text-center py-4">No active opportunities with forecasts to display.</p>
-                )}
-            </div>
-          </div>
-        </div>
-
-        <div className="lg:col-span-1 space-y-6 flex flex-col">
-           <Card className="shadow-md hover:shadow-xl transition-shadow duration-300 flex flex-col bg-green-50 dark:bg-green-900/60">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        {/* LEFT COLUMN: Opportunities Pipeline + Lead Engagement */}
+        <div className="md:col-span-1 space-y-8 flex flex-col sticky top-6 h-fit">
+           <Card className="border border-[#CBCAC5] bg-white rounded-lg shadow-sm flex flex-col">
             <CardHeader>
-              <CardTitle className="text-lg flex items-center">
-                <BarChartHorizontalBig className="mr-3 h-5 w-5 text-primary" />
+              <CardTitle className="text-lg flex items-center text-[#282828]">
+                <BarChartHorizontalBig className="mr-3 h-5 w-5 text-[#916D5B]" />
                 Opportunities Pipeline
               </CardTitle>
             </CardHeader>
             <CardContent className="flex-grow">
               {isLoading && opportunityStatusData.length === 0 ? (
-                <div className="h-64 bg-muted/50 rounded animate-pulse"></div>
+                <div className="h-64 bg-[#CBCAC5]/50 rounded animate-pulse"></div>
               ) : opportunityStatusData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={300}>
                   <BarChart data={opportunityStatusData} layout="vertical" margin={{ top: 5, right: 20, left: 20, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                    <XAxis type="number" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                    <YAxis dataKey="name" type="category" stroke="hsl(var(--muted-foreground))" fontSize={12} width={100} interval={0}/>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#CBCAC5" />
+                    <XAxis type="number" stroke="#55504C" fontSize={12} />
+                    <YAxis dataKey="name" type="category" stroke="#55504C" fontSize={12} width={100} interval={0}/>
                     <Tooltip
                         contentStyle={{
-                            backgroundColor: "hsl(var(--card))",
-                            borderColor: "hsl(var(--border))",
-                            borderRadius: "var(--radius)",
-                            boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)",
+                            backgroundColor: "#EFEDE7",
+                            borderColor: "#CBCAC5",
+                            borderRadius: 8,
+                            boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.04), 0 2px 4px -2px rgb(0 0 0 / 0.04)",
                         }}
-                        labelStyle={{ color: "hsl(var(--foreground))" }}
-                        itemStyle={{ color: "hsl(var(--primary))" }}
+                        labelStyle={{ color: "#282828" }}
+                        itemStyle={{ color: "#916D5B" }}
                     />
-                    <Legend wrapperStyle={{fontSize: "12px", paddingTop: "10px"}}/>
-                    <Bar dataKey="count" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} barSize={20} />
+                    <Legend wrapperStyle={{fontSize: "12px", paddingTop: "10px", color: '#55504C'}}/>
+                    <Bar dataKey="count" fill="#916D5B" radius={[0, 4, 4, 0]} barSize={20} />
                   </BarChart>
                 </ResponsiveContainer>
               ) : (
@@ -265,10 +167,10 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
 
-          <Card className="shadow-md hover:shadow-xl transition-shadow duration-300 flex flex-col bg-amber-50 dark:bg-amber-900/60">
+          <Card className="border border-[#CBCAC5] bg-white rounded-sm shadow-sm flex flex-col">
             <CardHeader>
-              <CardTitle className="text-lg flex items-center">
-                <Users className="mr-3 h-5 w-5 text-primary" />
+              <CardTitle className="text-lg flex items-center text-[#282828]">
+                <Users className="mr-3 h-5 w-5 text-[#916D5B]" />
                 Lead Engagement (Simulated)
               </CardTitle>
             </CardHeader>
@@ -278,8 +180,8 @@ export default function DashboardPage() {
               </p>
               <ul className="space-y-2 text-xs">
                 {mockLeads.slice(0,2).map(lead => (
-                  <li key={lead.id} className="border-l-2 border-primary pl-3 py-1 bg-secondary/30 rounded-r-md">
-                    <span className="font-semibold text-foreground">{lead.personName}</span> <span className="text-muted-foreground">({lead.companyName})</span>: Recent mock activity shows interest in AI solutions.
+                  <li key={lead.id} className="border-l-2 border-[#916D5B] pl-3 py-1 bg-[#CFB496]/20 rounded-r-md">
+                    <span className="font-semibold text-[#282828]">{lead.personName}</span> <span className="text-muted-foreground">({lead.companyName})</span>: Recent mock activity shows interest in AI solutions.
                   </li>
                 ))}
               </ul>
@@ -290,6 +192,67 @@ export default function DashboardPage() {
                 </Button>
             </CardFooter>
           </Card>
+        </div>
+
+        {/* RIGHT COLUMN: Recent Activity Stream + Key Opportunity Insights */}
+        <div className="md:col-span-2">
+          <div className="bg-transparent py-4 flex flex-col gap-4">
+            <div>
+              <h2 className="text-xl font-semibold flex items-center text-foreground mb-4">
+                  <History className="mr-3 h-6 w-6 text-[#916D5B]" />
+                  Recent Activity Stream
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6"> 
+                  {isLoading && recentUpdates.length === 0 ? (
+                      Array.from({ length: 2 }).map((_, i) => (
+                          <Card key={`update-skeleton-${i}`} className="shadow-md rounded-sm animate-pulse h-full">
+                              <CardHeader><div className="h-5 bg-muted/50 rounded w-1/2"></div></CardHeader>
+                              <CardContent className="space-y-2">
+                                  <div className="h-4 bg-muted/50 rounded w-full"></div>
+                                  <div className="h-4 bg-muted/50 rounded w-3/4"></div>
+                              </CardContent>
+                          </Card>
+                      ))
+                  ) : recentUpdates.length > 0 ? (
+                      recentUpdates.map(update => (
+                          <UpdateItem key={update.id} update={update} />
+                      ))
+                  ) : (
+                      !isLoading && <p className="text-muted-foreground text-center py-4 md:col-span-2">No recent updates found.</p>
+                  )}
+              </div>
+            </div>
+
+            <div>
+              <h2 className="text-xl font-semibold flex items-center text-foreground mb-4 mt-8">
+                  <Lightbulb className="mr-3 h-6 w-6 text-[#916D5B]" />
+                  Key Opportunity Insights
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6"> 
+                  {isLoading && forecastedOpportunities.length === 0 ? (
+                  Array.from({ length: 2 }).map((_, i) => ( 
+                      <Card key={i} className="shadow-md rounded-sm animate-pulse h-full">
+                      <CardHeader>
+                          <div className="h-6 bg-muted/50 rounded w-3/4 mb-2"></div>
+                          <div className="h-4 bg-muted/50 rounded w-1/2"></div>
+                      </CardHeader>
+                      <CardContent className="space-y-2">
+                          <div className="h-4 bg-muted/50 rounded w-full"></div>
+                          <div className="h-4 bg-muted/50 rounded w-5/6"></div>
+                          <div className="h-4 bg-muted/50 rounded w-full mt-2"></div>
+                      </CardContent>
+                      </Card>
+                  ))
+                  ) : forecastedOpportunities.length > 0 ? (
+                  forecastedOpportunities.map((opp) => (
+                    <OpportunityCard key={opp.id} opportunity={opp} />
+                  ))
+                  ) : (
+                  !isLoading && <p className="text-muted-foreground md:col-span-2 text-center py-4">No active opportunities with forecasts to display.</p>
+                  )}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
