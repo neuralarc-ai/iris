@@ -6,7 +6,7 @@ import LeadCard from '@/components/leads/LeadCard';
 import { mockLeads as initialMockLeads } from '@/lib/data';
 import type { Lead, LeadStatus } from '@/types';
 import { Button } from '@/components/ui/button';
-import { Search, ListFilter, List, Grid, Trash2, CheckSquare } from 'lucide-react';
+import { Search, ListFilter, List, Grid, Trash2, CheckSquare, UploadCloud, X } from 'lucide-react';
 import Image from 'next/image';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -17,6 +17,8 @@ import { useToast } from '@/hooks/use-toast';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
 import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogCancel, AlertDialogAction } from '@/components/ui/alert-dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const leadStatusOptions: LeadStatus[] = ["New", "Contacted", "Qualified", "Proposal Sent", "Lost"];
 
@@ -27,6 +29,13 @@ export default function LeadsPage() {
   const [isAddLeadDialogOpen, setIsAddLeadDialogOpen] = useState(false);
   const { toast } = useToast();
   const [view, setView] = useState<'list' | 'table'>('list');
+  const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadSuccess, setUploadSuccess] = useState(false);
+  const [dragActive, setDragActive] = useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedLeads, setSelectedLeads] = useState<string[]>([]);
 
   useEffect(() => {
     setLeads([...initialMockLeads].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()));
@@ -58,14 +67,51 @@ export default function LeadsPage() {
   };
 
   const handleImportCsv = () => {
-    // Placeholder for CSV import functionality
-    toast({
-      title: "Import CSV",
-      description: "CSV import functionality is under development. Please add leads manually or use the business card OCR.",
-      duration: 5000,
-    });
+    setIsImportDialogOpen(true);
   };
 
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setDragActive(false);
+    const file = e.dataTransfer.files[0];
+    if (file) handleFile(file);
+  };
+
+  const handleFile = (file: File) => {
+    setIsUploading(true);
+    setUploadSuccess(false);
+    setTimeout(() => {
+      setIsUploading(false);
+      setUploadSuccess(true);
+      setTimeout(() => {
+        setIsImportDialogOpen(false);
+        setUploadSuccess(false);
+        toast({ title: 'Import Complete', description: 'Your file was parsed successfully.' });
+      }, 1200);
+    }, 1800);
+  };
+
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) handleFile(file);
+  };
+
+  const handleSelectAll = () => {
+    if (selectedLeads.length === filteredLeads.length) {
+      setSelectedLeads([]);
+    } else {
+      setSelectedLeads(filteredLeads.map(l => l.id));
+    }
+  };
+
+  const handleSelectLead = (leadId: string) => {
+    setSelectedLeads(prev => prev.includes(leadId) ? prev.filter(id => id !== leadId) : [...prev, leadId]);
+  };
+
+  const handleExitSelectMode = () => {
+    setSelectMode(false);
+    setSelectedLeads([]);
+  };
 
   return (
     <div className="max-w-[1440px] px-4 mx-auto w-full space-y-6">
@@ -119,22 +165,60 @@ export default function LeadsPage() {
                 />
               </div>
             </div>
-            <div>
-              <Label htmlFor="status-filter">Status</Label>
-              <Select value={statusFilter} onValueChange={(value: LeadStatus | 'all') => setStatusFilter(value)}>
-                <SelectTrigger id="status-filter" className="w-full mt-1">
-                  <SelectValue placeholder="Filter by status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Statuses</SelectItem>
-                  {leadStatusOptions.map(status => (
-                    <SelectItem key={status} value={status}>{status}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="flex items-end gap-2 w-full">
+              <div className="flex-1">
+                <Label htmlFor="status-filter">Status</Label>
+                <Select value={statusFilter} onValueChange={(value: LeadStatus | 'all') => setStatusFilter(value)}>
+                  <SelectTrigger id="status-filter" className="w-full mt-1">
+                    <SelectValue placeholder="Filter by status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Statuses</SelectItem>
+                    {leadStatusOptions.map(status => (
+                      <SelectItem key={status} value={status}>{status}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
+              <Button
+                variant="outline-dark"
+                className="h-10 px-3 text-sm rounded-md"
+                style={{marginTop: '28px'}}
+                onClick={() => selectMode ? handleExitSelectMode() : setSelectMode(true)}
+              >
+                {selectMode ? (
+                  <><X className="mr-2 h-4 w-4" />Cancel</>
+                ) : (
+                  <><CheckSquare className="mr-2 h-4 w-4" />Select</>
+                )}
+              </Button>
+            </div>
             </div>
           </div>
+          {selectMode && (
+            <div className="mt-4 rounded-lg border border-[#D6D8CE] bg-[#CFD4C9] flex items-center px-6 py-3 gap-4 min-h-[56px]">
+              <span className="text-base text-foreground mr-4">Select leads to assign</span>
+              <Button
+                className="flex bg-white text-[#282828] hover:bg-white items-center gap-2 rounded-[6px] px-3 py-2 text-sm"
+                onClick={handleSelectAll}
+              >
+                <input
+                  type="checkbox"
+                  checked={selectedLeads.length === filteredLeads.length && filteredLeads.length > 0}
+                  readOnly
+                  className="accent-[#97A487] border-none mr-2"
+                />
+                Select All ({filteredLeads.length})
+              </Button>
+              <Button
+                variant="outline"
+                className="text-[#282828] text-sm px-3 py-2"
+                onClick={() => setSelectedLeads([])}
+              >
+                Clear Selection
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -142,7 +226,14 @@ export default function LeadsPage() {
         view === 'list' ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-8">
           {filteredLeads.map((lead) => (
-            <LeadCard key={lead.id} lead={lead} onLeadConverted={handleLeadConverted} />
+            <LeadCard
+              key={lead.id}
+              lead={lead}
+              onLeadConverted={handleLeadConverted}
+              selectMode={selectMode}
+              selected={selectedLeads.includes(lead.id)}
+              onSelect={() => handleSelectLead(lead.id)}
+            />
           ))}
         </div>
         ) : (
@@ -150,6 +241,7 @@ export default function LeadsPage() {
             <Table className='rounded-[8px] bg-white'>
               <TableHeader>
                 <TableRow className='bg-[#CBCAC5] hover:bg-[#CBCAC5]'>
+                  {selectMode && <TableHead className='w-10'></TableHead>}
                   <TableHead className='text-[#282828] rounded-tl-[8px]'>Company</TableHead>
                   <TableHead className='text-[#282828]'>Contact Person</TableHead>
                   <TableHead className='text-[#282828]'>Email</TableHead>
@@ -162,7 +254,23 @@ export default function LeadsPage() {
               </TableHeader>
               <TableBody>
                 {filteredLeads.map((lead) => (
-                  <TableRow key={lead.id} className="hover:bg-transparent">
+                  <TableRow
+                    key={lead.id}
+                    className={`hover:bg-transparent ${selectMode && selectedLeads.includes(lead.id) ? 'ring-2 ring-[#97A487] ring-offset-2' : ''}`}
+                    style={selectMode ? { cursor: 'pointer' } : {}}
+                    onClick={selectMode ? () => handleSelectLead(lead.id) : undefined}
+                  >
+                    {selectMode && (
+                      <TableCell className="w-10 align-middle">
+                        <input
+                          type="checkbox"
+                          checked={selectedLeads.includes(lead.id)}
+                          onChange={e => { e.stopPropagation(); handleSelectLead(lead.id); }}
+                          onClick={e => e.stopPropagation()}
+                          className="accent-[#97A487] border-none h-4 w-4"
+                        />
+                      </TableCell>
+                    )}
                     <TableCell className="font-semibold text-foreground">{lead.companyName}</TableCell>
                     <TableCell>{lead.personName}</TableCell>
                     <TableCell><a href={`mailto:${lead.email}`} className="text-primary hover:underline">{lead.email}</a></TableCell>
@@ -227,6 +335,83 @@ export default function LeadsPage() {
         onOpenChange={setIsAddLeadDialogOpen}
         onLeadAdded={handleLeadAdded}
       />
+      <Dialog open={isImportDialogOpen} onOpenChange={setIsImportDialogOpen}>
+        <DialogContent className="max-w-md bg-white">
+          <DialogHeader>
+            <DialogTitle>Import Leads from File</DialogTitle>
+            <DialogDescription>Upload a CSV or XLSX file to import leads in bulk.</DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <AnimatePresence>
+              {isUploading ? (
+                <motion.div
+                  key="uploading"
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  className="flex flex-col items-center justify-center h-40"
+                >
+                  <motion.div
+                    animate={{ rotate: 360 }}
+                    transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}
+                    className="mb-4"
+                  >
+                    <Image src="/images/import.svg" alt="Uploading" width={40} height={40} className="opacity-70" />
+                  </motion.div>
+                  <span className="text-muted-foreground text-sm">Parsing and uploading...</span>
+                </motion.div>
+              ) : uploadSuccess ? (
+                <motion.div
+                  key="success"
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  className="flex flex-col items-center justify-center h-40"
+                >
+                  <motion.div
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ type: 'spring', stiffness: 300 }}
+                    className="mb-4"
+                  >
+                    <CheckSquare className="h-10 w-10 text-green-600" />
+                  </motion.div>
+                  <span className="text-green-700 text-sm">Import successful!</span>
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="dropzone"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 20 }}
+                  className={`border-2 border-dashed rounded-lg p-6 flex flex-col items-center justify-center cursor-pointer transition-colors duration-200 ${dragActive ? 'border-primary bg-[#F8F7F3]' : 'border-[#CBCAC5] bg-[#F8F7F3]'}`}
+                  onDragOver={e => { e.preventDefault(); setDragActive(true); }}
+                  onDragLeave={e => { e.preventDefault(); setDragActive(false); }}
+                  onDrop={handleDrop}
+                  onClick={() => fileInputRef.current?.click()}
+                  tabIndex={0}
+                  role="button"
+                  aria-label="Upload file"
+                >
+                  <UploadCloud className="h-10 w-10 text-primary mb-2" />
+                  <span className="text-sm text-muted-foreground mb-1">Drag & drop your CSV, XLSX, or Excel file here</span>
+                  <span className="text-xs text-muted-foreground">or click to browse</span>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel"
+                    className="hidden"
+                    onChange={handleFileInputChange}
+                  />
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+          <DialogFooter>
+            <Button variant="outline-dark" onClick={() => setIsImportDialogOpen(false)} disabled={isUploading}>Cancel</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

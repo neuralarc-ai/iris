@@ -157,11 +157,9 @@ export default function AddLeadDialog({ open, onOpenChange, onLeadAdded }: AddLe
       if (!isOpen) resetForm();
       onOpenChange(isOpen);
     }}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-lg bg-white">
         <DialogHeader>
-          <DialogTitle className="flex items-center">
-            <Image src="/images/add.svg" alt="Add" width={20} height={20} className="mr-2" /> Add New Lead
-          </DialogTitle>
+          <DialogTitle>Add New Lead</DialogTitle>
           <DialogDescription>
             Enter details or upload a business card to create a new lead.
           </DialogDescription>
