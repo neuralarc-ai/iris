@@ -10,8 +10,6 @@ import {
   MessageSquare,
   LayoutDashboard,
   Users2,
-  PlusCircle,
-  Search,
   Users,
   BarChartBig,
 } from "lucide-react";
@@ -50,8 +48,8 @@ export default function HorizontalNav() {
               <Image
                 src="/images/iris.svg"
                 alt="Iris AI Logo"
-                width={36}
-                height={36}
+                width={40}
+                height={40}
                 priority
               />
             </Link>
@@ -76,7 +74,7 @@ export default function HorizontalNav() {
                         )}
                       >
                         <Link href={item.href}>
-                          <item.icon className="h-6 w-6" />
+                          <item.icon className="h-10 w-10"/>
                         </Link>
                       </Button>
                     </TooltipTrigger>

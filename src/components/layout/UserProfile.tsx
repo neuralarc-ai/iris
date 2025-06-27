@@ -15,6 +15,8 @@ import { useAuth } from '@/hooks/use-auth';
 import Avvvatars from 'avvvatars-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select';
 
 export default function UserProfile() {
   const { logout } = useAuth();
@@ -23,6 +25,11 @@ export default function UserProfile() {
   const [website, setWebsite] = React.useState('');
   const [address, setAddress] = React.useState('');
   const [industry, setIndustry] = React.useState('');
+  const [companyDescription, setCompanyDescription] = React.useState('');
+  const [editMode, setEditMode] = React.useState(false);
+  const industryOptions = [
+    'SaaS', 'Consulting', 'Finance', 'Healthcare', 'Education', 'Manufacturing', 'Retail', 'Technology', 'Other'
+  ];
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -30,7 +37,7 @@ export default function UserProfile() {
         <DropdownMenuTrigger asChild className='w-fit min-w-0 rounded-sm'>
           <Button variant="ghost" className="relative px-0 h-9 w-fit rounded-sm focus-visible:outline-none focus-visible:ring-0 focus-within:outline-none focus-within:ring-0">
             <div className="w-fit h-9 px-0 flex items-center justify-center rounde-sm">
-              <Avvvatars value="admin@iris.ai" size={36} style="character" radius={4}/>
+              <Avvvatars value="admin@iris.ai" size={36} style="shape" radius={4}/>
             </div>
           </Button>
         </DropdownMenuTrigger>
@@ -65,23 +72,40 @@ export default function UserProfile() {
         <form className="space-y-4">
           <div>
             <label className="block text-sm font-medium mb-1">Company Name</label>
-            <Input value={companyName} onChange={e => setCompanyName(e.target.value)} placeholder="Acme Inc." />
+            <Input value={companyName} onChange={e => setCompanyName(e.target.value)} placeholder="Acme Inc." readOnly={!editMode} />
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">Website</label>
-            <Input value={website} onChange={e => setWebsite(e.target.value)} placeholder="https://acme.com" />
+            <Input value={website} onChange={e => setWebsite(e.target.value)} placeholder="https://acme.com" readOnly={!editMode} />
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">Address</label>
-            <Input value={address} onChange={e => setAddress(e.target.value)} placeholder="123 Main St, City, Country" />
+            <Input value={address} onChange={e => setAddress(e.target.value)} placeholder="123 Main St, City, Country" readOnly={!editMode} />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Company Description</label>
+            <Textarea value={companyDescription} onChange={e => setCompanyDescription(e.target.value)} placeholder="Describe your company..." readOnly={!editMode} className="min-h-[60px]" />
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">Industry</label>
-            <Input value={industry} onChange={e => setIndustry(e.target.value)} placeholder="e.g. SaaS, Consulting" />
+            <Select value={industry} onValueChange={setIndustry} disabled={!editMode}>
+              <SelectTrigger className="w-full mt-1" disabled={!editMode}>
+                <SelectValue placeholder="Select industry" />
+              </SelectTrigger>
+              <SelectContent>
+                {industryOptions.map(opt => (
+                  <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </form>
         <DialogFooter>
-          <Button type="submit" variant="add" className="w-full mt-2">Save</Button>
+          {!editMode ? (
+            <Button type="button" variant="outline" className="w-full mt-2" onClick={() => setEditMode(true)}>Edit</Button>
+          ) : (
+            <Button type="submit" variant="add" className="w-full mt-2" onClick={() => setEditMode(false)}>Save</Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

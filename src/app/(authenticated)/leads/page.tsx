@@ -6,7 +6,7 @@ import LeadCard from '@/components/leads/LeadCard';
 import { mockLeads as initialMockLeads } from '@/lib/data';
 import type { Lead, LeadStatus } from '@/types';
 import { Button } from '@/components/ui/button';
-import { Search, ListFilter, List, Grid, Trash2, CheckSquare, UploadCloud, X } from 'lucide-react';
+import { Search, ListFilter, List, Grid, Trash2, CheckSquare, UploadCloud, X, Users } from 'lucide-react';
 import Image from 'next/image';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -36,6 +36,14 @@ export default function LeadsPage() {
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [selectMode, setSelectMode] = useState(false);
   const [selectedLeads, setSelectedLeads] = useState<string[]>([]);
+  const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
+  const [assignUser, setAssignUser] = useState('');
+  const mockUsers = [
+    { id: '1', name: 'Tony Stark' },
+    { id: '2', name: 'Pepper Potts' },
+    { id: '3', name: 'Happy Hogan' },
+    { id: '4', name: 'James Rhodes' },
+  ];
 
   useEffect(() => {
     setLeads([...initialMockLeads].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()));
@@ -117,7 +125,7 @@ export default function LeadsPage() {
     <div className="max-w-[1440px] px-4 mx-auto w-full space-y-6">
       <PageTitle title="Lead Management" subtitle="Track and manage potential clients.">
         <div className="flex items-center gap-2">
-            <Button onClick={handleImportCsv} className='bg-transparent border border-[#2B2521] text-[#2B2521] w-fit rounded-[4px]'>
+            <Button onClick={handleImportCsv} className='bg-transparent border border-[#2B2521] text-[#2B2521] w-fit rounded-[4px] hover:bg-[#CFB496]'>
                 <Image src="/images/import.svg" alt="Import" width={20} height={20} className="mr-2" /> Import CSV
             </Button>
             <Button onClick={() => setIsAddLeadDialogOpen(true)} variant="add" className='w-fit'>
@@ -181,8 +189,7 @@ export default function LeadsPage() {
                 </Select>
               </div>
               <Button
-                variant="outline-dark"
-                className="h-10 px-3 text-sm rounded-md"
+                className="border-input border text-[#282828] bg-white/30 h-10 px-3 text-sm rounded-md"
                 style={{marginTop: '28px'}}
                 onClick={() => selectMode ? handleExitSelectMode() : setSelectMode(true)}
               >
@@ -196,26 +203,36 @@ export default function LeadsPage() {
             </div>
           </div>
           {selectMode && (
-            <div className="mt-4 rounded-lg border border-[#D6D8CE] bg-[#CFD4C9] flex items-center px-6 py-3 gap-4 min-h-[56px]">
-              <span className="text-base text-foreground mr-4">Select leads to assign</span>
+            <div className="mt-4 rounded-lg border border-[#D6D8CE] bg-[#CFD4C9] flex items-center px-3 py-3 gap-4 min-h-[56px] justify-between">
+              <div className="flex items-center gap-4">
+                <span className="text-base text-foreground mr-4">Select leads to assign</span>
+                <Button
+                  className="flex bg-white text-[#282828] hover:bg-white items-center gap-2 rounded-[6px] px-3 py-2 text-sm"
+                  onClick={handleSelectAll}
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedLeads.length === filteredLeads.length && filteredLeads.length > 0}
+                    readOnly
+                    className="accent-[#97A487] border-none mr-2"
+                  />
+                  Select All ({filteredLeads.length})
+                </Button>
+                <Button
+                  variant="outline"
+                  className="text-[#282828] text-sm px-3 py-2"
+                  onClick={() => setSelectedLeads([])}
+                >
+                  Clear Selection
+                </Button>
+              </div>
               <Button
-                className="flex bg-white text-[#282828] hover:bg-white items-center gap-2 rounded-[6px] px-3 py-2 text-sm"
-                onClick={handleSelectAll}
+                variant="add"
+                className="ml-auto px-5 py-2 text-sm"
+                disabled={selectedLeads.length === 0}
+                onClick={() => setIsAssignDialogOpen(true)}
               >
-                <input
-                  type="checkbox"
-                  checked={selectedLeads.length === filteredLeads.length && filteredLeads.length > 0}
-                  readOnly
-                  className="accent-[#97A487] border-none mr-2"
-                />
-                Select All ({filteredLeads.length})
-              </Button>
-              <Button
-                variant="outline"
-                className="text-[#282828] text-sm px-3 py-2"
-                onClick={() => setSelectedLeads([])}
-              >
-                Clear Selection
+                <Users className="mr-2 h-4 w-4" />Assign to User
               </Button>
             </div>
           )}
@@ -230,9 +247,11 @@ export default function LeadsPage() {
               key={lead.id}
               lead={lead}
               onLeadConverted={handleLeadConverted}
-              selectMode={selectMode}
-              selected={selectedLeads.includes(lead.id)}
-              onSelect={() => handleSelectLead(lead.id)}
+              {...(selectMode ? {
+                selectMode: true,
+                selected: selectedLeads.includes(lead.id),
+                onSelect: () => handleSelectLead(lead.id)
+              } : {})}
             />
           ))}
         </div>
@@ -256,7 +275,7 @@ export default function LeadsPage() {
                 {filteredLeads.map((lead) => (
                   <TableRow
                     key={lead.id}
-                    className={`hover:bg-transparent ${selectMode && selectedLeads.includes(lead.id) ? 'ring-2 ring-[#97A487] ring-offset-2' : ''}`}
+                    className={`hover:bg-transparent`}
                     style={selectMode ? { cursor: 'pointer' } : {}}
                     onClick={selectMode ? () => handleSelectLead(lead.id) : undefined}
                   >
@@ -409,6 +428,37 @@ export default function LeadsPage() {
           </div>
           <DialogFooter>
             <Button variant="outline-dark" onClick={() => setIsImportDialogOpen(false)} disabled={isUploading}>Cancel</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={isAssignDialogOpen} onOpenChange={setIsAssignDialogOpen}>
+        <DialogContent className="max-w-md bg-white">
+          <DialogHeader>
+            <DialogTitle>Bulk Assign Leads</DialogTitle>
+            <DialogDescription>
+              Assign {selectedLeads.length} selected lead{selectedLeads.length === 1 ? '' : 's'} to a team member.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            <div>
+              <span className="block text-sm font-medium mb-1">Select User</span>
+              <Select value={assignUser} onValueChange={setAssignUser}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Choose a user" />
+                </SelectTrigger>
+                <SelectContent>
+                  {mockUsers.map(user => (
+                    <SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline-dark" onClick={() => setIsAssignDialogOpen(false)}>Cancel</Button>
+            <Button variant="add" disabled={!assignUser} onClick={() => setIsAssignDialogOpen(false)}>
+              Assign {selectedLeads.length} Lead{selectedLeads.length === 1 ? '' : 's'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

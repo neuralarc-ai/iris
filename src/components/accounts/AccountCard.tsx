@@ -5,12 +5,19 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Briefcase, ListChecks, PlusCircle, Eye, MessageSquareHeart, Lightbulb, Users, Mail, Phone, Tag, Trash2 } from 'lucide-react';
-import type { Account, DailyAccountSummary as AIDailySummary, Opportunity } from '@/types';
-import { getOpportunitiesByAccount } from '@/lib/data';
+import type { Account, DailyAccountSummary as AIDailySummary, Opportunity, Update, UpdateType } from '@/types';
+import { getOpportunitiesByAccount, mockUpdates, addUpdate } from '@/lib/data';
 import { generateDailyAccountSummary } from '@/ai/flows/daily-account-summary';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
 import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from '@/components/ui/alert-dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
+import { format } from 'date-fns';
 
 interface AccountCardProps {
   account: Account;
@@ -22,9 +29,16 @@ export default function AccountCard({ account, view = 'grid' }: AccountCardProps
   const [dailySummary, setDailySummary] = useState<AIDailySummary | null>(null);
   const [isLoadingSummary, setIsLoadingSummary] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [logs, setLogs] = useState<Update[]>([]);
+  const [updateType, setUpdateType] = useState<UpdateType | ''>('');
+  const [updateContent, setUpdateContent] = useState('');
+  const [updateDate, setUpdateDate] = useState<Date | undefined>(undefined);
+  const [isLogging, setIsLogging] = useState(false);
 
   useEffect(() => {
     setOpportunities(getOpportunitiesByAccount(account.id));
+    setLogs(mockUpdates.filter(u => u.accountId === account.id).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
   }, [account.id]);
 
   const fetchDailySummary = async () => {
@@ -60,8 +74,27 @@ export default function AccountCard({ account, view = 'grid' }: AccountCardProps
     // Optionally show a toast or update parent state
   };
 
+  const handleLogUpdate = async () => {
+    if (!updateType || !updateContent.trim() || !updateDate) return;
+    setIsLogging(true);
+    setTimeout(() => {
+      const newUpdate = addUpdate({
+        type: updateType,
+        content: updateContent,
+        opportunityId: undefined,
+        accountId: account.id,
+        updatedByUserId: undefined,
+      });
+      setLogs(prev => [newUpdate, ...prev]);
+      setUpdateType('');
+      setUpdateContent('');
+      setUpdateDate(undefined);
+      setIsLogging(false);
+    }, 1000);
+  };
+
   return (
-    <Card className="shadow-md hover:shadow-lg transition-shadow duration-300 flex flex-col h-full bg-white">
+    <Card className="shadow-md hover:shadow-lg transition-shadow duration-300 flex flex-col h-full bg-white" onClick={() => setDialogOpen(true)}>
       <CardHeader className="pb-3">
         <div className="flex justify-between items-start mb-1">
           <CardTitle className="text-xl font-headline flex items-center text-foreground">
@@ -173,6 +206,71 @@ export default function AccountCard({ account, view = 'grid' }: AccountCardProps
           </Tooltip>
         </TooltipProvider>
       </CardFooter>
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-headline">{account.name} - Activity Log</DialogTitle>
+            <DialogDescription>{account.description}</DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto space-y-6">
+            <div className="mb-2 text-muted-foreground text-xs">{logs.length === 0 ? 'No log found' : ''}</div>
+            {logs.length > 0 && (
+              <div className="space-y-2 max-h-36 overflow-y-auto pr-1">
+                {logs.slice(0, 2).map((log) => (
+                  <div key={log.id} className="flex items-start space-x-3 p-3 rounded-lg bg-muted/30 border-l-4 border-muted">
+                    <div className="flex-shrink-0 mt-1">
+                      <ListChecks className="h-4 w-4 text-primary shrink-0" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between mb-1">
+                        <p className="text-sm font-medium text-foreground line-clamp-2">{log.content}</p>
+                        <span className="text-xs text-muted-foreground ml-2">{format(new Date(log.date), 'MMM dd')}</span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <span className="text-xs text-muted-foreground">{log.type}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                {logs.length > 2 && (
+                  <div className="flex items-center justify-center pt-2 border-t border-muted/30 overflow-hidden max-h-8 opacity-70">
+                    <p className="text-xs text-muted-foreground truncate">+{logs.length - 2} more activities</p>
+                  </div>
+                )}
+              </div>
+            )}
+            <div className="mt-6">
+              <h4 className="text-sm font-semibold text-foreground mb-2">Log New Activity</h4>
+              <div className="space-y-3">
+                <Select value={updateType} onValueChange={setUpdateType}>
+                  <SelectTrigger className="w-full"><SelectValue placeholder="Type" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="General">General</SelectItem>
+                    <SelectItem value="Call">Call</SelectItem>
+                    <SelectItem value="Meeting">Meeting</SelectItem>
+                    <SelectItem value="Email">Email</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Textarea placeholder="Describe the activity..." value={updateContent} onChange={e => setUpdateContent(e.target.value)} className="min-h-[80px] resize-none" />
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="w-fit">
+                      <Calendar className="mr-2 h-4 w-4" />
+                      {updateDate ? format(updateDate, 'MMM dd, yyyy') : 'Set date'}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar mode="single" selected={updateDate} onSelect={setUpdateDate} initialFocus />
+                  </PopoverContent>
+                </Popover>
+                <Button variant="add" className="w-fit" onClick={handleLogUpdate} disabled={isLogging || !updateType || !updateContent.trim() || !updateDate}>
+                  Log Activity
+                </Button>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }

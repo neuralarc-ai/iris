@@ -4,9 +4,9 @@ import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Users, User, Mail, Phone, Eye, CheckSquare, FileWarning, CalendarPlus, History, Linkedin, MapPin, Trash2 } from 'lucide-react';
-import type { Lead } from '@/types';
-import { add, formatDistanceToNow } from 'date-fns';
+import { Users, User, Mail, Phone, Eye, CheckSquare, FileWarning, CalendarPlus, History, Linkedin, MapPin, Trash2, Pencil, X } from 'lucide-react';
+import type { Lead, Update } from '@/types';
+import { add, formatDistanceToNow, format } from 'date-fns';
 import { convertLeadToAccount, deleteLead } from '@/lib/data';
 import { useToast } from "@/hooks/use-toast";
 import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from '@/components/ui/alert-dialog';
@@ -16,8 +16,8 @@ import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
-import { format } from 'date-fns';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 
 interface LeadCardProps {
   lead: Lead;
@@ -60,6 +60,15 @@ export default function LeadCard({ lead, onLeadConverted, onLeadDeleted, selectM
   const [updateDate, setUpdateDate] = React.useState<Date | undefined>(undefined);
   const [isLogging, setIsLogging] = React.useState(false);
   const updateTypes = ['General', 'Call', 'Meeting', 'Email'];
+  const [editMode, setEditMode] = React.useState(false);
+  const [editLead, setEditLead] = React.useState({
+    companyName: lead.companyName,
+    personName: lead.personName,
+    email: lead.email,
+    phone: lead.phone || '',
+    country: lead.country || '',
+  });
+  const [logs, setLogs] = React.useState<Update[]>([]);
 
   const handleConvertLead = async () => {
     if (lead.status === "Converted to Account" || lead.status === "Lost") {
@@ -101,8 +110,41 @@ export default function LeadCard({ lead, onLeadConverted, onLeadDeleted, selectM
       setUpdateType('');
       setUpdateContent('');
       setUpdateDate(undefined);
+      setLogs(prev => [
+        {
+          id: `${Date.now()}`,
+          type: updateType as Update['type'],
+          content: updateContent,
+          date: updateDate.toISOString(),
+          leadId: lead.id,
+          updatedByUserId: undefined,
+          createdAt: new Date().toISOString(),
+        },
+        ...prev
+      ]);
       toast({ title: 'Update logged', description: 'Your update has been logged.' });
     }, 1000);
+  };
+
+  const handleEditChange = (field: string, value: string) => {
+    setEditLead(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleSaveEdit = () => {
+    // In a real app, update backend here
+    setEditMode(false);
+    toast({ title: 'Lead updated', description: 'Lead details have been updated.' });
+  };
+
+  const handleCancelEdit = () => {
+    setEditLead({
+      companyName: lead.companyName,
+      personName: lead.personName,
+      email: lead.email,
+      phone: lead.phone || '',
+      country: lead.country || '',
+    });
+    setEditMode(false);
   };
 
   return (
@@ -115,15 +157,6 @@ export default function LeadCard({ lead, onLeadConverted, onLeadDeleted, selectM
         style={selectMode ? { cursor: 'pointer' } : {}}
       >
         <CardHeader className="pb-3">
-          {selectMode && (
-            <input
-              type="checkbox"
-              checked={selected}
-              onChange={onSelect}
-              onClick={e => e.stopPropagation()}
-              className="accent-[#97A487] border-none mr-2 mt-0.5 h-4 w-4"
-            />
-          )}
           <div className="flex justify-between items-start mb-1">
             <CardTitle className="text-xl font-headline flex items-center text-foreground">
               <User className="mr-2 h-5 w-5 text-primary shrink-0" />
@@ -244,69 +277,168 @@ export default function LeadCard({ lead, onLeadConverted, onLeadDeleted, selectM
         <DialogContent className="sm:max-w-lg bg-white">
           <DialogHeader>
             <DialogTitle className="flex items-center justify-between">
-              {lead.companyName}
-              <Button variant="outline" size="sm">Edit</Button>
+              {editMode ? (
+                <Input
+                  value={editLead.companyName}
+                  onChange={e => handleEditChange('companyName', e.target.value)}
+                  className="font-semibold text-lg border-none bg-transparent px-0 focus:ring-0 focus:outline-none"
+                  placeholder="Company Name"
+                />
+              ) : (
+                editLead.companyName
+              )}
+              <Button variant="ghost" size="icon" className="ml-2" onClick={() => setEditMode(e => !e)}>
+                {editMode ? <X className="h-5 w-5" /> : <Pencil className="h-5 w-5" />}
+              </Button>
             </DialogTitle>
             <DialogDescription>
               <div className="grid grid-cols-1 gap-2 mt-2">
-                <div><span className="font-semibold">Name:</span> {lead.personName}</div>
-                <div><span className="font-semibold">Email:</span> {lead.email}</div>
-                <div><span className="font-semibold">Number:</span> {lead.phone || 'N/A'}</div>
-                <div><span className="font-semibold">Location:</span> {lead.country || 'N/A'}</div>
+                <div>
+                  <span className="font-semibold">Name:</span>{' '}
+                  {editMode ? (
+                    <Input
+                      value={editLead.personName}
+                      onChange={e => handleEditChange('personName', e.target.value)}
+                      className="border-none bg-transparent px-0 focus:ring-0 focus:outline-none"
+                      placeholder="Person Name"
+                    />
+                  ) : (
+                    editLead.personName
+                  )}
+                </div>
+                <div>
+                  <span className="font-semibold">Email:</span>{' '}
+                  {editMode ? (
+                    <Input
+                      value={editLead.email}
+                      onChange={e => handleEditChange('email', e.target.value)}
+                      className="border-none bg-transparent px-0 focus:ring-0 focus:outline-none"
+                      placeholder="Email"
+                    />
+                  ) : (
+                    editLead.email
+                  )}
+                </div>
+                <div>
+                  <span className="font-semibold">Number:</span>{' '}
+                  {editMode ? (
+                    <Input
+                      value={editLead.phone}
+                      onChange={e => handleEditChange('phone', e.target.value)}
+                      className="border-none bg-transparent px-0 focus:ring-0 focus:outline-none"
+                      placeholder="Phone"
+                    />
+                  ) : (
+                    editLead.phone || 'N/A'
+                  )}
+                </div>
+                <div>
+                  <span className="font-semibold">Location:</span>{' '}
+                  {editMode ? (
+                    <Input
+                      value={editLead.country}
+                      onChange={e => handleEditChange('country', e.target.value)}
+                      className="border-none bg-transparent px-0 focus:ring-0 focus:outline-none"
+                      placeholder="Location"
+                    />
+                  ) : (
+                    editLead.country || 'N/A'
+                  )}
+                </div>
               </div>
             </DialogDescription>
           </DialogHeader>
           <div className="mt-4">
-            <div className="mb-2 text-sm font-semibold">Lead: {lead.companyName}</div>
-            <div className="mb-2 text-muted-foreground text-xs">No log found</div>
-            <form className="space-y-4">
-              <div>
-                <Label htmlFor="update-type">Update Type *</Label>
-                <Select value={updateType} onValueChange={setUpdateType}>
-                  <SelectTrigger id="update-type" className="w-full mt-1">
-                    <SelectValue placeholder="Select update type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {updateTypes.map(type => (
-                      <SelectItem key={type} value={type}>{type}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+            <div className="mb-2 text-sm font-semibold">Lead: {editLead.companyName}</div>
+            <div className="mb-2 text-muted-foreground text-xs">
+              {logs.length === 0 ? 'No log found' : ''}
+            </div>
+            {logs.length > 0 && (
+              <div className="space-y-2 max-h-36 overflow-y-auto pr-1">
+                {logs.slice(0, 2).map((log, idx) => (
+                  <div key={log.id} className="flex items-start space-x-3 p-3 rounded-lg bg-muted/30 border-l-4 border-muted">
+                    <div className="flex-shrink-0 mt-1">
+                      <CheckSquare className="h-4 w-4 text-primary shrink-0" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between mb-1">
+                        <p className="text-sm font-medium text-foreground line-clamp-2">
+                          {log.content}
+                        </p>
+                        <span className="text-xs text-muted-foreground ml-2">
+                          {format(new Date(log.date), 'MMM dd')}
+                        </span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <span className="text-xs text-muted-foreground">{log.type}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                {logs.length > 2 && (
+                  <div className="flex items-center justify-center pt-2 border-t border-muted/30 overflow-hidden max-h-8 opacity-70">
+                    <p className="text-xs text-muted-foreground truncate">
+                      +{logs.length - 2} more activities
+                    </p>
+                  </div>
+                )}
               </div>
-              <div>
-                <Label htmlFor="update-content">Content *</Label>
-                <Textarea
-                  id="update-content"
-                  value={updateContent}
-                  onChange={e => setUpdateContent(e.target.value)}
-                  placeholder="Describe the call, meeting, email, or general update..."
-                  className="min-h-[80px] resize-none"
-                />
+            )}
+            {editMode ? (
+              <div className="flex justify-end gap-2 mt-4">
+                <Button variant="outline" onClick={handleCancelEdit}>Cancel</Button>
+                <Button variant="add" onClick={handleSaveEdit}>Save</Button>
               </div>
-              <div>
-                <Label>Date *</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-full justify-start">
-                      {updateDate ? format(updateDate, 'dd/MM/yyyy') : 'dd/mm/yyyy'}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent align="start" className="p-0 w-auto border-none bg-[#CFD4C9] rounded-sm">
-                    <Calendar
-                      mode="single"
-                      selected={updateDate}
-                      onSelect={setUpdateDate}
-                      initialFocus
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
-              <DialogFooter>
-                <Button type="button" variant="add" className="w-full mt-2" onClick={handleLogUpdate} disabled={isLogging}>
-                  {isLogging ? 'Logging...' : 'Log Update'}
-                </Button>
-              </DialogFooter>
-            </form>
+            ) : (
+              <form className="space-y-4">
+                <div>
+                  <Label htmlFor="update-type">Update Type *</Label>
+                  <Select value={updateType} onValueChange={setUpdateType}>
+                    <SelectTrigger id="update-type" className="w-full mt-1">
+                      <SelectValue placeholder="Select update type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {updateTypes.map(type => (
+                        <SelectItem key={type} value={type}>{type}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="update-content">Content *</Label>
+                  <Textarea
+                    id="update-content"
+                    value={updateContent}
+                    onChange={e => setUpdateContent(e.target.value)}
+                    placeholder="Describe the call, meeting, email, or general update..."
+                    className="min-h-[80px] resize-none"
+                  />
+                </div>
+                <div>
+                  <Label>Date *</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" className="w-full justify-start">
+                        {updateDate ? format(updateDate, 'dd/MM/yyyy') : 'dd/mm/yyyy'}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent align="start" className="p-0 w-auto border-none bg-[#CFD4C9] rounded-sm">
+                      <Calendar
+                        mode="single"
+                        selected={updateDate}
+                        onSelect={setUpdateDate}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                <DialogFooter>
+                  <Button type="button" variant="add" className="w-full mt-2" onClick={handleLogUpdate} disabled={isLogging}>
+                    {isLogging ? 'Logging...' : 'Log Update'}
+                  </Button>
+                </DialogFooter>
+              </form>
+            )}
           </div>
         </DialogContent>
       </Dialog>
