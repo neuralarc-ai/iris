@@ -25,6 +25,7 @@ import { supabase } from '@/lib/supabaseClient';
 
 interface UpdateItemProps {
   update: Update;
+  groupedUpdates?: Update[];
 }
 
 const getUpdateTypeIcon = (type: Update['type']) => {
@@ -45,7 +46,7 @@ const getSentimentIcon = (sentiment?: string) => {
     return <Activity className="h-4 w-4"/>;
 }
 
-export default function UpdateItem({ update }: UpdateItemProps) {
+export default function UpdateItem({ update, groupedUpdates }: UpdateItemProps) {
   // State for related data
   const [opportunity, setOpportunity] = useState<Opportunity | undefined>(undefined);
   const [account, setAccount] = useState<Account | undefined>(undefined);
@@ -64,6 +65,10 @@ export default function UpdateItem({ update }: UpdateItemProps) {
   const [activityLogs, setActivityLogs] = useState<Update[]>([]);
   
   const { toast } = useToast();
+
+  // Use groupedUpdates if available, otherwise use the single update
+  const updatesToShow = groupedUpdates || [update];
+  const totalUpdates = updatesToShow.length;
 
   useEffect(() => {
     const fetchRelatedData = async () => {
@@ -119,26 +124,30 @@ export default function UpdateItem({ update }: UpdateItemProps) {
         }
         setLead(undefined);
 
-        // Fetch all updates for this opportunity
-        const { data: updatesData } = await supabase
-          .from('update')
-          .select('*')
-          .eq('opportunity_id', update.opportunityId)
-          .order('date', { ascending: false });
-        
-        if (updatesData) {
-          const transformedUpdates = updatesData.map((upd: any) => ({
-            id: upd.id,
-            type: upd.type,
-            content: upd.content || '',
-            updatedByUserId: upd.updated_by_user_id,
-            date: upd.date || upd.created_at || new Date().toISOString(),
-            createdAt: upd.created_at || new Date().toISOString(),
-            leadId: upd.lead_id,
-            opportunityId: upd.opportunity_id,
-            accountId: upd.account_id,
-          }));
-          setActivityLogs(transformedUpdates);
+        // Use groupedUpdates if available, otherwise fetch all updates for this opportunity
+        if (groupedUpdates) {
+          setActivityLogs(groupedUpdates);
+        } else {
+          const { data: updatesData } = await supabase
+            .from('update')
+            .select('*')
+            .eq('opportunity_id', update.opportunityId)
+            .order('date', { ascending: false });
+          
+          if (updatesData) {
+            const transformedUpdates = updatesData.map((upd: any) => ({
+              id: upd.id,
+              type: upd.type,
+              content: upd.content || '',
+              updatedByUserId: upd.updated_by_user_id,
+              date: upd.date || upd.created_at || new Date().toISOString(),
+              createdAt: upd.created_at || new Date().toISOString(),
+              leadId: upd.lead_id,
+              opportunityId: upd.opportunity_id,
+              accountId: upd.account_id,
+            }));
+            setActivityLogs(transformedUpdates);
+          }
         }
       } else if (update.leadId) {
         // Fetch lead
@@ -170,26 +179,84 @@ export default function UpdateItem({ update }: UpdateItemProps) {
         setOpportunity(undefined);
         setAccount(undefined);
 
-        // Fetch all updates for this lead
-        const { data: updatesData } = await supabase
-          .from('update')
+        // Use groupedUpdates if available, otherwise fetch all updates for this lead
+        if (groupedUpdates) {
+          setActivityLogs(groupedUpdates);
+        } else {
+          const { data: updatesData } = await supabase
+            .from('update')
+            .select('*')
+            .eq('lead_id', update.leadId)
+            .order('date', { ascending: false });
+          
+          if (updatesData) {
+            const transformedUpdates = updatesData.map((upd: any) => ({
+              id: upd.id,
+              type: upd.type,
+              content: upd.content || '',
+              updatedByUserId: upd.updated_by_user_id,
+              date: upd.date || upd.created_at || new Date().toISOString(),
+              createdAt: upd.created_at || new Date().toISOString(),
+              leadId: upd.lead_id,
+              opportunityId: upd.opportunity_id,
+              accountId: upd.account_id,
+            }));
+            setActivityLogs(transformedUpdates);
+          }
+        }
+      } else if (update.accountId) {
+        // Fetch account for account-only updates
+        const { data: accData } = await supabase
+          .from('account')
           .select('*')
-          .eq('lead_id', update.leadId)
-          .order('date', { ascending: false });
+          .eq('id', update.accountId)
+          .single();
         
-        if (updatesData) {
-          const transformedUpdates = updatesData.map((upd: any) => ({
-            id: upd.id,
-            type: upd.type,
-            content: upd.content || '',
-            updatedByUserId: upd.updated_by_user_id,
-            date: upd.date || upd.created_at || new Date().toISOString(),
-            createdAt: upd.created_at || new Date().toISOString(),
-            leadId: upd.lead_id,
-            opportunityId: upd.opportunity_id,
-            accountId: upd.account_id,
-          }));
-          setActivityLogs(transformedUpdates);
+        if (accData) {
+          const transformedAcc: Account = {
+            id: accData.id,
+            name: accData.name,
+            type: accData.type,
+            status: accData.status,
+            description: accData.description || '',
+            contactEmail: accData.contact_email || '',
+            industry: accData.industry || '',
+            contactPersonName: accData.contact_person_name || '',
+            contactPhone: accData.contact_phone || '',
+            convertedFromLeadId: accData.converted_from_lead_id,
+            opportunityIds: [],
+            createdAt: accData.created_at || new Date().toISOString(),
+            updatedAt: accData.updated_at || new Date().toISOString(),
+          };
+          setAccount(transformedAcc);
+        }
+        setOpportunity(undefined);
+        setLead(undefined);
+
+        // Use groupedUpdates if available, otherwise fetch all updates for this account
+        if (groupedUpdates) {
+          setActivityLogs(groupedUpdates);
+        } else {
+          const { data: updatesData } = await supabase
+            .from('update')
+            .select('*')
+            .eq('account_id', update.accountId)
+            .order('date', { ascending: false });
+          
+          if (updatesData) {
+            const transformedUpdates = updatesData.map((upd: any) => ({
+              id: upd.id,
+              type: upd.type,
+              content: upd.content || '',
+              updatedByUserId: upd.updated_by_user_id,
+              date: upd.date || upd.created_at || new Date().toISOString(),
+              createdAt: upd.created_at || new Date().toISOString(),
+              leadId: upd.lead_id,
+              opportunityId: upd.opportunity_id,
+              accountId: upd.account_id,
+            }));
+            setActivityLogs(transformedUpdates);
+          }
         }
       }
 
@@ -215,7 +282,7 @@ export default function UpdateItem({ update }: UpdateItemProps) {
     };
 
     fetchRelatedData();
-  }, [update.opportunityId, update.leadId, update.updatedByUserId]);
+  }, [update.opportunityId, update.leadId, update.updatedByUserId, update.accountId, groupedUpdates]);
 
   // const fetchInsights = async () => { ... }
   // const toggleAiInsights = () => { ... }
@@ -324,13 +391,50 @@ export default function UpdateItem({ update }: UpdateItemProps) {
   };
 
   const getHeaderTitle = () => {
-    if (opportunity && account) {
-      return `${account.name} - ${opportunity.name}`;
+    if (opportunity) {
+      return (
+        <div className="flex items-center justify-between">
+          <span className="font-semibold">{opportunity.name}</span>
+          {totalUpdates > 1 && (
+            <Badge variant="secondary" className="ml-2">
+              {totalUpdates} updates
+            </Badge>
+          )}
+        </div>
+      );
+    } else if (lead) {
+      return (
+        <div className="flex items-center justify-between">
+          <span className="font-semibold">{lead.personName} ({lead.companyName})</span>
+          {totalUpdates > 1 && (
+            <Badge variant="secondary" className="ml-2">
+              {totalUpdates} updates
+            </Badge>
+          )}
+        </div>
+      );
+    } else if (account) {
+      return (
+        <div className="flex items-center justify-between">
+          <span className="font-semibold">{account.name}</span>
+          {totalUpdates > 1 && (
+            <Badge variant="secondary" className="ml-2">
+              {totalUpdates} updates
+            </Badge>
+          )}
+        </div>
+      );
     }
-    if (lead) {
-      return `${lead.companyName} - ${lead.personName}`;
-    }
-    return "Update Details";
+    return (
+      <div className="flex items-center justify-between">
+        <span className="font-semibold">Update</span>
+        {totalUpdates > 1 && (
+          <Badge variant="secondary" className="ml-2">
+            {totalUpdates} updates
+          </Badge>
+        )}
+      </div>
+    );
   };
 
   const getValueDisplay = () => {

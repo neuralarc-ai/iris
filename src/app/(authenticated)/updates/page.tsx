@@ -17,6 +17,15 @@ import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { supabase } from '@/lib/supabaseClient';
 
+// Interface for grouped updates
+interface GroupedUpdate {
+  entityId: string;
+  entityType: 'lead' | 'opportunity' | 'account';
+  entityName: string;
+  updates: Update[];
+  latestUpdate: Update;
+}
+
 export default function UpdatesPage() {
   const [updates, setUpdates] = useState<Update[]>([]);
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
@@ -132,6 +141,59 @@ export default function UpdatesPage() {
 
   const updateTypeOptions: UpdateType[] = ["General", "Call", "Meeting", "Email"];
 
+  // Function to group updates by entity
+  const groupUpdatesByEntity = (updates: Update[]): GroupedUpdate[] => {
+    const grouped: { [key: string]: GroupedUpdate } = {};
+
+    updates.forEach(update => {
+      let entityId = '';
+      let entityType: 'lead' | 'opportunity' | 'account' = 'account';
+      let entityName = '';
+
+      if (update.leadId) {
+        entityId = update.leadId;
+        entityType = 'lead';
+        entityName = `Lead: ${update.leadId}`; // Will be updated with actual lead name
+      } else if (update.opportunityId) {
+        entityId = update.opportunityId;
+        entityType = 'opportunity';
+        entityName = `Opportunity: ${update.opportunityId}`; // Will be updated with actual opportunity name
+      } else if (update.accountId) {
+        entityId = update.accountId;
+        entityType = 'account';
+        entityName = `Account: ${update.accountId}`; // Will be updated with actual account name
+      } else {
+        // Skip updates without entity
+        return;
+      }
+
+      const key = `${entityType}-${entityId}`;
+      
+      if (!grouped[key]) {
+        grouped[key] = {
+          entityId,
+          entityType,
+          entityName,
+          updates: [],
+          latestUpdate: update
+        };
+      }
+      
+      grouped[key].updates.push(update);
+      
+      // Update latest update if this one is newer
+      if (new Date(update.date).getTime() > new Date(grouped[key].latestUpdate.date).getTime()) {
+        grouped[key].latestUpdate = update;
+      }
+    });
+
+    // Sort by latest update date
+    return Object.values(grouped).sort((a, b) => 
+      new Date(b.latestUpdate.date).getTime() - new Date(a.latestUpdate.date).getTime()
+    );
+  };
+
+  // Filter updates first, then group them
   const filteredUpdates = updates.filter(update => {
     const matchesSearch = update.content.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesType = typeFilter === 'all' || update.type === typeFilter;
@@ -156,6 +218,9 @@ export default function UpdatesPage() {
     else if (entityTypeFilter === 'account') matchesEntity = !!update.accountId;
     return matchesSearch && matchesType && matchesOpportunity && matchesDate && matchesEntity;
   });
+
+  // Group the filtered updates
+  const groupedUpdates = groupUpdatesByEntity(filteredUpdates);
 
   if (isLoading) {
     return (
@@ -269,10 +334,14 @@ export default function UpdatesPage() {
         </CardContent>
       </Card>
 
-      {filteredUpdates.length > 0 ? (
+      {groupedUpdates.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-8">
-          {filteredUpdates.map((update) => (
-            <UpdateItem key={update.id} update={update} />
+          {groupedUpdates.map((groupedUpdate) => (
+            <UpdateItem 
+              key={`${groupedUpdate.entityType}-${groupedUpdate.entityId}`} 
+              update={groupedUpdate.latestUpdate}
+              groupedUpdates={groupedUpdate.updates}
+            />
           ))}
         </div>
       ) : (
