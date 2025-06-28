@@ -9,7 +9,7 @@ import { mockOpportunities, mockLeads, getRecentUpdates } from '@/lib/data';
 import type { Opportunity, OpportunityForecast, Update } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import Link from 'next/link';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
 import { format, parseISO } from 'date-fns';
 import UpdateItem from '@/components/updates/UpdateItem';
 import OpportunityCard from '@/components/opportunities/OpportunityCard';
@@ -17,6 +17,16 @@ import OpportunityCard from '@/components/opportunities/OpportunityCard';
 interface OpportunityWithForecast extends Opportunity {
   forecast?: OpportunityForecast;
 }
+
+// Status to color mapping
+const statusColorMap = {
+  "Scope Of Work": "#916D5B",
+  "Proposal": "#97A487",
+  "Negotiation": "#3987BE",
+  "On Hold": "#D48EA3",
+  "Win": "#2B2521",
+  "Loss": "#2B2521"
+};
 
 export default function DashboardPage() {
   const [forecastedOpportunities, setForecastedOpportunities] = useState<OpportunityWithForecast[]>([]);
@@ -136,7 +146,11 @@ export default function DashboardPage() {
                         itemStyle={{ color: "#916D5B" }}
                     />
                     <Legend wrapperStyle={{fontSize: "12px", paddingTop: "10px", color: '#55504C'}}/>
-                    <Bar dataKey="count" fill="#916D5B" radius={[0, 4, 4, 0]} barSize={20} />
+                    <Bar dataKey="count">
+                      {opportunityStatusData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={statusColorMap[entry.name as keyof typeof statusColorMap] || "#916D5B"} />
+                      ))}
+                    </Bar>
                   </BarChart>
                 </ResponsiveContainer>
               ) : (
