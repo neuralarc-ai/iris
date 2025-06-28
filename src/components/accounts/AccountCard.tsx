@@ -308,7 +308,7 @@ export default function AccountCard({ account, view = 'grid', onNewOpportunity, 
           <span>{opportunities.length} Active Opportunit{opportunities.length !== 1 ? 'ies' : 'y'}</span> 
         </div>
 
-        {account.status === 'Active' && (
+        {/* {account.status === 'Active' && (
           <div className="pt-3 border-t mt-3">
             <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-1.5 flex items-center">
               <Lightbulb className="mr-1.5 h-3.5 w-3.5 text-yellow-500" /> AI Daily Brief
@@ -331,7 +331,7 @@ export default function AccountCard({ account, view = 'grid', onNewOpportunity, 
               <p className="text-xs text-muted-foreground h-10 flex items-center">No AI brief available for this account.</p>
             )}
           </div>
-        )}
+        )} */}
       </CardContent>
       <CardFooter className="pt-4 border-t mt-auto">
         <TooltipProvider delayDuration={0}>

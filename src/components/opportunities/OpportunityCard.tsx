@@ -8,10 +8,10 @@ import { Badge } from '@/components/ui/badge';
 import { BarChartBig, DollarSign, CalendarDays, Eye, AlertTriangle, CheckCircle2, Briefcase, Lightbulb, TrendingUp, Users, Clock, MessageSquarePlus, Calendar as CalendarIcon, Sparkles } from 'lucide-react';
 import type { Opportunity, OpportunityForecast as AIOpportunityForecast, Account, OpportunityStatus, Update } from '@/types';
 import { Progress } from "@/components/ui/progress";
-import {format, differenceInDays, parseISO, isValid, formatDistanceToNowStrict} from 'date-fns';
+import {format, differenceInDays, parseISO, isValid, formatDistanceToNowStrict, formatDistanceToNow} from 'date-fns';
 import { aiPoweredOpportunityForecasting } from '@/ai/flows/ai-powered-opportunity-forecasting';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
-import { getAccountById } from '@/lib/data';
+import { getAccountById, mockUsers } from '@/lib/data';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
@@ -66,8 +66,8 @@ const currencyMap = Object.fromEntries(
 );
 
 export default function OpportunityCard({ opportunity, accountName }: OpportunityCardProps) {
-  const [forecast, setForecast] = useState<AIOpportunityForecast | null>(null);
-  const [isLoadingForecast, setIsLoadingForecast] = useState(false);
+  // const [forecast, setForecast] = useState<AIOpportunityForecast | null>(null);
+  // const [isLoadingForecast, setIsLoadingForecast] = useState(false);
   const [associatedAccount, setAssociatedAccount] = useState<Account | undefined>(undefined);
   const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -78,6 +78,8 @@ export default function OpportunityCard({ opportunity, accountName }: Opportunit
   const [nextActionDate, setNextActionDate] = useState<Date | undefined>(undefined);
   const [showAiInsights, setShowAiInsights] = useState(false);
   const [assignedUser, setAssignedUser] = useState<{ name: string; email: string } | null>(null);
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+  const [assignedUserId, setAssignedUserId] = useState('user_admin_000'); // Default to admin for now
 
   const status = opportunity.status as OpportunityStatus;
 
@@ -100,24 +102,85 @@ export default function OpportunityCard({ opportunity, accountName }: Opportunit
       try {
         console.log('Fetching activity logs for opportunity:', opportunity.id);
         
+        // Check if opportunity.id exists and is valid
+        if (!opportunity.id) {
+          console.error('No opportunity ID provided');
+          setActivityLogs([]);
+          return;
+        }
+
+        // First, let's check if the opportunity exists in the database
+        const { data: opportunityCheck, error: opportunityError } = await supabase
+          .from('opportunity')
+          .select('id')
+          .eq('id', opportunity.id)
+          .single();
+
+        if (opportunityError) {
+          console.error('Opportunity not found:', opportunityError);
+          setActivityLogs([]);
+          return;
+        }
+
+        console.log('Opportunity found, fetching logs...');
+        
+        // Debug: Let's first check what columns exist in the update table
+        console.log('Checking update table structure...');
+        const { data: tableInfo, error: tableError } = await supabase
+          .from('update')
+          .select('*')
+          .limit(1);
+        
+        if (tableError) {
+          console.error('Error checking table structure:', tableError);
+        } else {
+          console.log('Update table structure sample:', tableInfo?.[0]);
+        }
+        
+        // Now fetch the logs with better error handling
+        console.log('Executing main query for opportunity_id:', opportunity.id);
         const { data: logsData, error } = await supabase
           .from('update')
           .select('*')
           .eq('opportunity_id', opportunity.id)
           .order('date', { ascending: false });
         
+        console.log('Query result:', { data: logsData, error });
+        
         if (error) {
           console.error('Supabase error fetching logs:', error);
+          console.error('Error details:', {
+            message: error.message,
+            details: error.details,
+            hint: error.hint,
+            code: error.code
+          });
+          
+          // Try a fallback query to see if the issue is with the opportunity_id column
+          console.log('Trying fallback query...');
+          const { data: fallbackData, error: fallbackError } = await supabase
+            .from('update')
+            .select('*')
+            .limit(5);
+          
+          if (fallbackError) {
+            console.error('Fallback query also failed:', fallbackError);
+          } else {
+            console.log('Fallback query successful, sample data:', fallbackData);
+          }
+          
           toast({ 
             title: "Error", 
-            description: "Failed to load activity logs. Please try again.", 
+            description: `Failed to load activity logs: ${error.message || 'Unknown error'}`, 
             variant: "destructive" 
           });
+          setActivityLogs([]);
           return;
         }
         
-        if (logsData) {
-          console.log('Activity logs fetched successfully:', logsData.length, 'logs');
+        console.log('Activity logs fetched successfully:', logsData?.length || 0, 'logs');
+        
+        if (logsData && logsData.length > 0) {
           const transformedLogs = logsData.map((log: any) => ({
             id: log.id,
             type: log.type,
@@ -136,11 +199,14 @@ export default function OpportunityCard({ opportunity, accountName }: Opportunit
         }
       } catch (error) {
         console.error('Failed to fetch logs:', error);
+        console.error('Error type:', typeof error);
+        console.error('Error details:', error);
         toast({ 
           title: "Error", 
           description: "Failed to load activity logs. Please try again.", 
           variant: "destructive" 
         });
+        setActivityLogs([]);
       } finally {
         setIsLoadingLogs(false);
       }
@@ -186,50 +252,50 @@ export default function OpportunityCard({ opportunity, accountName }: Opportunit
     }
   };
 
-  const fetchForecast = async () => {
-    setIsLoadingForecast(true);
-    try {
-      const start = safeParseISO(opportunity.startDate);
-      const end = safeParseISO(opportunity.endDate);
-      const timeline = start && end ? `Start: ${format(start, 'MMM dd, yyyy')}, End: ${format(end, 'MMM dd, yyyy')}` : 'N/A';
-      const forecastData = await aiPoweredOpportunityForecasting({
-        opportunityName: opportunity.name,
-        opportunityDescription: opportunity.description,
-        opportunityTimeline: timeline,
-        opportunityValue: opportunity.value,
-        opportunityStatus: opportunity.status,
-        recentUpdates: "Placeholder: Updates show steady progress.",
-      });
-      setForecast(forecastData);
-    } catch (error) {
-      console.error(`Failed to fetch forecast for ${opportunity.name}:`, error);
-      setForecast({ timelinePrediction: "N/A", completionDateEstimate: "N/A", revenueForecast: opportunity.value, bottleneckIdentification: "Error fetching forecast."});
-    } finally {
-      setIsLoadingForecast(false);
-    }
-  };
+  // const fetchForecast = async () => {
+  //   setIsLoadingForecast(true);
+  //   try {
+  //     const start = safeParseISO(opportunity.startDate);
+  //     const end = safeParseISO(opportunity.endDate);
+  //     const timeline = start && end ? `Start: ${format(start, 'MMM dd, yyyy')}, End: ${format(end, 'MMM dd, yyyy')}` : 'N/A';
+  //     const forecastData = await aiPoweredOpportunityForecasting({
+  //       opportunityName: opportunity.name,
+  //       opportunityDescription: opportunity.description,
+  //       opportunityTimeline: timeline,
+  //       opportunityValue: opportunity.value,
+  //       opportunityStatus: opportunity.status,
+  //       recentUpdates: "Placeholder: Updates show steady progress.",
+  //     });
+  //     setForecast(forecastData);
+  //   } catch (error) {
+  //     console.error(`Failed to fetch forecast for ${opportunity.name}:`, error);
+  //     setForecast({ timelinePrediction: "N/A", completionDateEstimate: "N/A", revenueForecast: opportunity.value, bottleneckIdentification: "Error fetching forecast."});
+  //   } finally {
+  //     setIsLoadingForecast(false);
+  //   }
+  // };
 
-  useEffect(() => {
-    if(opportunity.status !== 'Win' && opportunity.status !== 'Loss' && opportunity.name && opportunity.startDate && opportunity.endDate && opportunity.value && opportunity.status && opportunity.description) {
-        fetchForecast();
-    } else {
-      setForecast(null); // No forecast for completed/cancelled
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [opportunity.id, opportunity.name, opportunity.startDate, opportunity.endDate, opportunity.value, opportunity.status, opportunity.description]);
+  // useEffect(() => {
+  //   if(opportunity.status !== 'Win' && opportunity.status !== 'Loss' && opportunity.name && opportunity.startDate && opportunity.endDate && opportunity.value && opportunity.status && opportunity.description) {
+  //       fetchForecast();
+  //   } else {
+  //     setForecast(null); // No forecast for completed/cancelled
+  //   }
+  // // eslint-disable-next-line react-hooks/exhaustive-deps
+  // }, [opportunity.id, opportunity.name, opportunity.startDate, opportunity.endDate, opportunity.value, opportunity.status, opportunity.description]);
 
   const progress = calculateProgress(opportunity.startDate, opportunity.endDate, opportunity.status as OpportunityStatus);
-  const isAtRisk = forecast?.bottleneckIdentification && forecast.bottleneckIdentification.toLowerCase() !== "none identified" && forecast.bottleneckIdentification.toLowerCase() !== "none" && forecast.bottleneckIdentification !== "Error fetching forecast." && forecast.bottleneckIdentification.length > 0;
+  // const isAtRisk = forecast?.bottleneckIdentification && forecast.bottleneckIdentification.toLowerCase() !== "none identified" && forecast.bottleneckIdentification.toLowerCase() !== "none" && forecast.bottleneckIdentification !== "Error fetching forecast." && forecast.bottleneckIdentification.length > 0;
   
   let opportunityHealthIcon = <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />;
   let opportunityHealthText = "On Track";
-  if (forecast?.bottleneckIdentification === "Error fetching forecast.") {
-    opportunityHealthIcon = <AlertTriangle className="h-4 w-4 text-orange-500 shrink-0" />;
-    opportunityHealthText = "Forecast Error";
-  } else if (isAtRisk) {
-    opportunityHealthIcon = <AlertTriangle className="h-4 w-4 text-destructive shrink-0" />;
-    opportunityHealthText = "Potential Risk";
-  }
+  // if (forecast?.bottleneckIdentification === "Error fetching forecast.") {
+  //   opportunityHealthIcon = <AlertTriangle className="h-4 w-4 text-orange-500 shrink-0" />;
+  //   opportunityHealthText = "Forecast Error";
+  // } else if (isAtRisk) {
+  //   opportunityHealthIcon = <AlertTriangle className="h-4 w-4 text-destructive shrink-0" />;
+  //   opportunityHealthText = "Potential Risk";
+  // }
 
 
   function timeRemaining(status: OpportunityStatus): string {
@@ -338,6 +404,16 @@ export default function OpportunityCard({ opportunity, accountName }: Opportunit
 
   const toggleAiInsights = () => setShowAiInsights((prev) => !prev);
 
+  const handleAssignUser = (userId: string) => {
+    setAssignedUserId(userId);
+    const user = mockUsers.find(u => u.id === userId);
+    if (user) {
+      setAssignedUser({ name: user.name, email: user.email });
+    }
+  };
+
+  const assignedUserObj = mockUsers.find(u => u.id === assignedUserId);
+
   return (
     <>
       <Card className="shadow-md hover:shadow-lg transition-shadow duration-300 bg-white flex flex-col h-full cursor-pointer" onClick={() => setIsDialogOpen(true)}>
@@ -396,7 +472,7 @@ export default function OpportunityCard({ opportunity, accountName }: Opportunit
               {opportunityHealthIcon} {opportunityHealthText}
             </div>
           </div>
-          {(forecast || isLoadingForecast) && opportunity.status !== 'Win' && opportunity.status !== 'Loss' && (
+          {/* {(forecast || isLoadingForecast) && opportunity.status !== 'Win' && opportunity.status !== 'Loss' && (
             <div className="pt-3 border-t mt-3">
               <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-1.5 flex items-center">
                 <Lightbulb className="mr-1.5 h-3.5 w-3.5 text-yellow-500" /> AI Forecast
@@ -419,14 +495,14 @@ export default function OpportunityCard({ opportunity, accountName }: Opportunit
                 <p className="text-xs text-muted-foreground h-12 flex items-center">No AI forecast data for this opportunity.</p>
               )}
             </div>
-          )}
+          )} */}
         </CardContent>
         <CardFooter className="pt-4 border-t mt-auto flex gap-2">
-          <Button variant="outline" size="sm" asChild className="mr-auto rounded-[4px]">
-            <Link href={`/opportunities/${opportunity.id}`}>
+          <Button variant="outline" size="sm" asChild className="mr-auto rounded-[4px]" onClick={(e) => { e.stopPropagation(); setIsViewDialogOpen(true); }}>
+            <div>
               <Eye className="mr-2 h-4 w-4" />
               View Details
-            </Link>
+            </div>
           </Button>
         </CardFooter>
       </Card>
@@ -542,6 +618,50 @@ export default function OpportunityCard({ opportunity, accountName }: Opportunit
                   </Button>
                 </div>
               </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
+        <DialogContent className="sm:max-w-lg bg-white">
+          <DialogHeader>
+            <DialogTitle>Opportunity Details</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="grid grid-cols-1 gap-2">
+              <div><span className="font-semibold">Name:</span> {opportunity.name}</div>
+              <div><span className="font-semibold">Account:</span> {accountName}</div>
+              <div><span className="font-semibold">Value:</span> ${opportunity.value.toLocaleString()}</div>
+              <div><span className="font-semibold">Status:</span> {opportunity.status}</div>
+              <div><span className="font-semibold">Description:</span> {opportunity.description}</div>
+              <div><span className="font-semibold">Timeline:</span> {
+                (() => {
+                  const start = safeParseISO(opportunity.startDate);
+                  const end = safeParseISO(opportunity.endDate);
+                  if (start && end) {
+                    return `${format(start, 'MMM dd, yyyy')} - ${format(end, 'MMM dd, yyyy')}`;
+                  }
+                  return 'N/A';
+                })()
+              }</div>
+              <div><span className="font-semibold">Created:</span> {formatDistanceToNow(new Date(opportunity.createdAt), { addSuffix: true })}</div>
+              <div><span className="font-semibold">Last Updated:</span> {formatDistanceToNow(new Date(opportunity.updatedAt), { addSuffix: true })}</div>
+            </div>
+            <div className="pt-2">
+              <span className="font-semibold">Assigned To:</span>
+              <Select value={assignedUserId} onValueChange={handleAssignUser}>
+                <SelectTrigger className="w-full mt-1">
+                  <SelectValue placeholder="Assign to user" />
+                </SelectTrigger>
+                <SelectContent>
+                  {mockUsers.map(user => (
+                    <SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {assignedUserObj && (
+                <div className="mt-1 text-sm text-muted-foreground">Currently assigned to: <span className="font-medium">{assignedUserObj.name}</span></div>
+              )}
             </div>
           </div>
         </DialogContent>
