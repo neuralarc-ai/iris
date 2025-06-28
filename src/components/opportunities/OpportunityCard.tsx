@@ -15,13 +15,14 @@ import { getAccountById } from '@/lib/data';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { getUpdatesForOpportunity, addUpdate } from '@/lib/data';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Calendar } from '@/components/ui/calendar';
+import { supabase } from '@/lib/supabaseClient';
 
 interface OpportunityCardProps {
   opportunity: Opportunity;
+  accountName?: string;
 }
 
 const getStatusBadgeColorClasses = (status: Opportunity['status']): string => {
@@ -59,17 +60,18 @@ function calculateProgress(startDate: string, endDate: string, status: Opportuni
 }
 
 
-export default function OpportunityCard({ opportunity }: OpportunityCardProps) {
+export default function OpportunityCard({ opportunity, accountName }: OpportunityCardProps) {
   const [forecast, setForecast] = useState<AIOpportunityForecast | null>(null);
   const [isLoadingForecast, setIsLoadingForecast] = useState(false);
   const [associatedAccount, setAssociatedAccount] = useState<Account | undefined>(undefined);
   const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [activityLogs, setActivityLogs] = useState(() => getUpdatesForOpportunity(opportunity.id));
+  const [activityLogs, setActivityLogs] = useState<Update[]>([]);
   const [newActivityDescription, setNewActivityDescription] = useState('');
   const [isLoggingActivity, setIsLoggingActivity] = useState(false);
   const [nextActionDate, setNextActionDate] = useState<Date | undefined>(undefined);
   const [showAiInsights, setShowAiInsights] = useState(false);
+  const [assignedUser, setAssignedUser] = useState<{ name: string; email: string } | null>(null);
 
   const status = opportunity.status as OpportunityStatus;
 
@@ -78,6 +80,48 @@ export default function OpportunityCard({ opportunity }: OpportunityCardProps) {
       setAssociatedAccount(getAccountById(opportunity.accountId));
     }
   }, [opportunity.accountId]);
+
+  useEffect(() => {
+    if (opportunity.ownerId) {
+      (async () => {
+        const { data, error } = await supabase.from('users').select('name, email').eq('id', opportunity.ownerId).single();
+        if (!error && data) setAssignedUser({ name: data.name, email: data.email });
+        else setAssignedUser(null);
+      })();
+    }
+  }, [opportunity.ownerId]);
+
+  // Fetch existing logs from Supabase
+  useEffect(() => {
+    const fetchLogs = async () => {
+      try {
+        const { data: logsData } = await supabase
+          .from('update')
+          .select('*')
+          .eq('opportunity_id', opportunity.id)
+          .order('date', { ascending: false });
+        
+        if (logsData) {
+          const transformedLogs = logsData.map((log: any) => ({
+            id: log.id,
+            type: log.type,
+            content: log.content || '',
+            updatedByUserId: log.updated_by_user_id,
+            date: log.date || log.created_at || new Date().toISOString(),
+            createdAt: log.created_at || new Date().toISOString(),
+            leadId: log.lead_id,
+            opportunityId: log.opportunity_id,
+            accountId: log.account_id,
+          }));
+          setActivityLogs(transformedLogs);
+        }
+      } catch (error) {
+        console.error('Failed to fetch logs:', error);
+      }
+    };
+
+    fetchLogs();
+  }, [opportunity.id]);
 
   const fetchForecast = async () => {
     setIsLoadingForecast(true);
@@ -111,10 +155,6 @@ export default function OpportunityCard({ opportunity }: OpportunityCardProps) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [opportunity.id, opportunity.name, opportunity.startDate, opportunity.endDate, opportunity.value, opportunity.status, opportunity.description]);
 
-  useEffect(() => {
-    setActivityLogs(getUpdatesForOpportunity(opportunity.id));
-  }, [opportunity.id]);
-
   const progress = calculateProgress(opportunity.startDate, opportunity.endDate, opportunity.status as OpportunityStatus);
   const isAtRisk = forecast?.bottleneckIdentification && forecast.bottleneckIdentification.toLowerCase() !== "none identified" && forecast.bottleneckIdentification.toLowerCase() !== "none" && forecast.bottleneckIdentification !== "Error fetching forecast." && forecast.bottleneckIdentification.length > 0;
   
@@ -129,7 +169,6 @@ export default function OpportunityCard({ opportunity }: OpportunityCardProps) {
   }
 
 
-  const accountName = associatedAccount?.name;
   function timeRemaining(status: OpportunityStatus): string {
     if (status === 'Completed' || status === 'Cancelled') return status;
     const end = safeParseISO(opportunity.endDate);
@@ -144,18 +183,69 @@ export default function OpportunityCard({ opportunity }: OpportunityCardProps) {
       toast({ title: "Error", description: "Please enter a description for the activity.", variant: "destructive" });
       return;
     }
+    
+    // Prevent duplicate submissions
+    if (isLoggingActivity) {
+      console.log('Activity logging already in progress, ignoring duplicate click');
+      return;
+    }
+    
+    // Check for recent duplicate entries (within last 5 seconds)
+    const recentDuplicate = activityLogs.find(log => 
+      log.content === newActivityDescription.trim() && 
+      log.type === 'General' &&
+      new Date().getTime() - new Date(log.createdAt).getTime() < 5000
+    );
+    
+    if (recentDuplicate) {
+      console.log('Duplicate activity detected, ignoring');
+      toast({ title: "Warning", description: "This activity was already logged recently.", variant: "destructive" });
+      return;
+    }
+    
     setIsLoggingActivity(true);
+    console.log('Starting to log activity:', newActivityDescription);
+    
     try {
-      const newUpdate = addUpdate({
-        type: 'General',
-        content: newActivityDescription,
-        opportunityId: opportunity.id,
-        accountId: opportunity.accountId,
-      });
-      setActivityLogs(getUpdatesForOpportunity(opportunity.id));
+      const currentUserId = localStorage.getItem('user_id');
+      if (!currentUserId) throw new Error('User not authenticated');
+
+      // Save to Supabase
+      const { data, error } = await supabase.from('update').insert([
+        {
+          type: 'General',
+          content: newActivityDescription,
+          updated_by_user_id: currentUserId,
+          date: new Date().toISOString(),
+          lead_id: null,
+          opportunity_id: opportunity.id,
+          account_id: opportunity.accountId,
+        }
+      ]).select().single();
+
+      if (error) throw error;
+
+      console.log('Activity logged successfully:', data);
+
+      // Transform the response to match Update interface
+      const newUpdate: Update = {
+        id: data.id,
+        type: data.type,
+        content: data.content || '',
+        updatedByUserId: data.updated_by_user_id,
+        date: data.date || data.created_at || new Date().toISOString(),
+        createdAt: data.created_at || new Date().toISOString(),
+        leadId: data.lead_id,
+        opportunityId: data.opportunity_id,
+        accountId: data.account_id,
+      };
+
+      // Update local state
+      setActivityLogs(prev => [newUpdate, ...prev]);
       setNewActivityDescription('');
       toast({ title: "Success", description: "Activity logged successfully." });
     } catch (error) {
+      console.error('Failed to log activity:', error);
       toast({ title: "Error", description: "Failed to log activity. Please try again.", variant: "destructive" });
     } finally {
       setIsLoggingActivity(false);
@@ -201,6 +291,12 @@ export default function OpportunityCard({ opportunity }: OpportunityCardProps) {
               <DollarSign className="mr-2 h-4 w-4 text-green-600 shrink-0" />
               <span className="font-medium text-foreground">${opportunity.value.toLocaleString()}</span>
             </div>
+            {assignedUser && (
+              <div className="flex items-center text-muted-foreground">
+                <Users className="mr-2 h-4 w-4 shrink-0" />
+                <span className="text-xs">Assigned To: <span className="font-semibold text-foreground">{assignedUser.name}</span></span>
+              </div>
+            )}
           </div>
         </CardHeader>
         <CardContent className="space-y-3 flex-grow">

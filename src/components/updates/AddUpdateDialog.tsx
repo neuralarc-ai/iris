@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -17,8 +16,8 @@ import {
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import type { Account, Opportunity, Update, UpdateType, Lead } from '@/types';
-import { mockAccounts, getOpportunitiesByAccount, addUpdate, mockLeads } from '@/lib/data';
 import { Loader2, MessageSquarePlus, Briefcase, BarChartBig, User } from 'lucide-react';
+import { supabase } from '@/lib/supabaseClient';
 
 interface AddUpdateDialogProps {
   open: boolean;
@@ -38,28 +37,118 @@ export default function AddUpdateDialog({ open, onOpenChange, onUpdateAdded }: A
   const [updateType, setUpdateTypeState] = useState<UpdateType | ''>('');
   const [content, setContent] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [leads, setLeads] = useState<Lead[]>([]);
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [isLoadingData, setIsLoadingData] = useState(false);
   const { toast } = useToast();
 
-  const activeLeads = mockLeads.filter(lead => lead.status !== 'Converted to Account' && lead.status !== 'Lost');
-  const activeAccounts = mockAccounts.filter(acc => acc.status === 'Active');
+  // Fetch data from Supabase
+  useEffect(() => {
+    const fetchData = async () => {
+      setIsLoadingData(true);
+      const localUserId = localStorage.getItem('user_id');
+      if (!localUserId) return;
+
+      // Fetch user role
+      const { data: userData } = await supabase.from('users').select('role').eq('id', localUserId).single();
+      const userRole = userData?.role || 'user';
+
+      // Fetch leads
+      let leadsQuery = supabase.from('lead').select('*').order('updated_at', { ascending: false });
+      if (userRole !== 'admin') {
+        leadsQuery = leadsQuery.eq('owner_id', localUserId);
+      }
+      const { data: leadsData } = await leadsQuery;
+      
+      if (leadsData) {
+        const transformedLeads = leadsData.map((lead: any) => ({
+          id: lead.id,
+          companyName: lead.company_name || '',
+          personName: lead.person_name || '',
+          phone: lead.phone || '',
+          email: lead.email || '',
+          linkedinProfileUrl: lead.linkedin_profile_url || '',
+          country: lead.country || '',
+          status: lead.status || 'New',
+          opportunityIds: [],
+          updateIds: [],
+          createdAt: lead.created_at || new Date().toISOString(),
+          updatedAt: lead.updated_at || new Date().toISOString(),
+          assignedUserId: lead.owner_id || '',
+          rejectionReasons: [],
+        }));
+        setLeads(transformedLeads.filter(lead => lead.status !== 'Converted to Account' && lead.status !== 'Lost'));
+      }
+
+      // Fetch accounts
+      let accountsQuery = supabase.from('account').select('*').order('updated_at', { ascending: false });
+      if (userRole !== 'admin') {
+        accountsQuery = accountsQuery.eq('owner_id', localUserId);
+      }
+      const { data: accountsData } = await accountsQuery;
+      
+      if (accountsData) {
+        const transformedAccounts = accountsData.map((account: any) => ({
+          id: account.id,
+          name: account.name,
+          type: account.type,
+          status: account.status,
+          description: account.description || '',
+          contactEmail: account.contact_email || '',
+          industry: account.industry || '',
+          contactPersonName: account.contact_person_name || '',
+          contactPhone: account.contact_phone || '',
+          convertedFromLeadId: account.converted_from_lead_id,
+          opportunityIds: [],
+          createdAt: account.created_at || new Date().toISOString(),
+          updatedAt: account.updated_at || new Date().toISOString(),
+        }));
+        setAccounts(transformedAccounts.filter(account => account.status === 'Active'));
+      }
+
+      setIsLoadingData(false);
+    };
+
+    if (open) {
+      fetchData();
+    }
+  }, [open]);
 
   useEffect(() => {
+    const fetchOpportunities = async () => {
     if (entityType === "accountOpportunity" && selectedAccountId) {
-      setAvailableOpportunities(getOpportunitiesByAccount(selectedAccountId));
-      setSelectedOpportunityId(''); 
+        const { data: opportunitiesData } = await supabase
+          .from('opportunity')
+          .select('*')
+          .eq('account_id', selectedAccountId)
+          .order('updated_at', { ascending: false });
+        
+        if (opportunitiesData) {
+          const transformedOpportunities = opportunitiesData.map((opp: any) => ({
+            id: opp.id,
+            name: opp.name,
+            accountId: opp.account_id,
+            status: opp.status,
+            value: opp.value || 0,
+            description: opp.description || '',
+            startDate: opp.start_date || new Date().toISOString(),
+            endDate: opp.end_date || new Date().toISOString(),
+            updateIds: [],
+            createdAt: opp.created_at || new Date().toISOString(),
+            updatedAt: opp.updated_at || new Date().toISOString(),
+          }));
+          setAvailableOpportunities(transformedOpportunities);
     } else {
       setAvailableOpportunities([]);
+        }
       setSelectedOpportunityId('');
-    }
-    // Reset other fields when entity type changes
-    if (entityType === "lead") {
-        setSelectedAccountId('');
+      } else {
         setAvailableOpportunities([]);
         setSelectedOpportunityId('');
-    } else {
-        setSelectedLeadId('');
     }
+    };
 
+    fetchOpportunities();
   }, [selectedAccountId, entityType]);
 
   const resetForm = () => {
@@ -70,6 +159,38 @@ export default function AddUpdateDialog({ open, onOpenChange, onUpdateAdded }: A
     setSelectedOpportunityId('');
     setUpdateTypeState('');
     setContent('');
+  };
+
+  const addUpdateToSupabase = async (updateData: any): Promise<Update> => {
+    const currentUserId = localStorage.getItem('user_id');
+    if (!currentUserId) throw new Error('User not authenticated');
+
+    const { data, error } = await supabase.from('update').insert([
+      {
+        type: updateData.type,
+        content: updateData.content,
+        updated_by_user_id: currentUserId,
+        date: new Date().toISOString(),
+        lead_id: updateData.leadId || null,
+        opportunity_id: updateData.opportunityId || null,
+        account_id: updateData.accountId || null,
+      }
+    ]).select().single();
+
+    if (error || !data) throw error || new Error('Failed to create update');
+
+    // Transform the response to match Update interface
+    return {
+      id: data.id,
+      type: data.type,
+      content: data.content || '',
+      updatedByUserId: data.updated_by_user_id,
+      date: data.date || data.created_at || new Date().toISOString(),
+      createdAt: data.created_at || new Date().toISOString(),
+      leadId: data.lead_id,
+      opportunityId: data.opportunity_id,
+      accountId: data.account_id,
+    };
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -93,8 +214,6 @@ export default function AddUpdateDialog({ open, onOpenChange, onUpdateAdded }: A
     }
     setIsLoading(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 700));
-
       let newUpdateData;
       let successMessage = "";
 
@@ -104,7 +223,7 @@ export default function AddUpdateDialog({ open, onOpenChange, onUpdateAdded }: A
           type: updateType as UpdateType,
           content: content,
         };
-        const lead = activeLeads.find(l => l.id === selectedLeadId);
+        const lead = leads.find(l => l.id === selectedLeadId);
         successMessage = `Update for lead "${lead?.companyName}" has been logged.`
       } else { // accountOpportunity
         newUpdateData = {
@@ -117,7 +236,7 @@ export default function AddUpdateDialog({ open, onOpenChange, onUpdateAdded }: A
         successMessage = `Update for opportunity "${opp?.name}" has been logged.`
       }
       
-      const newUpdateResult = addUpdate(newUpdateData);
+      const newUpdateResult = await addUpdateToSupabase(newUpdateData);
       
       toast({
         title: "Update Logged",
@@ -134,6 +253,21 @@ export default function AddUpdateDialog({ open, onOpenChange, onUpdateAdded }: A
       setIsLoading(false);
     }
   };
+
+  if (isLoadingData) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="sm:max-w-lg">
+          <div className="flex items-center justify-center h-32">
+            <div className="text-center">
+              <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+              <p className="text-muted-foreground">Loading data...</p>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => {
@@ -173,7 +307,7 @@ export default function AddUpdateDialog({ open, onOpenChange, onUpdateAdded }: A
                   <SelectValue placeholder="Select a lead" />
                 </SelectTrigger>
                 <SelectContent>
-                  {activeLeads.map(lead => (
+                  {leads.map(lead => (
                     <SelectItem key={lead.id} value={lead.id}>
                       <div className="flex items-center">
                         <User className="mr-2 h-4 w-4 text-muted-foreground" />
@@ -195,7 +329,7 @@ export default function AddUpdateDialog({ open, onOpenChange, onUpdateAdded }: A
                     <SelectValue placeholder="Select an account" />
                   </SelectTrigger>
                   <SelectContent>
-                    {activeAccounts.map(account => (
+                    {accounts.map(account => (
                       <SelectItem key={account.id} value={account.id}>
                         <div className="flex items-center">
                           <Briefcase className="mr-2 h-4 w-4 text-muted-foreground" />

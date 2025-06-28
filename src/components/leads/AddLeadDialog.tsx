@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import type { Lead, ExtractedLeadInfo } from '@/types';
-import { addLead } from '@/lib/data';
+import { supabase } from '@/lib/supabaseClient';
 import { countries } from '@/lib/countryData';
 import { extractLeadInfoFromCard } from '@/ai/flows/extract-lead-from-card';
 import { Loader2, UploadCloud, ScanLine, FileText } from 'lucide-react';
@@ -39,8 +39,37 @@ export default function AddLeadDialog({ open, onOpenChange, onLeadAdded }: AddLe
   const [businessCardImage, setBusinessCardImage] = useState<File | null>(null);
   const [businessCardPreview, setBusinessCardPreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [users, setUsers] = useState<any[]>([]);
+  const [role, setRole] = useState<string>('user');
+  const [ownerId, setOwnerId] = useState<string>('');
 
   const { toast } = useToast();
+
+  useEffect(() => {
+    if (open) {
+      const fetchData = async () => {
+        // Test Supabase connection
+        try {
+          const { data: testData, error: testError } = await supabase.from('users').select('count').limit(1);
+          console.log('Supabase connection test:', { testData, testError });
+        } catch (testError) {
+          console.error('Supabase connection failed:', testError);
+        }
+        
+        const userId = localStorage.getItem('user_id');
+        if (userId) {
+          const { data: userData } = await supabase.from('users').select('role').eq('id', userId).single();
+          setRole(userData?.role || 'user');
+          setOwnerId(userId);
+          if (userData?.role === 'admin') {
+            const { data: usersData } = await supabase.from('users').select('id, name, email');
+            if (usersData) setUsers(usersData);
+          }
+        }
+      };
+      fetchData();
+    }
+  }, [open]);
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -106,28 +135,86 @@ export default function AddLeadDialog({ open, onOpenChange, onLeadAdded }: AddLe
         toast({ title: "Invalid URL", description: "LinkedIn Profile URL must be a valid URL (e.g., https://linkedin.com/in/...)", variant: "destructive" });
         return;
     }
-
-
     setIsLoading(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 700)); 
+      // Use current user as owner if no specific user is assigned
+      const currentUserId = localStorage.getItem('user_id');
+      const finalOwnerId = ownerId || currentUserId;
       
-      const newLeadData = {
-        companyName,
-        personName,
+      if (!finalOwnerId) throw new Error('User not authenticated');
+      
+      console.log('Creating lead with data:', {
+        company_name: companyName,
+        person_name: personName,
         email,
         phone,
-        linkedinProfileUrl,
+        linkedin_profile_url: linkedinProfileUrl,
         country,
+        status: 'New',
+        owner_id: finalOwnerId,
+      });
+      
+      // Add timeout to handle network issues
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Request timeout')), 10000)
+      );
+      
+      const supabasePromise = supabase.from('lead').insert([
+        {
+          company_name: companyName,
+          person_name: personName,
+          email,
+          phone,
+          linkedin_profile_url: linkedinProfileUrl,
+          country,
+          status: 'New',
+          owner_id: finalOwnerId,
+        }
+      ]).select().single();
+      
+      const { data, error } = await Promise.race([supabasePromise, timeoutPromise]) as any;
+      
+      console.log('Supabase response:', { data, error });
+      
+      if (error) {
+        console.error('Supabase error:', error);
+        throw error;
+      }
+      
+      if (!data) {
+        throw new Error('No data returned from Supabase');
+      }
+      
+      // Transform the response data to match the Lead interface
+      const transformedLead = {
+        id: data.id,
+        companyName: data.company_name || '',
+        personName: data.person_name || '',
+        phone: data.phone || '',
+        email: data.email || '',
+        linkedinProfileUrl: data.linkedin_profile_url || '',
+        country: data.country || '',
+        status: data.status || 'New',
+        opportunityIds: [], // Not implemented yet
+        updateIds: [], // Not implemented yet
+        createdAt: data.created_at || new Date().toISOString(),
+        updatedAt: data.updated_at || new Date().toISOString(),
+        assignedUserId: data.owner_id || '',
+        rejectionReasons: [], // Not implemented yet
       };
-      const newLead = addLead(newLeadData); 
       
       toast({
         title: "Lead Created",
         description: `${personName} from ${companyName} has been successfully added as a lead.`,
       });
       
-      onLeadAdded?.(newLead);
+      try {
+        onLeadAdded?.(transformedLead);
+      } catch (callbackError) {
+        console.error('Error in onLeadAdded callback:', callbackError);
+        // Don't throw here, just log the error
+      }
+      
       resetForm();
       onOpenChange(false);
     } catch (error) {
@@ -147,6 +234,7 @@ export default function AddLeadDialog({ open, onOpenChange, onLeadAdded }: AddLe
     setCountry('');
     setBusinessCardImage(null);
     setBusinessCardPreview(null);
+    setOwnerId('');
     if (fileInputRef.current) {
       fileInputRef.current.value = ""; // Reset file input
     }
@@ -236,6 +324,23 @@ export default function AddLeadDialog({ open, onOpenChange, onLeadAdded }: AddLe
                 </SelectContent>
               </Select>
             </div>
+
+            {role === 'admin' && (
+              <div>
+                <Label htmlFor="lead-owner">Assigned To</Label>
+                <Select value={ownerId} onValueChange={setOwnerId} disabled={isLoading || isOcrLoading}>
+                  <SelectTrigger id="lead-owner">
+                    <SelectValue placeholder="Select user" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {users.map(user => (
+                      <SelectItem key={user.id} value={user.id}>{user.name} ({user.email})</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
             <DialogFooter className="pt-3">
               <Button type="button" variant="outline-dark" onClick={() => onOpenChange(false)} disabled={isLoading || isOcrLoading}>
                 Cancel

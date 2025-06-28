@@ -19,9 +19,9 @@ import type { Update, UpdateInsights as AIUpdateInsights, Opportunity, Account, 
 import { format, parseISO } from 'date-fns';
 import { generateInsights, RelationshipHealthOutput } from '@/ai/flows/intelligent-insights'; 
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
-import { getOpportunityById, getAccountById, getUserById, getLeadById, getUpdatesForOpportunity, addUpdate } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { supabase } from '@/lib/supabaseClient';
 
 interface UpdateItemProps {
   update: Update;
@@ -55,6 +55,7 @@ export default function UpdateItem({ update }: UpdateItemProps) {
   const [opportunity, setOpportunity] = useState<Opportunity | undefined>(undefined);
   const [account, setAccount] = useState<Account | undefined>(undefined);
   const [lead, setLead] = useState<Lead | undefined>(undefined);
+  const [user, setUser] = useState<User | undefined>(undefined);
   
   // State for dialog
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -70,25 +71,156 @@ export default function UpdateItem({ update }: UpdateItemProps) {
   const { toast } = useToast();
 
   useEffect(() => {
-    if (update.opportunityId) {
-      const opp = getOpportunityById(update.opportunityId);
-      setOpportunity(opp);
-      if (opp?.accountId) {
-        setAccount(getAccountById(opp.accountId));
+    const fetchRelatedData = async () => {
+      if (update.opportunityId) {
+        // Fetch opportunity
+        const { data: oppData } = await supabase
+          .from('opportunity')
+          .select('*')
+          .eq('id', update.opportunityId)
+          .single();
+        
+        if (oppData) {
+          const transformedOpp: Opportunity = {
+            id: oppData.id,
+            name: oppData.name,
+            accountId: oppData.account_id,
+            status: oppData.status,
+            value: oppData.value || 0,
+            description: oppData.description || '',
+            startDate: oppData.start_date || new Date().toISOString(),
+            endDate: oppData.end_date || new Date().toISOString(),
+            updateIds: [],
+            createdAt: oppData.created_at || new Date().toISOString(),
+            updatedAt: oppData.updated_at || new Date().toISOString(),
+          };
+          setOpportunity(transformedOpp);
+
+          // Fetch account
+          const { data: accData } = await supabase
+            .from('account')
+            .select('*')
+            .eq('id', oppData.account_id)
+            .single();
+          
+          if (accData) {
+            const transformedAcc: Account = {
+              id: accData.id,
+              name: accData.name,
+              type: accData.type,
+              status: accData.status,
+              description: accData.description || '',
+              contactEmail: accData.contact_email || '',
+              industry: accData.industry || '',
+              contactPersonName: accData.contact_person_name || '',
+              contactPhone: accData.contact_phone || '',
+              convertedFromLeadId: accData.converted_from_lead_id,
+              opportunityIds: [],
+              createdAt: accData.created_at || new Date().toISOString(),
+              updatedAt: accData.updated_at || new Date().toISOString(),
+            };
+            setAccount(transformedAcc);
+          }
+        }
+        setLead(undefined);
+
+        // Fetch all updates for this opportunity
+        const { data: updatesData } = await supabase
+          .from('update')
+          .select('*')
+          .eq('opportunity_id', update.opportunityId)
+          .order('date', { ascending: false });
+        
+        if (updatesData) {
+          const transformedUpdates = updatesData.map((upd: any) => ({
+            id: upd.id,
+            type: upd.type,
+            content: upd.content || '',
+            updatedByUserId: upd.updated_by_user_id,
+            date: upd.date || upd.created_at || new Date().toISOString(),
+            createdAt: upd.created_at || new Date().toISOString(),
+            leadId: upd.lead_id,
+            opportunityId: upd.opportunity_id,
+            accountId: upd.account_id,
+          }));
+          setActivityLogs(transformedUpdates);
+        }
+      } else if (update.leadId) {
+        // Fetch lead
+        const { data: leadData } = await supabase
+          .from('lead')
+          .select('*')
+          .eq('id', update.leadId)
+          .single();
+        
+        if (leadData) {
+          const transformedLead: Lead = {
+            id: leadData.id,
+            companyName: leadData.company_name || '',
+            personName: leadData.person_name || '',
+            phone: leadData.phone || '',
+            email: leadData.email || '',
+            linkedinProfileUrl: leadData.linkedin_profile_url || '',
+            country: leadData.country || '',
+            status: leadData.status || 'New',
+            opportunityIds: [],
+            updateIds: [],
+            createdAt: leadData.created_at || new Date().toISOString(),
+            updatedAt: leadData.updated_at || new Date().toISOString(),
+            assignedUserId: leadData.owner_id || '',
+            rejectionReasons: [],
+          };
+          setLead(transformedLead);
+        }
+        setOpportunity(undefined);
+        setAccount(undefined);
+
+        // Fetch all updates for this lead
+        const { data: updatesData } = await supabase
+          .from('update')
+          .select('*')
+          .eq('lead_id', update.leadId)
+          .order('date', { ascending: false });
+        
+        if (updatesData) {
+          const transformedUpdates = updatesData.map((upd: any) => ({
+            id: upd.id,
+            type: upd.type,
+            content: upd.content || '',
+            updatedByUserId: upd.updated_by_user_id,
+            date: upd.date || upd.created_at || new Date().toISOString(),
+            createdAt: upd.created_at || new Date().toISOString(),
+            leadId: upd.lead_id,
+            opportunityId: upd.opportunity_id,
+            accountId: upd.account_id,
+          }));
+          setActivityLogs(transformedUpdates);
+        }
       }
-      setLead(undefined);
-      // Get all updates for this opportunity
-      const logs = getUpdatesForOpportunity(update.opportunityId);
-      setActivityLogs(logs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
-    } else if (update.leadId) {
-      setLead(getLeadById(update.leadId));
-      setOpportunity(undefined);
-      setAccount(undefined);
-      // Get all updates for this lead (filter from mockUpdates)
-      // This would need to be implemented in data.ts, but for now we'll use the current update
-      setActivityLogs([update]);
-    }
-  }, [update.opportunityId, update.leadId, update]);
+
+      // Fetch user who created the update
+      if (update.updatedByUserId) {
+        const { data: userData } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', update.updatedByUserId)
+          .single();
+        
+        if (userData) {
+          const transformedUser: User = {
+            id: userData.id,
+            name: userData.name,
+            email: userData.email,
+            pin: userData.pin,
+            createdAt: userData.created_at || new Date().toISOString(),
+          };
+          setUser(transformedUser);
+        }
+      }
+    };
+
+    fetchRelatedData();
+  }, [update.opportunityId, update.leadId, update.updatedByUserId]);
 
   const fetchInsights = async () => {
     if (!update.content || update.content.length < 20) {
@@ -123,6 +255,38 @@ export default function UpdateItem({ update }: UpdateItemProps) {
     }
   };
 
+  const addUpdateToSupabase = async (updateData: any): Promise<Update> => {
+    const currentUserId = localStorage.getItem('user_id');
+    if (!currentUserId) throw new Error('User not authenticated');
+
+    const { data, error } = await supabase.from('update').insert([
+      {
+        type: updateData.type,
+        content: updateData.content,
+        updated_by_user_id: currentUserId,
+        date: new Date().toISOString(),
+        lead_id: updateData.leadId || null,
+        opportunity_id: updateData.opportunityId || null,
+        account_id: updateData.accountId || null,
+      }
+    ]).select().single();
+
+    if (error || !data) throw error || new Error('Failed to create update');
+
+    // Transform the response to match Update interface
+    return {
+      id: data.id,
+      type: data.type,
+      content: data.content || '',
+      updatedByUserId: data.updated_by_user_id,
+      date: data.date || data.created_at || new Date().toISOString(),
+      createdAt: data.created_at || new Date().toISOString(),
+      leadId: data.lead_id,
+      opportunityId: data.opportunity_id,
+      accountId: data.account_id,
+    };
+  };
+
   const handleLogActivity = async () => {
     if (!newActivityDescription.trim()) {
       toast({ title: "Error", description: "Please enter a description for the activity.", variant: "destructive" });
@@ -131,16 +295,36 @@ export default function UpdateItem({ update }: UpdateItemProps) {
 
     setIsLoggingActivity(true);
     try {
-      const newUpdate = addUpdate({
-        type: 'General',
+      const newUpdateData = {
+        type: 'General' as UpdateType,
         content: newActivityDescription,
         ...(update.opportunityId ? { opportunityId: update.opportunityId, accountId: update.accountId! } : { leadId: update.leadId! })
-      });
+      };
+
+      const newUpdate = await addUpdateToSupabase(newUpdateData);
 
       // Refresh activity logs
       if (update.opportunityId) {
-        const logs = getUpdatesForOpportunity(update.opportunityId);
-        setActivityLogs(logs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+        const { data: updatesData } = await supabase
+          .from('update')
+          .select('*')
+          .eq('opportunity_id', update.opportunityId)
+          .order('date', { ascending: false });
+        
+        if (updatesData) {
+          const transformedUpdates = updatesData.map((upd: any) => ({
+            id: upd.id,
+            type: upd.type,
+            content: upd.content || '',
+            updatedByUserId: upd.updated_by_user_id,
+            date: upd.date || upd.created_at || new Date().toISOString(),
+            createdAt: upd.created_at || new Date().toISOString(),
+            leadId: upd.lead_id,
+            opportunityId: upd.opportunity_id,
+            accountId: upd.account_id,
+          }));
+          setActivityLogs(transformedUpdates);
+        }
       } else {
         setActivityLogs(prev => [newUpdate, ...prev]);
       }
@@ -228,7 +412,7 @@ export default function UpdateItem({ update }: UpdateItemProps) {
             </Badge>
             {log.updatedByUserId && (
               <span className="text-xs text-muted-foreground">
-                by {getUserById(log.updatedByUserId)?.name || 'Unknown'}
+                by {user?.name || 'Unknown'}
               </span>
             )}
           </div>
@@ -451,63 +635,75 @@ export default function UpdateItem({ update }: UpdateItemProps) {
                   <span className="ml-2 text-muted-foreground">Analyzing update...</span>
               </div>
             ) : insights ? (
-                <div className="space-y-4">
+              <>
                 {insights.summary && (
                   <div>
-                      <h4 className="font-semibold text-foreground mb-2">Summary</h4>
-                      <p className="text-sm text-muted-foreground">{insights.summary}</p>
+                    <h4 className="text-sm font-semibold text-foreground mb-2">Summary</h4>
+                    <p className="text-sm text-foreground bg-muted/30 p-3 rounded-lg">{insights.summary}</p>
                   </div>
                 )}
-                  
+                
                 {insights.actionItems && insights.actionItems.length > 0 && (
-                    <div>
-                      <h4 className="font-semibold text-foreground mb-2 flex items-center">
-                        <CheckSquare className="mr-2 h-4 w-4" />
-                        Action Items
-                      </h4>
-                      <ul className="list-disc list-inside space-y-1">
-                        {insights.actionItems.map((item, idx) => (
-                          <li key={idx} className="text-sm text-muted-foreground">{item}</li>
-                        ))}
+                  <div>
+                    <h4 className="text-sm font-semibold text-foreground mb-2">Action Items</h4>
+                    <ul className="text-sm text-foreground bg-muted/30 p-3 rounded-lg space-y-1">
+                      {insights.actionItems.map((item, index) => (
+                        <li key={index} className="flex items-start">
+                          <CheckSquare className="h-4 w-4 text-primary mr-2 mt-0.5 flex-shrink-0" />
+                          {item}
+                        </li>
+                      ))}
                     </ul>
                   </div>
                 )}
-                  
+                
                 {insights.followUpSuggestions && insights.followUpSuggestions.length > 0 && (
-                    <div>
-                      <h4 className="font-semibold text-foreground mb-2 flex items-center">
-                        <Repeat className="mr-2 h-4 w-4" />
-                        Follow-up Suggestions
-                      </h4>
-                      <ul className="list-disc list-inside space-y-1">
-                        {insights.followUpSuggestions.map((item, idx) => (
-                          <li key={idx} className="text-sm text-muted-foreground">{item}</li>
-                        ))}
-                     </ul>
-                   </div>
+                  <div>
+                    <h4 className="text-sm font-semibold text-foreground mb-2">Follow-up Suggestions</h4>
+                    <ul className="text-sm text-foreground bg-muted/30 p-3 rounded-lg space-y-1">
+                      {insights.followUpSuggestions.map((suggestion, index) => (
+                        <li key={index} className="flex items-start">
+                          <Repeat className="h-4 w-4 text-primary mr-2 mt-0.5 flex-shrink-0" />
+                          {suggestion}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 )}
-                  
-                 {insights.sentiment && (
-                    <div className="flex items-center">
-                    {getSentimentIcon(insights.sentiment)}
-                      <span className="font-semibold text-foreground ml-2">Sentiment:</span>
-                      <span className="text-sm text-muted-foreground ml-1">{insights.sentiment}</span>
+                
+                {insights.sentiment && (
+                  <div>
+                    <h4 className="text-sm font-semibold text-foreground mb-2">Sentiment Analysis</h4>
+                    <div className="flex items-center bg-muted/30 p-3 rounded-lg">
+                      {getSentimentIcon(insights.sentiment)}
+                      <span className="text-sm text-foreground ml-2 capitalize">{insights.sentiment}</span>
                     </div>
-                 )}
-                  
-                  {insights.relationshipHealth && update.opportunityId && (
-                    <div>
-                      <h4 className="font-semibold text-foreground mb-2">Relationship Health</h4>
-                      <p className="text-sm text-muted-foreground">
-                        {insights.relationshipHealth.summary} (Score: {insights.relationshipHealth.healthScore.toFixed(2)})
-                      </p>
+                  </div>
+                )}
+                
+                {insights.relationshipHealth && (
+                  <div>
+                    <h4 className="text-sm font-semibold text-foreground mb-2">Relationship Health</h4>
+                    <div className="bg-muted/30 p-3 rounded-lg">
+                      <p className="text-sm text-foreground mb-2">{insights.relationshipHealth.overallAssessment}</p>
+                      <div className="space-y-1">
+                        {insights.relationshipHealth.keyFactors.map((factor, index) => (
+                          <div key={index} className="flex items-center text-xs">
+                            <div className={`w-2 h-2 rounded-full mr-2 ${factor.impact === 'positive' ? 'bg-green-500' : factor.impact === 'negative' ? 'bg-red-500' : 'bg-yellow-500'}`}></div>
+                            {factor.factor}
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                 )}
-              </div>
+                  </div>
+                )}
+              </>
             ) : (
-                <p className="text-sm text-muted-foreground">No AI insights available for this update.</p>
+              <div className="text-center py-8">
+                <p className="text-muted-foreground">No insights available</p>
+              </div>
             )}
-          </div>
+            </div>
           </DialogContent>
         </Dialog>
       )}

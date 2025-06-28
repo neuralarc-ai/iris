@@ -4,10 +4,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import PageTitle from '@/components/common/PageTitle';
 import LeadCard from '@/components/leads/LeadCard';
 import RejectedLeadCard from '@/components/leads/RejectedLeadCard';
-import { mockLeads as initialMockLeads, addLead } from '@/lib/data';
+import { mockLeads as initialMockLeads } from '@/lib/data';
 import type { Lead, LeadStatus } from '@/types';
 import { Button } from '@/components/ui/button';
-import { Search, ListFilter, List, Grid, Trash2, CheckSquare, UploadCloud, X, Users, AlertTriangle } from 'lucide-react';
+import { Search, ListFilter, List, Grid, Trash2, CheckSquare, UploadCloud, X, Users, AlertTriangle, Loader2 } from 'lucide-react';
 import Image from 'next/image';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -21,11 +21,12 @@ import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogDescrip
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Badge } from '@/components/ui/badge';
+import { supabase } from '@/lib/supabaseClient';
 
 const leadStatusOptions: LeadStatus[] = ["New", "Contacted", "Qualified", "Proposal Sent", "Lost"];
 
 export default function LeadsPage() {
-  const [leads, setLeads] = useState<Lead[]>(initialMockLeads);
+  const [leads, setLeads] = useState<Lead[]>([]);
   const [rejectedLeads, setRejectedLeads] = useState<Lead[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<LeadStatus | 'all'>('all');
@@ -40,27 +41,61 @@ export default function LeadsPage() {
   const [dragActive, setDragActive] = useState(false);
   const [selectMode, setSelectMode] = useState(false);
   const [selectedLeads, setSelectedLeads] = useState<string[]>([]);
-  const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
-  const [assignUser, setAssignUser] = useState('');
   const [activeTab, setActiveTab] = useState<'leads' | 'rejected'>('leads');
-  const mockUsers = [
-    { id: '1', name: 'Tony Stark' },
-    { id: '2', name: 'Pepper Potts' },
-    { id: '3', name: 'Happy Hogan' },
-    { id: '4', name: 'James Rhodes' },
-  ];
+  const [users, setUsers] = useState<any[]>([]);
+  const [role, setRole] = useState<string>('user');
+  const [userId, setUserId] = useState<string>('');
+  const [isBulkAssignDialogOpen, setIsBulkAssignDialogOpen] = useState(false);
+  const [bulkAssignUser, setBulkAssignUser] = useState('');
+  const [isBulkAssigning, setIsBulkAssigning] = useState(false);
 
   useEffect(() => {
-    setLeads([...initialMockLeads].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()));
-  }, []);
-
+    const fetchLeadsAndUsers = async () => {
+      const localUserId = localStorage.getItem('user_id');
+      setUserId(localUserId || '');
+      // Fetch user role
+      const { data: userData } = await supabase.from('users').select('role').eq('id', localUserId).single();
+      setRole(userData?.role || 'user');
+      // Fetch users for assigned to
+      const { data: usersData } = await supabase.from('users').select('id, name');
+      setUsers(usersData || []);
+      // Fetch leads
+      let query = supabase.from('lead').select('*').order('updated_at', { ascending: false });
+      if (userData?.role !== 'admin') {
+        query = query.eq('owner_id', localUserId);
+      }
+      const { data, error } = await query;
+      if (!error && data) {
+        // Transform snake_case to camelCase and add missing fields
+        const transformedLeads = data.map((lead: any) => ({
+          id: lead.id,
+          companyName: lead.company_name || '',
+          personName: lead.person_name || '',
+          phone: lead.phone || '',
+          email: lead.email || '',
+          linkedinProfileUrl: lead.linkedin_profile_url || '',
+          country: lead.country || '',
+          status: lead.status || 'New',
+          opportunityIds: [], // Not implemented yet
+          updateIds: [], // Not implemented yet
+          createdAt: lead.created_at || new Date().toISOString(),
+          updatedAt: lead.updated_at || new Date().toISOString(),
+          assignedUserId: lead.owner_id || '',
+          rejectionReasons: [], // Not implemented yet
+        }));
+        setLeads(transformedLeads.filter((lead: any) => lead.status !== 'Converted to Account'));
+      } else {
+        setLeads([]);
+      }
+    };
+    fetchLeadsAndUsers();
+  }, [isAddLeadDialogOpen]);
 
   const filteredLeads = leads.filter(lead => {
-    if (lead.status === 'Converted to Account') return false;
     const searchTermLower = searchTerm.toLowerCase();
     const matchesSearch =
-      lead.companyName.toLowerCase().includes(searchTermLower) ||
-      lead.personName.toLowerCase().includes(searchTermLower) ||
+      (lead.companyName || '').toLowerCase().includes(searchTermLower) ||
+      (lead.personName || '').toLowerCase().includes(searchTermLower) ||
       (lead.email && lead.email.toLowerCase().includes(searchTermLower)) ||
       (lead.country && lead.country.toLowerCase().includes(searchTermLower));
     const matchesStatus = statusFilter === 'all' || lead.status === statusFilter;
@@ -77,6 +112,44 @@ export default function LeadsPage() {
         ? { ...lead, status: 'Converted to Account' as LeadStatus }
         : lead
     ));
+  };
+
+  const addLeadToSupabase = async (leadData: any): Promise<Lead> => {
+    const currentUserId = localStorage.getItem('user_id');
+    if (!currentUserId) throw new Error('User not authenticated');
+
+    const { data, error } = await supabase.from('lead').insert([
+      {
+        company_name: leadData.companyName,
+        person_name: leadData.personName,
+        email: leadData.email,
+        phone: leadData.phone || '',
+        linkedin_profile_url: leadData.linkedinProfileUrl || '',
+        country: leadData.country || '',
+        status: 'New',
+        owner_id: currentUserId,
+      }
+    ]).select().single();
+
+    if (error || !data) throw error || new Error('Failed to create lead');
+
+    // Transform the response to match Lead interface
+    return {
+      id: data.id,
+      companyName: data.company_name || '',
+      personName: data.person_name || '',
+      phone: data.phone || '',
+      email: data.email || '',
+      linkedinProfileUrl: data.linkedin_profile_url || '',
+      country: data.country || '',
+      status: data.status || 'New',
+      opportunityIds: [],
+      updateIds: [],
+      createdAt: data.created_at || new Date().toISOString(),
+      updatedAt: data.updated_at || new Date().toISOString(),
+      assignedUserId: data.owner_id || '',
+      rejectionReasons: [],
+    };
   };
 
   const handleImportCsv = () => {
@@ -207,10 +280,10 @@ export default function LeadsPage() {
             message: `Processing batch ${batchNumber}/${totalBatches}...` 
           });
           
-          const batchLeads = batch.map(leadData => {
+          const batchLeads = await Promise.all(batch.map(async (leadData) => {
             console.log('Adding lead:', leadData.companyName);
-            return addLead(leadData);
-          });
+            return await addLeadToSupabase(leadData);
+          }));
           
           processedLeads.push(...batchLeads);
           
@@ -225,10 +298,10 @@ export default function LeadsPage() {
         // Small file - process all at once
         setImportProgress({ current: 0, total: totalValidLeads, message: 'Processing leads...' });
         
-        processedLeads = validLeads.map(leadData => {
+        processedLeads = await Promise.all(validLeads.map(async (leadData) => {
           console.log('Adding lead:', leadData.companyName);
-          return addLead(leadData);
-        });
+          return await addLeadToSupabase(leadData);
+        }));
         
         setImportProgress({ current: totalValidLeads, total: totalValidLeads, message: 'Import complete!' });
       }
@@ -395,20 +468,73 @@ export default function LeadsPage() {
   };
 
   const handleSelectAll = () => {
+    console.log('Select All clicked. Current selected:', selectedLeads.length, 'Total filtered:', filteredLeads.length);
     if (selectedLeads.length === filteredLeads.length) {
+      console.log('Deselecting all');
       setSelectedLeads([]);
     } else {
+      console.log('Selecting all');
       setSelectedLeads(filteredLeads.map(l => l.id));
     }
   };
 
   const handleSelectLead = (leadId: string) => {
-    setSelectedLeads(prev => prev.includes(leadId) ? prev.filter(id => id !== leadId) : [...prev, leadId]);
+    console.log('Select Lead clicked:', leadId, 'Currently selected:', selectedLeads.includes(leadId));
+    setSelectedLeads(prev => {
+      const newSelection = prev.includes(leadId) ? prev.filter(id => id !== leadId) : [...prev, leadId];
+      console.log('New selection:', newSelection);
+      return newSelection;
+    });
   };
 
   const handleExitSelectMode = () => {
     setSelectMode(false);
     setSelectedLeads([]);
+  };
+
+  const handleBulkAssign = async () => {
+    if (!bulkAssignUser || selectedLeads.length === 0) {
+      toast({ title: "Error", description: "Please select a user and at least one lead.", variant: "destructive" });
+      return;
+    }
+
+    setIsBulkAssigning(true);
+    try {
+      // Update all selected leads in Supabase
+      const { error } = await supabase
+        .from('lead')
+        .update({ owner_id: bulkAssignUser })
+        .in('id', selectedLeads);
+
+      if (error) {
+        throw error;
+      }
+
+      // Update local state
+      setLeads(prevLeads => 
+        prevLeads.map(lead => 
+          selectedLeads.includes(lead.id) 
+            ? { ...lead, assignedUserId: bulkAssignUser }
+            : lead
+        )
+      );
+
+      toast({
+        title: "Bulk Assignment Successful",
+        description: `${selectedLeads.length} lead${selectedLeads.length === 1 ? '' : 's'} assigned to ${users.find(u => u.id === bulkAssignUser)?.name || 'selected user'}.`,
+      });
+
+      // Reset and close dialog
+      setSelectedLeads([]);
+      setSelectMode(false);
+      setIsBulkAssignDialogOpen(false);
+      setBulkAssignUser('');
+    } catch (error) {
+      console.error("Bulk assignment failed:", error);
+      toast({ title: "Error", description: "Failed to assign leads. Please try again.", variant: "destructive" });
+    } finally {
+      setIsBulkAssigning(false);
+    }
   };
 
   // Helper function to determine if a lead should be rejected
@@ -478,31 +604,40 @@ export default function LeadsPage() {
   };
 
   // Helper function to approve a rejected lead
-  const handleApproveRejectedLead = (rejectedLeadId: string) => {
+  const handleApproveRejectedLead = async (rejectedLeadId: string) => {
     const rejectedLead = rejectedLeads.find(lead => lead.id === rejectedLeadId);
     if (!rejectedLead) return;
 
-    // Create a new valid lead from the rejected lead
-    const approvedLead: Lead = {
-      ...rejectedLead,
-      id: `lead-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      status: 'New' as LeadStatus,
-      rejectionReasons: undefined, // Remove rejection reasons
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
+    try {
+      // Save to Supabase
+      const approvedLead = await addLeadToSupabase({
+        companyName: rejectedLead.companyName,
+        personName: rejectedLead.personName,
+        email: rejectedLead.email,
+        phone: rejectedLead.phone,
+        linkedinProfileUrl: rejectedLead.linkedinProfileUrl,
+        country: rejectedLead.country,
+      });
 
-    // Add to regular leads
-    setLeads(prev => [approvedLead, ...prev]);
-    
-    // Remove from rejected leads
-    setRejectedLeads(prev => prev.filter(lead => lead.id !== rejectedLeadId));
-    
-    toast({
-      title: 'Lead Approved',
-      description: `${approvedLead.companyName} has been approved and moved to leads.`,
-      className: "bg-green-100 dark:bg-green-900 border-green-500"
-    });
+      // Add to regular leads
+      setLeads(prev => [approvedLead, ...prev]);
+      
+      // Remove from rejected leads
+      setRejectedLeads(prev => prev.filter(lead => lead.id !== rejectedLeadId));
+      
+      toast({
+        title: 'Lead Approved',
+        description: `${approvedLead.companyName} has been approved and moved to leads.`,
+        className: "bg-green-100 dark:bg-green-900 border-green-500"
+      });
+    } catch (error) {
+      console.error('Failed to approve lead:', error);
+      toast({
+        title: 'Approval Failed',
+        description: 'Failed to approve lead. Please try again.',
+        variant: "destructive"
+      });
+    }
   };
 
   // Helper function to delete a rejected lead
@@ -545,6 +680,12 @@ export default function LeadsPage() {
         <div className="flex items-center gap-2">
             <Button onClick={handleImportCsv} className='bg-transparent border border-[#2B2521] text-[#2B2521] w-fit rounded-[4px] hover:bg-[#CFB496]'>
                 <Image src="/images/import.svg" alt="Import" width={20} height={20} className="mr-2" /> Import CSV
+            </Button>
+            <Button 
+              onClick={() => setSelectMode(true)} 
+              className='bg-transparent border border-[#97A487] text-[#97A487] w-fit rounded-[4px] hover:bg-[#97A487] hover:text-white'
+            >
+              <Users className="mr-2 h-4 w-4" /> Bulk Assign
             </Button>
             <Button onClick={() => setIsAddLeadDialogOpen(true)} variant="add" className='w-fit'>
                 <Image src="/images/add.svg" alt="Add" width={20} height={20} className="mr-2" /> Add New Lead
@@ -639,7 +780,7 @@ export default function LeadsPage() {
               </div>
               <Button
                 className="bg-[#97A487] text-white hover:bg-[#8A9A7A] rounded-[6px] px-3 py-2 text-sm"
-                onClick={() => setIsAssignDialogOpen(true)}
+                onClick={() => setIsBulkAssignDialogOpen(true)}
                 disabled={selectedLeads.length === 0}
               >
                 Assign {selectedLeads.length} Lead{selectedLeads.length === 1 ? '' : 's'}
@@ -705,6 +846,7 @@ export default function LeadsPage() {
                   <LeadCard
                     key={lead.id}
                     lead={lead}
+                    assignedUser={users.find(u => u.id === lead.assignedUserId)?.name || ''}
                     onLeadConverted={(convertedLeadId) => handleLeadConverted(convertedLeadId, 'newAccountId')}
                     onLeadDeleted={(leadId: string) => {
                       setLeads(prev => prev.filter(l => l.id !== leadId));
@@ -725,6 +867,7 @@ export default function LeadsPage() {
                       <TableHead className='text-[#282828]'>Country</TableHead>
                       <TableHead className='text-[#282828]'>Status</TableHead>
                       <TableHead className='text-[#282828]'>Created</TableHead>
+                      <TableHead className='text-[#282828]'>Assigned To</TableHead>
                       <TableHead className='text-[#282828] rounded-tr-[8px]'>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -733,8 +876,12 @@ export default function LeadsPage() {
                       <TableRow
                         key={lead.id}
                         className={`hover:bg-transparent`}
-                        style={selectMode ? { cursor: 'pointer' } : {}}
-                        onClick={selectMode ? () => handleSelectLead(lead.id) : undefined}
+                        onClick={selectMode ? (e) => {
+                          // Only trigger selection if clicking on the row but not on the checkbox or action buttons
+                          if (!e.target.closest('input[type="checkbox"]') && !e.target.closest('button')) {
+                            handleSelectLead(lead.id);
+                          }
+                        } : undefined}
                       >
                         {selectMode && (
                           <TableCell className="w-10 align-middle">
@@ -754,6 +901,7 @@ export default function LeadsPage() {
                         <TableCell>{lead.country}</TableCell>
                         <TableCell><span className="inline-block rounded-full bg-muted px-3 py-1 text-xs font-semibold text-muted-foreground" style={{background:'#b0aca7',color:'#23201d'}}>{lead.status}</span></TableCell>
                         <TableCell>{new Date(lead.createdAt).toLocaleDateString('en-GB')}</TableCell>
+                        <TableCell>{users.find(u => u.id === lead.assignedUserId)?.name || ''}</TableCell>
                         <TableCell className="flex gap-2">
                           <TooltipProvider delayDuration={0}>
                             {lead.status !== "Converted to Account" && lead.status !== "Lost" && (
@@ -817,6 +965,7 @@ export default function LeadsPage() {
                       <LeadCard
                         key={lead.id}
                         lead={lead}
+                        assignedUser={users.find(u => u.id === lead.assignedUserId)?.name || ''}
                         onLeadConverted={(convertedLeadId) => handleLeadConverted(convertedLeadId, 'newAccountId')}
                         onLeadDeleted={(leadId: string) => {
                           setLeads(prev => prev.filter(l => l.id !== leadId));
@@ -837,6 +986,7 @@ export default function LeadsPage() {
                           <TableHead className='text-[#282828]'>Country</TableHead>
                           <TableHead className='text-[#282828]'>Status</TableHead>
                           <TableHead className='text-[#282828]'>Created</TableHead>
+                          <TableHead className='text-[#282828]'>Assigned To</TableHead>
                           <TableHead className='text-[#282828] rounded-tr-[8px]'>Actions</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -845,8 +995,12 @@ export default function LeadsPage() {
                           <TableRow
                             key={lead.id}
                             className={`hover:bg-transparent`}
-                            style={selectMode ? { cursor: 'pointer' } : {}}
-                            onClick={selectMode ? () => handleSelectLead(lead.id) : undefined}
+                            onClick={selectMode ? (e) => {
+                              // Only trigger selection if clicking on the row but not on the checkbox or action buttons
+                              if (!e.target.closest('input[type="checkbox"]') && !e.target.closest('button')) {
+                                handleSelectLead(lead.id);
+                              }
+                            } : undefined}
                           >
                             {selectMode && (
                               <TableCell className="w-10 align-middle">
@@ -866,6 +1020,7 @@ export default function LeadsPage() {
                             <TableCell>{lead.country}</TableCell>
                             <TableCell><span className="inline-block rounded-full bg-muted px-3 py-1 text-xs font-semibold text-muted-foreground" style={{background:'#b0aca7',color:'#23201d'}}>{lead.status}</span></TableCell>
                             <TableCell>{new Date(lead.createdAt).toLocaleDateString('en-GB')}</TableCell>
+                            <TableCell>{users.find(u => u.id === lead.assignedUserId)?.name || ''}</TableCell>
                             <TableCell className="flex gap-2">
                               <TooltipProvider delayDuration={0}>
                                 {lead.status !== "Converted to Account" && lead.status !== "Lost" && (
@@ -1040,7 +1195,7 @@ export default function LeadsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      <Dialog open={isAssignDialogOpen} onOpenChange={setIsAssignDialogOpen}>
+      <Dialog open={isBulkAssignDialogOpen} onOpenChange={setIsBulkAssignDialogOpen}>
         <DialogContent className="max-w-md bg-white">
           <DialogHeader>
             <DialogTitle>Bulk Assign Leads</DialogTitle>
@@ -1050,23 +1205,36 @@ export default function LeadsPage() {
           </DialogHeader>
           <div className="py-4 space-y-4">
             <div>
-              <span className="block text-sm font-medium mb-1">Select User</span>
-              <Select value={assignUser} onValueChange={setAssignUser}>
-                <SelectTrigger className="w-full">
+              <Label htmlFor="bulk-assign-user">Select User</Label>
+              <Select value={bulkAssignUser} onValueChange={setBulkAssignUser}>
+                <SelectTrigger id="bulk-assign-user" className="w-full">
                   <SelectValue placeholder="Choose a user" />
                 </SelectTrigger>
                 <SelectContent>
-                  {mockUsers.map(user => (
-                    <SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>
+                  {users.map(user => (
+                    <SelectItem key={user.id} value={user.id}>{user.name} ({user.email})</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline-dark" onClick={() => setIsAssignDialogOpen(false)}>Cancel</Button>
-            <Button variant="add" disabled={!assignUser} onClick={() => setIsAssignDialogOpen(false)}>
-              Assign {selectedLeads.length} Lead{selectedLeads.length === 1 ? '' : 's'}
+            <Button variant="outline-dark" onClick={() => setIsBulkAssignDialogOpen(false)} disabled={isBulkAssigning}>
+              Cancel
+            </Button>
+            <Button 
+              variant="add" 
+              disabled={!bulkAssignUser || isBulkAssigning} 
+              onClick={handleBulkAssign}
+            >
+              {isBulkAssigning ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Assigning...
+                </>
+              ) : (
+                `Assign ${selectedLeads.length} Lead${selectedLeads.length === 1 ? '' : 's'}`
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

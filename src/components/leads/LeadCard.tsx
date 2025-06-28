@@ -1,5 +1,5 @@
 "use client";
-import React from 'react';
+import React, { useEffect } from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,6 +8,7 @@ import { Users, User, Mail, Phone, Eye, CheckSquare, FileWarning, CalendarPlus, 
 import type { Lead, Update } from '@/types';
 import { add, formatDistanceToNow, format } from 'date-fns';
 import { convertLeadToAccount, deleteLead, mockUsers } from '@/lib/data';
+import { supabase } from '@/lib/supabaseClient';
 import { useToast } from "@/hooks/use-toast";
 import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from '@/components/ui/alert-dialog';
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
@@ -24,9 +25,11 @@ interface LeadCardProps {
   lead: Lead;
   onLeadConverted: (leadId: string, newAccountId: string) => void;
   onLeadDeleted?: (leadId: string) => void;
+  onActivityLogged?: (leadId: string, activity: Update) => void;
   selectMode?: boolean;
   selected?: boolean;
   onSelect?: () => void;
+  assignedUser?: string;
 }
 
 const getStatusBadgeVariant = (status: Lead['status']): "default" | "secondary" | "destructive" | "outline" => {
@@ -53,7 +56,7 @@ const getStatusBadgeColorClasses = (status: Lead['status']): string => {
   }
 }
 
-export default function LeadCard({ lead, onLeadConverted, onLeadDeleted, selectMode = false, selected = false, onSelect }: LeadCardProps) {
+export default function LeadCard({ lead, onLeadConverted, onLeadDeleted, onActivityLogged, selectMode = false, selected = false, onSelect, assignedUser }: LeadCardProps) {
   const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = React.useState(false);
   const [updateType, setUpdateType] = React.useState('');
@@ -72,34 +75,119 @@ export default function LeadCard({ lead, onLeadConverted, onLeadDeleted, selectM
   const [logs, setLogs] = React.useState<Update[]>([]);
   const [isViewDialogOpen, setIsViewDialogOpen] = React.useState(false);
   const [assignedUserId, setAssignedUserId] = React.useState(lead.assignedUserId || '');
-  const assignedUser = mockUsers.find(u => u.id === assignedUserId);
+  const assignedUserObj = mockUsers.find(u => u.id === assignedUserId);
+
+  // Fetch existing logs from Supabase
+  useEffect(() => {
+    const fetchLogs = async () => {
+      try {
+        const { data: logsData } = await supabase
+          .from('update')
+          .select('*')
+          .eq('lead_id', lead.id)
+          .order('date', { ascending: false });
+        
+        if (logsData) {
+          const transformedLogs = logsData.map((log: any) => ({
+            id: log.id,
+            type: log.type,
+            content: log.content || '',
+            updatedByUserId: log.updated_by_user_id,
+            date: log.date || log.created_at || new Date().toISOString(),
+            createdAt: log.created_at || new Date().toISOString(),
+            leadId: log.lead_id,
+            opportunityId: log.opportunity_id,
+            accountId: log.account_id,
+          }));
+          setLogs(transformedLogs);
+        }
+      } catch (error) {
+        console.error('Failed to fetch logs:', error);
+      }
+    };
+
+    fetchLogs();
+  }, [lead.id]);
 
   const handleConvertLead = async () => {
     if (lead.status === "Converted to Account" || lead.status === "Lost") {
       toast({ title: "Action not allowed", description: "This lead has already been processed.", variant: "destructive" });
       return;
     }
-    const newAccount = convertLeadToAccount(lead.id);
-    if (newAccount) {
+
+    try {
+      // Carry forward the assigned user from the lead
+      const ownerId = lead.assignedUserId || lead.owner_id || localStorage.getItem('user_id');
+      if (!ownerId) throw new Error('User not authenticated');
+
+      const { data: accountData, error: accountError } = await supabase.from('account').insert([
+        {
+          name: lead.companyName,
+          type: 'Client',
+          status: 'Active',
+          description: `Converted from lead: ${lead.personName}`,
+          contact_email: lead.email,
+          contact_person_name: lead.personName,
+          contact_phone: lead.phone || '',
+          converted_from_lead_id: lead.id,
+          owner_id: ownerId,
+        }
+      ]).select().single();
+
+      if (accountError || !accountData) {
+        throw accountError || new Error('Failed to create account');
+      }
+
+      // Update lead status to "Converted to Account"
+      const { error: leadError } = await supabase
+        .from('lead')
+        .update({ status: 'Converted to Account' })
+        .eq('id', lead.id);
+
+      if (leadError) {
+        throw leadError;
+      }
+
       toast({
         title: "Lead Converted!",
-        description: `${lead.companyName} has been converted to an account: ${newAccount.name}.`,
+        description: lead.companyName + " has been converted to an account: " + accountData.name + ".",
         className: "bg-green-100 dark:bg-green-900 border-green-500"
       });
-      onLeadConverted(lead.id, newAccount.id);
-    } else {
-      toast({ title: "Conversion Failed", description: "Could not convert lead to account.", variant: "destructive" });
+
+      // Call the callback to update the UI
+      onLeadConverted(lead.id, accountData.id);
+    } catch (error) {
+      console.error('Lead conversion failed:', error);
+      toast({ 
+        title: "Conversion Failed", 
+        description: error instanceof Error ? error.message : "Could not convert lead to account.", 
+        variant: "destructive" 
+      });
     }
   };
 
   const canConvert = lead.status !== "Converted to Account" && lead.status !== "Lost";
 
-  const handleDeleteLead = () => {
-    if (deleteLead(lead.id)) {
-      toast({ title: "Lead Deleted", description: `${lead.companyName} has been deleted.`, variant: "destructive" });
+  const handleDeleteLead = async () => {
+    try {
+      const { error } = await supabase
+        .from('lead')
+        .delete()
+        .eq('id', lead.id);
+
+      if (error) {
+        throw error;
+      }
+
+      toast({ title: "Lead Deleted", description: lead.companyName + " has been deleted.", variant: "destructive" });
       onLeadDeleted && onLeadDeleted(lead.id);
-    } else {
-      toast({ title: "Delete Failed", description: "Could not delete lead.", variant: "destructive" });
+    } catch (error) {
+      console.error('Lead deletion failed:', error);
+      toast({ 
+        title: "Delete Failed", 
+        description: error instanceof Error ? error.message : "Could not delete lead.", 
+        variant: "destructive" 
+      });
     }
   };
 
@@ -108,26 +196,72 @@ export default function LeadCard({ lead, onLeadConverted, onLeadDeleted, selectM
       toast({ title: 'Error', description: 'Please fill all fields.', variant: 'destructive' });
       return;
     }
+    
+    // Check for recent duplicate entries (within last 5 seconds)
+    const recentDuplicate = logs.find(log => 
+      log.content === updateContent.trim() && 
+      log.type === updateType &&
+      new Date().getTime() - new Date(log.createdAt).getTime() < 5000
+    );
+    
+    if (recentDuplicate) {
+      console.log('Duplicate activity detected, ignoring');
+      toast({ title: "Warning", description: "This activity was already logged recently.", variant: "destructive" });
+      return;
+    }
+    
     setIsLogging(true);
-    setTimeout(() => {
-      setIsLogging(false);
+    try {
+      const currentUserId = localStorage.getItem('user_id');
+      if (!currentUserId) throw new Error('User not authenticated');
+
+      // Save to Supabase
+      const { data, error } = await supabase.from('update').insert([
+        {
+          type: updateType,
+          content: updateContent,
+          updated_by_user_id: currentUserId,
+          date: updateDate.toISOString(),
+          lead_id: lead.id,
+          opportunity_id: null,
+          account_id: null,
+        }
+      ]).select().single();
+
+      if (error) throw error;
+
+      // Transform the response to match Update interface
+      const newUpdate: Update = {
+        id: data.id,
+        type: data.type,
+        content: data.content || '',
+        updatedByUserId: data.updated_by_user_id,
+        date: data.date || data.created_at || new Date().toISOString(),
+        createdAt: data.created_at || new Date().toISOString(),
+        leadId: data.lead_id,
+        opportunityId: data.opportunity_id,
+        accountId: data.account_id,
+      };
+
+      // Update local state
+      setLogs(prev => [newUpdate, ...prev]);
       setUpdateType('');
       setUpdateContent('');
       setUpdateDate(undefined);
-      setLogs(prev => [
-        {
-          id: `${Date.now()}`,
-          type: updateType as Update['type'],
-          content: updateContent,
-          date: updateDate.toISOString(),
-          leadId: lead.id,
-          updatedByUserId: undefined,
-          createdAt: new Date().toISOString(),
-        },
-        ...prev
-      ]);
       toast({ title: 'Update logged', description: 'Your update has been logged.' });
-    }, 1000);
+
+      // Call the optional callback
+      onActivityLogged && onActivityLogged(lead.id, newUpdate);
+    } catch (error) {
+      console.error('Failed to log update:', error);
+      toast({ 
+        title: 'Error', 
+        description: error instanceof Error ? error.message : 'Failed to log update. Please try again.', 
+        variant: 'destructive' 
+      });
+    } finally {
+      setIsLogging(false);
+    }
   };
 
   const handleEditChange = (field: string, value: string) => {
@@ -208,6 +342,12 @@ export default function LeadCard({ lead, onLeadConverted, onLeadDeleted, selectM
             <div className="flex items-center text-muted-foreground">
               <MapPin className="mr-2 h-4 w-4 shrink-0" />
               <span>{lead.country}</span>
+            </div>
+          )}
+          {assignedUser && (
+            <div className="flex items-center text-muted-foreground">
+              <Users className="mr-2 h-4 w-4 shrink-0" />
+              <span>Assigned to: {assignedUser}</span>
             </div>
           )}
           <div className="pt-2 space-y-1">
@@ -400,7 +540,7 @@ export default function LeadCard({ lead, onLeadConverted, onLeadDeleted, selectM
                 <Button variant="add" onClick={handleSaveEdit}>Save</Button>
               </div>
             ) : (
-              <form className="space-y-4 mt-3">
+              <form className="space-y-4 mt-3" onSubmit={(e) => e.preventDefault()}>
                 <div className="flex flex-col md:flex-row gap-2">
                   <div className="flex-1 min-w-0">
                     <Label htmlFor="update-type">Update Type *</Label>
@@ -450,7 +590,13 @@ export default function LeadCard({ lead, onLeadConverted, onLeadDeleted, selectM
                   />
                 </div>
                 <DialogFooter>
-                  <Button type="button" variant="add" className="w-full mt-2" onClick={handleLogUpdate} disabled={isLogging}>
+                  <Button 
+                    type="button" 
+                    variant="add" 
+                    className="w-full mt-2" 
+                    onClick={handleLogUpdate} 
+                    disabled={isLogging || !updateType || !updateContent.trim() || !updateDate}
+                  >
                     {isLogging ? 'Adding...' : 'Add Activity'}
                   </Button>
                 </DialogFooter>
@@ -487,8 +633,8 @@ export default function LeadCard({ lead, onLeadConverted, onLeadDeleted, selectM
                   ))}
                 </SelectContent>
               </Select>
-              {assignedUser && (
-                <div className="mt-1 text-sm text-muted-foreground">Currently assigned to: <span className="font-medium">{assignedUser.name}</span></div>
+              {assignedUserObj && (
+                <div className="mt-1 text-sm text-muted-foreground">Currently assigned to: <span className="font-medium">{assignedUserObj.name}</span></div>
               )}
             </div>
           </div>

@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from 'react';
 import PageTitle from '@/components/common/PageTitle';
 import UpdateItem from '@/components/updates/UpdateItem';
-import { mockUpdates as initialMockUpdates, mockOpportunities } from '@/lib/data';
 import type { Update, UpdateType, Opportunity } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Search, ListFilter, MessageSquare } from 'lucide-react';
@@ -16,22 +15,119 @@ import { Label } from '@/components/ui/label';
 import AddUpdateDialog from '@/components/updates/AddUpdateDialog';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
+import { supabase } from '@/lib/supabaseClient';
 
 export default function UpdatesPage() {
   const [updates, setUpdates] = useState<Update[]>([]);
+  const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [searchTerm, setSearchTerm] = useState(''); 
   const [typeFilter, setTypeFilter] = useState<UpdateType | 'all'>('all');
   const [opportunityFilter, setOpportunityFilter] = useState<string | 'all'>('all');
   const [dateFilter, setDateFilter] = useState<string>(''); 
   const [isAddUpdateDialogOpen, setIsAddUpdateDialogOpen] = useState(false);
   const [entityTypeFilter, setEntityTypeFilter] = useState<'all' | 'lead' | 'opportunity' | 'account'>('all');
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    setUpdates([...initialMockUpdates].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
-  }, []);
+    const fetchUpdatesAndOpportunities = async () => {
+      const localUserId = localStorage.getItem('user_id');
+      if (!localUserId) return;
+
+      // Fetch user role
+      const { data: userData } = await supabase.from('users').select('role').eq('id', localUserId).single();
+      const userRole = userData?.role || 'user';
+
+      // Fetch opportunities for filtering
+      let opportunitiesQuery = supabase.from('opportunity').select('*').order('updated_at', { ascending: false });
+      if (userRole !== 'admin') {
+        opportunitiesQuery = opportunitiesQuery.eq('owner_id', localUserId);
+      }
+      const { data: opportunitiesData } = await opportunitiesQuery;
+      
+      if (opportunitiesData) {
+        // Transform snake_case to camelCase
+        const transformedOpportunities = opportunitiesData.map((opp: any) => ({
+          id: opp.id,
+          name: opp.name,
+          accountId: opp.account_id,
+          status: opp.status,
+          value: opp.value || 0,
+          description: opp.description || '',
+          startDate: opp.start_date || new Date().toISOString(),
+          endDate: opp.end_date || new Date().toISOString(),
+          updateIds: [], // Not implemented yet
+          createdAt: opp.created_at || new Date().toISOString(),
+          updatedAt: opp.updated_at || new Date().toISOString(),
+        }));
+        setOpportunities(transformedOpportunities);
+      }
+
+      // Fetch updates
+      let updatesQuery = supabase.from('update').select('*').order('date', { ascending: false });
+      if (userRole !== 'admin') {
+        updatesQuery = updatesQuery.eq('updated_by_user_id', localUserId);
+      }
+      const { data: updatesData } = await updatesQuery;
+      
+      if (updatesData) {
+        // Transform snake_case to camelCase
+        const transformedUpdates = updatesData.map((update: any) => ({
+          id: update.id,
+          type: update.type,
+          content: update.content || '',
+          updatedByUserId: update.updated_by_user_id,
+          date: update.date || update.created_at || new Date().toISOString(),
+          createdAt: update.created_at || new Date().toISOString(),
+          leadId: update.lead_id,
+          opportunityId: update.opportunity_id,
+          accountId: update.account_id,
+        }));
+        setUpdates(transformedUpdates.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+      } else {
+        setUpdates([]);
+      }
+      
+      setIsLoading(false);
+    };
+
+    fetchUpdatesAndOpportunities();
+  }, []); // Only run on component mount
 
   const handleUpdateAdded = (newUpdate: Update) => {
     setUpdates(prevUpdates => [newUpdate, ...prevUpdates].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+  };
+
+  // Function to refresh data when needed
+  const refreshData = async () => {
+    const localUserId = localStorage.getItem('user_id');
+    if (!localUserId) return;
+
+    // Fetch user role
+    const { data: userData } = await supabase.from('users').select('role').eq('id', localUserId).single();
+    const userRole = userData?.role || 'user';
+
+    // Fetch updates
+    let updatesQuery = supabase.from('update').select('*').order('date', { ascending: false });
+    if (userRole !== 'admin') {
+      updatesQuery = updatesQuery.eq('updated_by_user_id', localUserId);
+    }
+    const { data: updatesData } = await updatesQuery;
+    
+    if (updatesData) {
+      // Transform snake_case to camelCase
+      const transformedUpdates = updatesData.map((update: any) => ({
+        id: update.id,
+        type: update.type,
+        content: update.content || '',
+        updatedByUserId: update.updated_by_user_id,
+        date: update.date || update.created_at || new Date().toISOString(),
+        createdAt: update.created_at || new Date().toISOString(),
+        leadId: update.lead_id,
+        opportunityId: update.opportunity_id,
+        accountId: update.account_id,
+      }));
+      setUpdates(transformedUpdates.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+    }
   };
 
   const updateTypeOptions: UpdateType[] = ["General", "Call", "Meeting", "Email"];
@@ -60,6 +156,19 @@ export default function UpdatesPage() {
     else if (entityTypeFilter === 'account') matchesEntity = !!update.accountId;
     return matchesSearch && matchesType && matchesOpportunity && matchesDate && matchesEntity;
   });
+
+  if (isLoading) {
+    return (
+      <div className="max-w-[1440px] px-4 mx-auto w-full space-y-6">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-muted-foreground">Loading updates...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-[1440px] px-4 mx-auto w-full space-y-6">
@@ -113,9 +222,23 @@ export default function UpdatesPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Opportunities</SelectItem>
-                  {mockOpportunities.map(opportunity => ( 
+                  {opportunities.map(opportunity => ( 
                     <SelectItem key={opportunity.id} value={opportunity.id}>{opportunity.name}</SelectItem>
                   ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="entity-filter">Entity Type</Label>
+              <Select value={entityTypeFilter} onValueChange={(value: 'all' | 'lead' | 'opportunity' | 'account') => setEntityTypeFilter(value)}>
+                <SelectTrigger id="entity-filter" className="w-full mt-1">
+                  <SelectValue placeholder="Filter by entity" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Entities</SelectItem>
+                  <SelectItem value="lead">Leads</SelectItem>
+                  <SelectItem value="opportunity">Opportunities</SelectItem>
+                  <SelectItem value="account">Accounts</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -123,46 +246,23 @@ export default function UpdatesPage() {
               <Label htmlFor="date-filter">Date</Label>
               <Popover>
                 <PopoverTrigger asChild>
-                  <Input
-                    id="date-filter"
-                    type="text"
-                    value={dateFilter}
-                    placeholder="Select date"
-                    readOnly
-                    className="mt-1 cursor-pointer bg-white"
-                  />
+                  <Button variant="outline" className="w-full mt-1 justify-start text-left font-normal">
+                    {dateFilter ? format(parseISO(dateFilter), 'MMM dd, yyyy') : 'Select date'}
+                  </Button>
                 </PopoverTrigger>
-                <PopoverContent align="start" className="p-0 w-auto border-none bg-[#CFD4C9] rounded-sm">
+                <PopoverContent className="w-auto p-0" align="start">
                   <Calendar
                     mode="single"
-                    selected={dateFilter ? new Date(dateFilter) : undefined}
-                    onSelect={date => {
-                      if (date) {
-                        setDateFilter(date.toISOString().slice(0, 10));
-                      }  
-                    }}
+                    selected={dateFilter ? parseISO(dateFilter) : undefined}
+                    onSelect={(date) => setDateFilter(date ? format(date, 'yyyy-MM-dd') : '')}
+                    initialFocus
                   />
                 </PopoverContent>
               </Popover>
             </div>
-            <div>
-              <Label htmlFor="entity-type-filter">Entity Type</Label>
-              <Select value={entityTypeFilter} onValueChange={(value: 'all' | 'lead' | 'opportunity' | 'account') => setEntityTypeFilter(value)}>
-                <SelectTrigger id="entity-type-filter" className="w-full mt-1">
-                  <SelectValue placeholder="Filter by entity type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Entity Types</SelectItem>
-                  <SelectItem value="lead">Lead</SelectItem>
-                  <SelectItem value="opportunity">Opportunity</SelectItem>
-                  <SelectItem value="account">Account</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
           </div>
         </CardContent>
       </Card>
-
 
       {filteredUpdates.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-8">

@@ -21,6 +21,7 @@ import { format } from 'date-fns';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/hooks/use-auth';
+import { useToast } from '@/hooks/use-toast';
 
 interface AccountCardProps {
   account: Account;
@@ -33,6 +34,7 @@ interface AccountCardProps {
 
 export default function AccountCard({ account, view = 'grid', onNewOpportunity, owner, onAccountDeleted, onAccountUpdated }: AccountCardProps) {
   const { isAuthenticated } = useAuth();
+  const { toast } = useToast();
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [role, setRole] = useState<string>('user');
   const [users, setUsers] = useState<any[]>([]);
@@ -60,6 +62,38 @@ export default function AccountCard({ account, view = 'grid', onNewOpportunity, 
   useEffect(() => {
     setOpportunities(getOpportunitiesByAccount(account.id));
     setLogs(mockUpdates.filter(u => u.accountId === account.id).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+  }, [account.id]);
+
+  // Fetch existing logs from Supabase
+  useEffect(() => {
+    const fetchLogs = async () => {
+      try {
+        const { data: logsData } = await supabase
+          .from('update')
+          .select('*')
+          .eq('account_id', account.id)
+          .order('date', { ascending: false });
+        
+        if (logsData) {
+          const transformedLogs = logsData.map((log: any) => ({
+            id: log.id,
+            type: log.type,
+            content: log.content || '',
+            updatedByUserId: log.updated_by_user_id,
+            date: log.date || log.created_at || new Date().toISOString(),
+            createdAt: log.created_at || new Date().toISOString(),
+            leadId: log.lead_id,
+            opportunityId: log.opportunity_id,
+            accountId: log.account_id,
+          }));
+          setLogs(transformedLogs);
+        }
+      } catch (error) {
+        console.error('Failed to fetch logs:', error);
+      }
+    };
+
+    fetchLogs();
   }, [account.id]);
 
   useEffect(() => {
@@ -123,22 +157,73 @@ export default function AccountCard({ account, view = 'grid', onNewOpportunity, 
   };
 
   const handleLogUpdate = async () => {
-    if (!updateType || !updateContent.trim() || !updateDate) return;
+    if (!updateType || !updateContent.trim() || !updateDate) {
+      toast({ title: 'Error', description: 'Please fill all fields.', variant: 'destructive' });
+      return;
+    }
+    
+    // Check for recent duplicate entries (within last 5 seconds)
+    const recentDuplicate = logs.find(log => 
+      log.content === updateContent.trim() && 
+      log.type === updateType &&
+      new Date().getTime() - new Date(log.createdAt).getTime() < 5000
+    );
+    
+    if (recentDuplicate) {
+      console.log('Duplicate activity detected, ignoring');
+      toast({ title: "Warning", description: "This activity was already logged recently.", variant: "destructive" });
+      return;
+    }
+    
     setIsLogging(true);
-    setTimeout(() => {
-      const newUpdate = addUpdate({
-        type: updateType,
-        content: updateContent,
-        opportunityId: undefined,
-        accountId: undefined,
-        updatedByUserId: undefined,
-      } as any);
+    try {
+      const currentUserId = localStorage.getItem('user_id');
+      if (!currentUserId) throw new Error('User not authenticated');
+
+      // Save to Supabase
+      const { data, error } = await supabase.from('update').insert([
+        {
+          type: updateType,
+          content: updateContent,
+          updated_by_user_id: currentUserId,
+          date: updateDate.toISOString(),
+          lead_id: null,
+          opportunity_id: null,
+          account_id: account.id,
+        }
+      ]).select().single();
+
+      if (error) throw error;
+
+      // Transform the response to match Update interface
+      const newUpdate: Update = {
+        id: data.id,
+        type: data.type,
+        content: data.content || '',
+        updatedByUserId: data.updated_by_user_id,
+        date: data.date || data.created_at || new Date().toISOString(),
+        createdAt: data.created_at || new Date().toISOString(),
+        leadId: data.lead_id,
+        opportunityId: data.opportunity_id,
+        accountId: data.account_id,
+      };
+
+      // Update local state
       setLogs(prev => [newUpdate, ...prev]);
       setUpdateType('');
       setUpdateContent('');
       setUpdateDate(undefined);
+      toast({ title: 'Update logged', description: 'Your update has been logged.' });
+    } catch (error) {
+      console.error('Failed to log update:', error);
+      toast({ 
+        title: 'Error', 
+        description: error instanceof Error ? error.message : 'Failed to log update. Please try again.', 
+        variant: 'destructive' 
+      });
+    } finally {
       setIsLogging(false);
-    }, 1000);
+    }
   };
 
   const handleEditChange = (field: string, value: string) => {
@@ -443,7 +528,7 @@ export default function AccountCard({ account, view = 'grid', onNewOpportunity, 
                 <Button variant="add" onClick={handleSaveEdit}>Save</Button>
               </div>
             ) : (
-              <form className="space-y-4 mt-3">
+              <form className="space-y-4 mt-3" onSubmit={(e) => e.preventDefault()}>
                 <div className="flex flex-col md:flex-row gap-2">
                   <div className="flex-1 min-w-0">
                     <Label htmlFor="update-type">Update Type *</Label>
@@ -494,7 +579,13 @@ export default function AccountCard({ account, view = 'grid', onNewOpportunity, 
                   />
                 </div>
                 <DialogFooter>
-                  <Button type="button" variant="add" className="w-full mt-2" onClick={handleLogUpdate} disabled={isLogging}>
+                  <Button 
+                    type="button" 
+                    variant="add" 
+                    className="w-full mt-2" 
+                    onClick={handleLogUpdate} 
+                    disabled={isLogging || !updateType || !updateContent.trim() || !updateDate}
+                  >
                     {isLogging ? 'Adding...' : 'Add Activity'}
                   </Button>
                 </DialogFooter>
