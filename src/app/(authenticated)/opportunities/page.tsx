@@ -27,6 +27,7 @@ interface OpportunityData {
   owner_id: string;
   created_at: string;
   updated_at: string;
+  currency?: string;
 }
 
 export default function OpportunitiesPage() {
@@ -95,6 +96,7 @@ export default function OpportunitiesPage() {
       owner_id: '', // Will be set by the dialog
       created_at: newOpportunity.createdAt,
       updated_at: newOpportunity.updatedAt,
+      currency: newOpportunity.currency || 'USD',
     };
     setOpportunities(prevOpportunities => [opportunityData, ...prevOpportunities.filter(op => op.id !== newOpportunity.id)]);
   };
@@ -112,6 +114,7 @@ export default function OpportunitiesPage() {
       updateIds: [], // Not implemented yet
       createdAt: opp.created_at,
       updatedAt: opp.updated_at,
+      currency: opp.currency || 'USD',
     };
   }
 

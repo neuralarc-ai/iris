@@ -19,6 +19,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Calendar } from '@/components/ui/calendar';
 import { supabase } from '@/lib/supabaseClient';
+import { countries } from '@/lib/countryData';
 
 interface OpportunityCardProps {
   opportunity: Opportunity;
@@ -59,6 +60,10 @@ function calculateProgress(startDate: string, endDate: string, status: Opportuni
   return Math.min(98, Math.max(5, (elapsedDuration / totalDuration) * 100));
 }
 
+// Build a map for quick lookup (outside the component)
+const currencyMap = Object.fromEntries(
+  countries.map(c => [c.currencyCode, c.currencySymbol || c.currencyCode])
+);
 
 export default function OpportunityCard({ opportunity, accountName }: OpportunityCardProps) {
   const [forecast, setForecast] = useState<AIOpportunityForecast | null>(null);
@@ -75,6 +80,9 @@ export default function OpportunityCard({ opportunity, accountName }: Opportunit
   const [assignedUser, setAssignedUser] = useState<{ name: string; email: string } | null>(null);
 
   const status = opportunity.status as OpportunityStatus;
+
+  // Use the map for robust lookup
+  const currencySymbol = currencyMap[opportunity.currency] || opportunity.currency || '$';
 
   useEffect(() => {
     if (opportunity.accountId) {
@@ -348,7 +356,9 @@ export default function OpportunityCard({ opportunity, accountName }: Opportunit
             </div>
             <div className="flex items-center text-muted-foreground">
               <DollarSign className="mr-2 h-4 w-4 text-green-600 shrink-0" />
-              <span className="font-medium text-foreground">${opportunity.value.toLocaleString()}</span>
+              <span className="font-medium text-foreground">
+                {currencySymbol} {opportunity.value.toLocaleString()}
+              </span>
             </div>
             {assignedUser && (
               <div className="flex items-center text-muted-foreground">
@@ -434,7 +444,9 @@ export default function OpportunityCard({ opportunity, accountName }: Opportunit
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="bg-white/30 p-3 rounded-lg">
                 <div className="text-sm font-medium text-muted-foreground">Value</div>
-                <div className="text-lg font-bold text-[#97A487]">${opportunity.value.toLocaleString()}</div>
+                <div className="text-lg font-bold text-[#97A487]">
+                  {currencySymbol} {opportunity.value.toLocaleString()}
+                </div>
               </div>
               <div className="bg-white/30 p-3 rounded-lg">
                 <div className="text-sm font-medium text-muted-foreground">Status</div>

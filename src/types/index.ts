@@ -39,8 +39,9 @@ export interface Lead {
 
 export interface Opportunity {
   id: string;
-  name:string;
-  accountId: string; // Opportunities are linked to Accounts
+  name: string;
+  accountId?: string; // Opportunities can be linked to Accounts
+  leadId?: string;    // Or to Leads
   status: OpportunityStatus;
   value: number;
   description: string;
