@@ -289,30 +289,16 @@ export default function DashboardPage() {
               </CardContent>
             </Card>
 
-            <Card className="border border-[#CBCAC5] bg-white rounded-sm shadow-sm flex flex-col">
+            <Card className="border border-[#CBCAC5] bg-white rounded-sm shadow-sm flex flex-col min-h-[402px]">
               <CardHeader>
                 <CardTitle className="text-lg flex items-center text-[#282828]">
                   <Users className="mr-3 h-5 w-5 text-[#916D5B]" />
-                  Lead Engagement (Simulated)
+                  Lead Engagement
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-2 flex-grow">
-                <p className="text-sm text-muted-foreground">
-                  This section would display real-time insights from lead activities. Direct social media tracking is a complex integration.
-                </p>
-                <ul className="space-y-2 text-xs">
-                  {mockLeads.slice(0,2).map(lead => (
-                    <li key={lead.id} className="border-l-2 border-[#916D5B] pl-3 py-1 bg-[#CFB496]/20 rounded-r-md">
-                      <span className="font-semibold text-[#282828]">{lead.personName}</span> <span className="text-muted-foreground">({lead.companyName})</span>: Recent mock activity shows interest in AI solutions.
-                    </li>
-                  ))}
-                </ul>
+              <CardContent className="flex-grow flex items-center justify-center">
+                <span className="text-xl text-muted-foreground font-semibold">Coming Soon!</span>
               </CardContent>
-               <CardFooter className="pt-4 mt-auto">
-                  <Button variant="outline" size="sm" asChild className="ml-auto">
-                      <Link href="/leads">View All Leads</Link>
-                  </Button>
-              </CardFooter>
             </Card>
           </div>
 
@@ -340,7 +326,11 @@ export default function DashboardPage() {
                             <UpdateItem key={update.id} update={update} />
                         ))
                     ) : (
-                        !isLoading && <p className="text-muted-foreground text-center py-4 md:col-span-2">No recent updates found.</p>
+                        !isLoading && (
+                          <div className="col-span-2 flex items-center justify-center bg-white rounded-[8px] h-[343px] shadow-sm border text-center">
+                            <span className="text-lg text-muted-foreground font-medium">No recent activity found</span>
+                          </div>
+                        )
                     )}
                 </div>
               </div>
@@ -370,7 +360,11 @@ export default function DashboardPage() {
                       <OpportunityCard key={opp.id} opportunity={opp} accountName={(opp as any).accountName} />
                     ))
                     ) : (
-                    !isLoading && <p className="text-muted-foreground md:col-span-2 text-center py-4">No active opportunities to display.</p>
+                        !isLoading && (
+                          <div className="col-span-2 flex items-center justify-center bg-white rounded-[8px] h-[343px] shadow-sm border text-center">
+                            <span className="text-lg text-muted-foreground font-medium">No opportunities found</span>
+                          </div>
+                        )
                     )}
                 </div>
               </div>
