@@ -9,7 +9,7 @@ import { mockOpportunities, mockLeads, getRecentUpdates } from '@/lib/data';
 import type { Opportunity, OpportunityForecast, Update, Account } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import Link from 'next/link';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell, PieChart, Pie } from 'recharts';
 import { format, parseISO } from 'date-fns';
 import UpdateItem from '@/components/activity/UpdateItem';
 import OpportunityCard from '@/components/opportunities/OpportunityCard';
@@ -256,35 +256,74 @@ export default function DashboardPage() {
                   Opportunities Pipeline
                 </CardTitle>
               </CardHeader>
-              <CardContent className="flex-grow">
+              <CardContent className="flex-grow flex flex-col items-center justify-center">
                 {isLoading && opportunityStatusCounts.length === 0 ? (
-                  <div className="h-64 bg-[#CBCAC5]/50 rounded animate-pulse"></div>
-                ) : opportunityStatusCounts.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={opportunityStatusCounts} layout="vertical" margin={{ top: 5, right: 20, left: 20, bottom: 5 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#CBCAC5" />
-                      <XAxis type="number" stroke="#55504C" fontSize={12} />
-                      <YAxis dataKey="name" type="category" stroke="#55504C" fontSize={12} width={100} interval={0}/>
-                      <Tooltip
+                  <div className="h-64 bg-[#CBCAC5]/50 rounded animate-pulse w-full"></div>
+                ) : opportunityStatusCounts.length > 0 && opportunityStatusCounts.some(s => s.count > 0) ? (
+                  <div className="w-full flex flex-col items-center justify-center">
+                    <ResponsiveContainer width="100%" height={260}>
+                      <PieChart>
+                        {/* Overlay: inner/outer circles and X/Y axes */}
+                        <svg width="100%" height="100%" viewBox="0 0 260 260" style={{ position: 'absolute', pointerEvents: 'none' }}>
+                          {/* Outer circle */}
+                          <circle cx="130" cy="130" r="100" fill="none" stroke="#CBCAC5" strokeWidth="1.5" />
+                          {/* Inner circle */}
+                          <circle cx="130" cy="130" r="60" fill="none" stroke="#CBCAC5" strokeWidth="1.5" />
+                          {/* X axis */}
+                          <line x1="20" y1="130" x2="240" y2="130" stroke="#E5E3DF" strokeWidth="2" strokeDasharray="4 4" />
+                          {/* Y axis */}
+                          <line x1="130" y1="20" x2="130" y2="240" stroke="#E5E3DF" strokeWidth="2" strokeDasharray="4 4" />
+                        </svg>
+                        <Pie
+                          data={opportunityStatusCounts.filter(s => s.count > 0)}
+                          dataKey="count"
+                          nameKey="name"
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={65}
+                          outerRadius={95}
+                          paddingAngle={0.5}
+                          startAngle={90}
+                          endAngle={-270}
+                          stroke="#fff"
+                          isAnimationActive={true}
+                          cornerRadius={4}
+                        >
+                          {opportunityStatusCounts.filter(s => s.count > 0).map((entry, index) => (
+                            <Cell
+                              key={`cell-${index}`}
+                              fill={statusColorMap[entry.name as keyof typeof statusColorMap] || "#CBCAC5"}
+                              style={{ cursor: 'pointer' }}
+                            />
+                          ))}
+                        </Pie>
+                        <Tooltip
                           contentStyle={{
-                              backgroundColor: "rgba(239, 237, 231, 0.7)",
-                              borderColor: "#CBCAC5",
-                              borderRadius: 8,
-                              boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.04), 0 2px 4px -2px rgb(0 0 0 / 0.04)",
+                            backgroundColor: "rgba(239, 237, 231, 0.9)",
+                            borderColor: "#CBCAC5",
+                            borderRadius: 8,
+                            boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.04), 0 2px 4px -2px rgb(0 0 0 / 0.04)",
                           }}
                           labelStyle={{ color: "#282828" }}
                           itemStyle={{ color: "#916D5B" }}
-                      />
-                      <Legend wrapperStyle={{fontSize: "12px", paddingTop: "10px", color: '#55504C'}}/>
-                      <Bar dataKey="count">
-                        {opportunityStatusCounts.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={statusColorMap[entry.name as keyof typeof statusColorMap] || "#CBCAC5"} />
-                        ))}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                    <div className="flex flex-wrap justify-center gap-3 mt-4">
+                      {opportunityStatusCounts.filter(s => s.count > 0).map((entry, idx) => (
+                        <div key={entry.name} className="flex items-center gap-2">
+                          <span className="inline-block w-4 h-4 rounded-full" style={{ backgroundColor: statusColorMap[entry.name as keyof typeof statusColorMap] || '#CBCAC5' }}></span>
+                          <span className="text-xs text-[#282828] font-medium">{entry.name} ({entry.count})</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 ) : (
-                   !isLoading && <p className="text-muted-foreground">No opportunity data for chart.</p>
+                  !isLoading && (
+                    <div className="h-64 w-full flex items-center justify-center bg-white rounded-[8px] shadow-sm border text-center">
+                      <span className="text-lg text-muted-foreground font-medium">No opportunity data for chart.</span>
+                    </div>
+                  )
                 )}
               </CardContent>
             </Card>
