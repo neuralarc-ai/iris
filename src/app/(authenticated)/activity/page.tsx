@@ -36,6 +36,10 @@ export default function UpdatesPage() {
   const [isAddUpdateDialogOpen, setIsAddUpdateDialogOpen] = useState(false);
   const [entityTypeFilter, setEntityTypeFilter] = useState<'all' | 'lead' | 'opportunity' | 'account'>('all');
   const [isLoading, setIsLoading] = useState(true);
+  const [leads, setLeads] = useState<any[]>([]);
+  const [accounts, setAccounts] = useState<any[]>([]);
+  const [leadFilter, setLeadFilter] = useState<string | 'all'>('all');
+  const [accountFilter, setAccountFilter] = useState<string | 'all'>('all');
 
   useEffect(() => {
     const fetchUpdatesAndOpportunities = async () => {
@@ -101,6 +105,38 @@ export default function UpdatesPage() {
 
     fetchUpdatesAndOpportunities();
   }, []); // Only run on component mount
+
+  useEffect(() => {
+    const fetchLeadsAndAccounts = async () => {
+      const localUserId = localStorage.getItem('user_id');
+      if (!localUserId) return;
+      // Fetch user role
+      const { data: userData } = await supabase.from('users').select('role').eq('id', localUserId).single();
+      const userRole = userData?.role || 'user';
+      // Fetch leads
+      let leadsQuery = supabase.from('lead').select('*').order('updated_at', { ascending: false });
+      if (userRole !== 'admin') {
+        leadsQuery = leadsQuery.eq('owner_id', localUserId);
+      }
+      const { data: leadsData } = await leadsQuery;
+      if (leadsData) setLeads(leadsData);
+      // Fetch accounts
+      let accountsQuery = supabase.from('account').select('*').order('updated_at', { ascending: false });
+      if (userRole !== 'admin') {
+        accountsQuery = accountsQuery.eq('owner_id', localUserId);
+      }
+      const { data: accountsData } = await accountsQuery;
+      if (accountsData) setAccounts(accountsData);
+    };
+    fetchLeadsAndAccounts();
+  }, []);
+
+  // Reset filters when entity type changes
+  useEffect(() => {
+    setOpportunityFilter('all');
+    setLeadFilter('all');
+    setAccountFilter('all');
+  }, [entityTypeFilter]);
 
   const handleUpdateAdded = (newUpdate: Update) => {
     setUpdates(prevUpdates => [newUpdate, ...prevUpdates].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
@@ -195,9 +231,28 @@ export default function UpdatesPage() {
 
   // Filter updates first, then group them
   const filteredUpdates = updates.filter(update => {
-    const matchesSearch = update.content.toLowerCase().includes(searchTerm.toLowerCase());
+    const normalizedSearch = searchTerm.trim().toLowerCase();
+    // Find related entity name
+    let entityName = '';
+    if (update.leadId) {
+      const lead = leads.find(l => l.id === update.leadId);
+      entityName = lead ? (lead.person_name || lead.company_name || lead.email || '') : '';
+    } else if (update.opportunityId) {
+      const opp = opportunities.find(o => o.id === update.opportunityId);
+      entityName = opp ? (opp.name || '') : '';
+    } else if (update.accountId) {
+      const acc = accounts.find(a => a.id === update.accountId);
+      entityName = acc ? (acc.name || '') : '';
+    }
+    const matchesSearch =
+      !normalizedSearch ||
+      (update.content && update.content.toLowerCase().includes(normalizedSearch)) ||
+      (update.type && update.type.toLowerCase().includes(normalizedSearch)) ||
+      (entityName && entityName.toLowerCase().includes(normalizedSearch));
     const matchesType = typeFilter === 'all' || update.type === typeFilter;
     const matchesOpportunity = opportunityFilter === 'all' || update.opportunityId === opportunityFilter;
+    const matchesLead = leadFilter === 'all' || update.leadId === leadFilter;
+    const matchesAccount = accountFilter === 'all' || update.accountId === accountFilter;
     let matchesDate = true;
     if (dateFilter) {
       try {
@@ -216,7 +271,7 @@ export default function UpdatesPage() {
     if (entityTypeFilter === 'lead') matchesEntity = !!update.leadId;
     else if (entityTypeFilter === 'opportunity') matchesEntity = !!update.opportunityId;
     else if (entityTypeFilter === 'account') matchesEntity = !!update.accountId;
-    return matchesSearch && matchesType && matchesOpportunity && matchesDate && matchesEntity;
+    return matchesSearch && matchesType && matchesOpportunity && matchesLead && matchesAccount && matchesDate && matchesEntity;
   });
 
   // Group the filtered updates
@@ -237,7 +292,7 @@ export default function UpdatesPage() {
 
   return (
     <div className="max-w-[1440px] px-4 mx-auto w-full space-y-6">
-      <PageTitle title="Communication Updates" subtitle="Log and review all opportunity-related communications.">
+      <PageTitle title="Activities" subtitle="Log and review all opportunity-related activities.">
         <Button onClick={() => setIsAddUpdateDialogOpen(true)} variant="add" className='w-fit'> 
           <Image src="/images/add.svg" alt="Add" width={20} height={20} className="mr-2" /> Activity Update
         </Button>
@@ -266,34 +321,6 @@ export default function UpdatesPage() {
               </div>
             </div>
             <div>
-              <Label htmlFor="type-filter">Type</Label>
-              <Select value={typeFilter} onValueChange={(value: UpdateType | 'all') => setTypeFilter(value)}>
-                <SelectTrigger id="type-filter" className="w-full mt-1">
-                  <SelectValue placeholder="Filter by type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Types</SelectItem>
-                  {updateTypeOptions.map(type => (
-                    <SelectItem key={type} value={type}>{type}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label htmlFor="opportunity-filter">Opportunity</Label>
-              <Select value={opportunityFilter} onValueChange={(value: string | 'all') => setOpportunityFilter(value)}>
-                <SelectTrigger id="opportunity-filter" className="w-full mt-1">
-                  <SelectValue placeholder="Filter by opportunity" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Opportunities</SelectItem>
-                  {opportunities.map(opportunity => ( 
-                    <SelectItem key={opportunity.id} value={opportunity.id}>{opportunity.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
               <Label htmlFor="entity-filter">Entity Type</Label>
               <Select value={entityTypeFilter} onValueChange={(value: 'all' | 'lead' | 'opportunity' | 'account') => setEntityTypeFilter(value)}>
                 <SelectTrigger id="entity-filter" className="w-full mt-1">
@@ -307,6 +334,68 @@ export default function UpdatesPage() {
                 </SelectContent>
               </Select>
             </div>
+            <div>
+              <Label htmlFor="type-filter">Type</Label>
+              <Select value={typeFilter} onValueChange={(value: UpdateType | 'all') => setTypeFilter(value)}>
+                <SelectTrigger id="type-filter" className="w-full mt-1">
+                  <SelectValue placeholder="Filter by type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Types</SelectItem>
+                  {updateTypeOptions.map(type => (
+                    <SelectItem key={type} value={type}>{type}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {entityTypeFilter === 'opportunity' && (
+              <div>
+                <Label htmlFor="opportunity-filter">Opportunity</Label>
+                <Select value={opportunityFilter} onValueChange={(value: string | 'all') => setOpportunityFilter(value)}>
+                  <SelectTrigger id="opportunity-filter" className="w-full mt-1">
+                    <SelectValue placeholder="Filter by opportunity" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Opportunities</SelectItem>
+                    {opportunities.map(opportunity => ( 
+                      <SelectItem key={opportunity.id} value={opportunity.id}>{opportunity.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            {entityTypeFilter === 'lead' && (
+              <div>
+                <Label htmlFor="lead-filter">Lead</Label>
+                <Select value={leadFilter} onValueChange={(value: string | 'all') => setLeadFilter(value)}>
+                  <SelectTrigger id="lead-filter" className="w-full mt-1">
+                    <SelectValue placeholder="Filter by lead" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Leads</SelectItem>
+                    {leads.map(lead => ( 
+                      <SelectItem key={lead.id} value={lead.id}>{lead.person_name || lead.company_name || lead.email}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            {entityTypeFilter === 'account' && (
+              <div>
+                <Label htmlFor="account-filter">Account</Label>
+                <Select value={accountFilter} onValueChange={(value: string | 'all') => setAccountFilter(value)}>
+                  <SelectTrigger id="account-filter" className="w-full mt-1">
+                    <SelectValue placeholder="Filter by account" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Accounts</SelectItem>
+                    {accounts.map(account => ( 
+                      <SelectItem key={account.id} value={account.id}>{account.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div>
               <Label htmlFor="date-filter">Date</Label>
               <Popover>
