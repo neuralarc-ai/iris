@@ -133,3 +133,45 @@
   pointer-events: none;
   z-index: 999;
 }
+
+/* PIN Input Custom Styles */
+.pin-input {
+  caret-color: #fff !important;
+}
+
+.pin-input[type="password"] {
+  -webkit-text-security: disc;
+  text-security: disc;
+}
+
+.pin-input[type="password"]::placeholder {
+  -webkit-text-security: none;
+  text-security: none;
+}
+
+/* Ensure password dots are visible and properly sized */
+.pin-input[type="password"]::-webkit-password-decoration {
+  font-size: 2.5rem;
+  font-weight: 700;
+}
+
+/* Firefox specific styling for password dots */
+.pin-input[type="password"]::-moz-password-decoration {
+  font-size: 2.5rem;
+  font-weight: 700;
+}
+
+/* Enhanced cursor visibility */
+.pin-input:focus {
+  caret-color: #fff !important;
+  animation: cursor-blink 1s infinite;
+}
+
+@keyframes cursor-blink {
+  0%, 50% {
+    caret-color: #fff;
+  }
+  51%, 100% {
+    caret-color: transparent;
+  }
+}

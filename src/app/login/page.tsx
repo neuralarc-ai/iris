@@ -37,7 +37,7 @@ export default function LoginPage() {
           animate={shake ? { x: [0, -10, 10, -8, 8, -4, 4, 0] } : { opacity: 1, y: 0 }}
           transition={shake ? { duration: 0.5, ease: 'easeInOut' } : { duration: 0.6, ease: 'easeOut' }}
         >
-          <Card className="w-full max-w-[478px] shadow-[5px_5px_14px_0_#2B252145] md:p-6 sm:min-h-[700px] bg-[url('/images/login-card-bg.png')] bg-cover bg-center bg-no-repeat border-none flex flex-col justify-center relative overflow-visible">
+          <Card className="w-full max-w-[478px] shadow-[5px_5px_14px_0_#2B252145] md:p-6 sm:min-h-[700px] bg-[url('/images/login-card-bg.png')] bg-cover bg-center bg-no-repeat border-none flex flex-col justify-center relative overflow-visible rounded-3xl">
             <div className="absolute top-6 right-4 z-10">
               <Image src="/images/neuralarc-logo.svg" alt="NeuralArc Logo" width={104} height={32} priority className="object-contain w-auto h-auto"/>
             </div>

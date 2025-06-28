@@ -114,13 +114,17 @@ export default function PinLoginForm({ onError }: { onError?: () => void } = {})
               onKeyDown={(e) => handleKeyDown(e, index)}
               onPaste={index === 0 ? handlePaste : undefined}
               ref={(el) => { inputRefs.current[index] = el; }}
-              className="w-[45px] h-[58px] sm:w-[65px] sm:h-[78px] text-center text-3xl font-mono rounded-[8px] border-none outline-none focus:ring-2 focus:ring-white/60 bg-transparent backdrop-blur-[13px] text-white mix-blend-plus-lighter z-10 relative"
+              className="w-[45px] h-[58px] sm:w-[65px] sm:h-[78px] text-center text-3xl font-mono rounded-[8px] border-none outline-none focus:ring-2 focus:ring-white/60 bg-transparent backdrop-blur-[13px] text-white mix-blend-plus-lighter z-10 relative cursor-text pin-input"
               style={{
                 boxShadow: `inset 1.89px 0.65px 3.88px 0px #FFFFFF2E, inset 3.12px 1.07px 7.75px 0px #FFFFFF00, 2px 3px 3.04px 0px #00000012`,
                 WebkitBoxShadow: `inset 1.89px 0.65px 3.88px 0px #FFFFFF2E, inset 3.12px 1.07px 7.75px 0px #FFFFFF00, 2px 3px 3.04px 0px #00000012`,
                 mixBlendMode: 'plus-lighter',
                 color: 'transparent',
                 textShadow: digit ? '0 0 0 #fff' : 'none',
+                caretColor: '#fff',
+                fontSize: digit ? '1.875rem' : '2.5rem',
+                fontWeight: digit ? '400' : '700',
+                letterSpacing: digit ? '0' : '0.1em',
               }}
               aria-label={`PIN digit ${index + 1}`}
               disabled={isLoading}

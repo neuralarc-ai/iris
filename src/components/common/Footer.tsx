@@ -2,7 +2,7 @@ import React from 'react';
 
 export default function Footer() {
   return (
-    <footer className="w-full py-6 px-4 border-t border-muted-foreground/10 bg-background text-center text-sm text-muted-foreground flex flex-col items-center">
+    <footer className="w-full py-6 px-4 border-t border-muted-foreground/10 bg-[#202020] text-center text-sm text-[#798682] flex flex-col items-center">
       <div className="flex flex-wrap items-center justify-center gap-2">
         <a href="#" className="hover:underline">Terms of use</a>
         <span className="mx-1">&bull;</span>

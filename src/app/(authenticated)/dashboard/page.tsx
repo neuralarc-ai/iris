@@ -15,6 +15,7 @@ import UpdateItem from '@/components/updates/UpdateItem';
 import OpportunityCard from '@/components/opportunities/OpportunityCard';
 import { supabase } from '@/lib/supabaseClient';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
+import Image from 'next/image';
 
 interface OpportunityWithForecast extends Opportunity {
   forecast?: OpportunityForecast;
@@ -22,13 +23,22 @@ interface OpportunityWithForecast extends Opportunity {
 
 // Status to color mapping
 const statusColorMap = {
-  "Scope Of Work": "#916D5B",
-  "Proposal": "#97A487",
-  "Negotiation": "#3987BE",
-  "On Hold": "#D48EA3",
-  "Win": "#2B2521",
-  "Loss": "#2B2521"
+  "Scope Of Work": "#C57E94",
+  "Proposal": "#4B7B9D",
+  "Negotiation": "#5E6156",
+  "On Hold": "#998876",
+  "Win": "#916D5B",
+  "Loss": "#CBCAC5"
 };
+
+const statusOrder = [
+  "Scope Of Work",
+  "Proposal",
+  "Negotiation",
+  "On Hold",
+  "Win",
+  "Loss"
+];
 
 export default function DashboardPage() {
   const [forecastedOpportunities, setForecastedOpportunities] = useState<OpportunityWithForecast[]>([]);
@@ -38,6 +48,7 @@ export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [opportunityStatusCounts, setOpportunityStatusCounts] = useState<{ name: string, count: number }[]>([]);
 
   // Fetch current user ID on component mount
   useEffect(() => {
@@ -53,6 +64,29 @@ export default function DashboardPage() {
 
     setIsLoading(true);
     try {
+      // Fetch all opportunities for the current user (for status counts)
+      const { data: allOpportunities, error: allOpportunitiesError } = await supabase
+        .from('opportunity')
+        .select('status')
+        .eq('owner_id', currentUserId);
+
+      if (allOpportunitiesError) {
+        console.error('Error fetching all opportunities for status counts:', allOpportunitiesError);
+        setOpportunityStatusCounts([]);
+      } else if (allOpportunities) {
+        // Count each status
+        const counts: Record<string, number> = {
+          "Scope Of Work": 0, "Proposal": 0, "Negotiation": 0,
+          "On Hold": 0, "Win": 0, "Loss": 0,
+        };
+        allOpportunities.forEach((opp: any) => {
+          if (counts.hasOwnProperty(opp.status)) {
+            counts[opp.status]++;
+          }
+        });
+        setOpportunityStatusCounts(statusOrder.map(name => ({ name, count: counts[name] })));
+      }
+
       // Fetch latest 2 updates for the current user
       const { data: updatesData, error: updatesError } = await supabase
         .from('update')
@@ -183,19 +217,8 @@ export default function DashboardPage() {
     }
   }, [currentUserId]);
 
-  const opportunityStatusData = useMemo(() => {
-    const counts: Record<string, number> = {
-      "Scope Of Work": 0, "Proposal": 0, "Negotiation": 0,
-      "On Hold": 0, "Win": 0, "Loss": 0,
-    };
-    mockOpportunities.forEach(opp => { 
-      counts[opp.status] = (counts[opp.status] || 0) + 1; 
-    });
-    return Object.entries(counts).map(([name, value]) => ({ name, count: value })).filter(item => item.count > 0);
-  }, []);
-
   return (
-    <div className="max-w-[1440px] px-4 mx-auto w-full space-y-10 md:space-y-12"> 
+    <div className="max-w-[1440px] px-4 mx-auto w-full pb-8 space-y-10 md:space-y-12"> 
       <PageTitle title="Intelligent Sales Dashboard">
         <div className="flex items-center gap-2">
           {lastRefreshed && (
@@ -210,10 +233,10 @@ export default function DashboardPage() {
         </div>
       </PageTitle>
 
-      <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300 h-40 relative overflow-hidden">
-        <img src="/images/ai-forecast.png" alt="AI Forecast" className="absolute inset-0 w-full h-full object-cover" />
+      <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300 h-40 relative overflow-hidden border-none">
+        <Image src="/images/ai-forecast.png" alt="AI Forecast" fill className="absolute inset-0 w-full h-full object-cover" priority />
         <div className="relative z-10 flex items-center h-full pl-8">
-          <span className="text-3xl font-bold text-white tracking-wide drop-shadow-lg">AI Features Coming Soon !</span>
+          <span className="text-3xl font-bold text-white drop-shadow-lg">AI Features Coming Soon!</span>
         </div>
       </Card>
 
@@ -234,11 +257,11 @@ export default function DashboardPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="flex-grow">
-                {isLoading && opportunityStatusData.length === 0 ? (
+                {isLoading && opportunityStatusCounts.length === 0 ? (
                   <div className="h-64 bg-[#CBCAC5]/50 rounded animate-pulse"></div>
-                ) : opportunityStatusData.length > 0 ? (
+                ) : opportunityStatusCounts.length > 0 ? (
                   <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={opportunityStatusData} layout="vertical" margin={{ top: 5, right: 20, left: 20, bottom: 5 }}>
+                    <BarChart data={opportunityStatusCounts} layout="vertical" margin={{ top: 5, right: 20, left: 20, bottom: 5 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#CBCAC5" />
                       <XAxis type="number" stroke="#55504C" fontSize={12} />
                       <YAxis dataKey="name" type="category" stroke="#55504C" fontSize={12} width={100} interval={0}/>
@@ -254,8 +277,8 @@ export default function DashboardPage() {
                       />
                       <Legend wrapperStyle={{fontSize: "12px", paddingTop: "10px", color: '#55504C'}}/>
                       <Bar dataKey="count">
-                        {opportunityStatusData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={statusColorMap[entry.name as keyof typeof statusColorMap] || "#916D5B"} />
+                        {opportunityStatusCounts.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={statusColorMap[entry.name as keyof typeof statusColorMap] || "#CBCAC5"} />
                         ))}
                       </Bar>
                     </BarChart>
