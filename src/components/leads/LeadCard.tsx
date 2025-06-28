@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Users, User, Mail, Phone, Eye, CheckSquare, FileWarning, CalendarPlus, History, Linkedin, MapPin, Trash2, Pencil, X, FileText } from 'lucide-react';
+import { Users, User, Mail, Phone, Eye, CheckSquare, FileWarning, CalendarPlus, History, Linkedin, MapPin, Trash2, Pencil, X, FileText, Building2, UserCheck, Clock, Calendar as CalendarIcon, Activity, PlusCircle } from 'lucide-react';
 import type { Lead, Update, LeadStatus } from '@/types';
 import { add, formatDistanceToNow, format, parseISO } from 'date-fns';
 import { convertLeadToAccount, deleteLead } from '@/lib/data';
@@ -20,6 +20,7 @@ import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { countries } from '@/lib/countryData';
+import AddOpportunityDialog from '@/components/opportunities/AddOpportunityDialog';
 
 interface LeadCardProps {
   lead: Lead;
@@ -48,12 +49,12 @@ const getStatusBadgeVariant = (status: Lead['status']): "default" | "secondary" 
 
 const getStatusBadgeColorClasses = (status: Lead['status']): string => {
   switch (status) {
-    case 'New': return 'bg-blue-500/20 text-blue-700 border-blue-500/30';
-    case 'Contacted': return 'bg-sky-500/20 text-sky-700 border-sky-500/30';
-    case 'Qualified': return 'bg-teal-500/20 text-teal-700 border-teal-500/30';
-    case 'Proposal Sent': return 'bg-indigo-500/20 text-indigo-700 border-indigo-500/30';
-    case 'Converted to Account': return 'bg-green-500/20 text-green-700 border-green-500/30';
-    case 'Lost': return 'bg-red-500/20 text-red-700 border-red-500/30';
+    case 'New': return 'bg-[#C57E94]/10 text-[#C57E94] border-[#C57E94]/20';
+    case 'Contacted': return 'bg-[#4B7B9D]/10 text-[#4B7B9D] border-[#4B7B9D]/20';
+    case 'Qualified': return 'bg-[#5E6156]/10 text-[#5E6156] border-[#5E6156]/20';
+    case 'Proposal Sent': return 'bg-[#998876]/10 text-[#998876] border-[#998876]/20';
+    case 'Converted to Account': return 'bg-[#916D5B]/10 text-[#916D5B] border-[#916D5B]/20';
+    case 'Lost': return 'bg-[#CBCAC5]/10 text-[#CBCAC5] border-[#CBCAC5]/20';
     default: return 'bg-slate-500/20 text-slate-700 border-slate-500/30';
   }
 }
@@ -61,14 +62,14 @@ const getStatusBadgeColorClasses = (status: Lead['status']): string => {
 const getUpdateTypeIcon = (type: Update['type']) => {
   switch (type) {
     case 'Call':
-      return <Phone className="h-4 w-4 text-blue-500" />;
+      return <Phone className="h-4 w-4 text-[#4B7B9D]" />;
     case 'Email':
-      return <Mail className="h-4 w-4 text-green-500" />;
+      return <Mail className="h-4 w-4 text-[#C57E94]" />;
     case 'Meeting':
-      return <Users className="h-4 w-4 text-purple-500" />;
+      return <Users className="h-4 w-4 text-[#5E6156]" />;
     case 'General':
     default:
-      return <FileText className="h-4 w-4 text-gray-500" />;
+      return <FileText className="h-4 w-4 text-[#998876]" />;
   }
 };
 
@@ -97,6 +98,7 @@ export default function LeadCard({ lead, onLeadConverted, onLeadDeleted, onActiv
   ];
   const [editStatus, setEditStatus] = React.useState<LeadStatus>(lead.status);
   const [isUpdatingStatus, setIsUpdatingStatus] = React.useState(false);
+  const [isAddOpportunityOpen, setIsAddOpportunityOpen] = React.useState(false);
 
   // Fetch existing logs from Supabase
   useEffect(() => {
@@ -201,16 +203,19 @@ export default function LeadCard({ lead, onLeadConverted, onLeadDeleted, onActiv
         .delete()
         .eq('id', lead.id);
 
-      if (error) {
-        throw error;
-      }
+      if (error) throw error;
 
-      toast({ title: "Lead Deleted", description: lead.companyName + " has been deleted.", variant: "destructive" });
-      onLeadDeleted && onLeadDeleted(lead.id);
+      toast({
+        title: "Lead Deleted",
+        description: `${lead.companyName} has been deleted successfully.`,
+        variant: "destructive"
+      });
+
+      if (onLeadDeleted) onLeadDeleted(lead.id);
     } catch (error) {
       console.error('Lead deletion failed:', error);
       toast({ 
-        title: "Delete Failed", 
+        title: "Deletion Failed", 
         description: error instanceof Error ? error.message : "Could not delete lead.", 
         variant: "destructive" 
       });
@@ -219,44 +224,27 @@ export default function LeadCard({ lead, onLeadConverted, onLeadDeleted, onActiv
 
   const handleLogUpdate = async () => {
     if (!updateType || !updateContent.trim() || !updateDate) {
-      toast({ title: 'Error', description: 'Please fill all fields.', variant: 'destructive' });
+      toast({ title: "Missing Information", description: "Please fill in all required fields.", variant: "destructive" });
       return;
     }
-    
-    // Check for recent duplicate entries (within last 5 seconds)
-    const recentDuplicate = logs.find(log => 
-      log.content === updateContent.trim() && 
-      log.type === updateType &&
-      new Date().getTime() - new Date(log.createdAt).getTime() < 5000
-    );
-    
-    if (recentDuplicate) {
-      console.log('Duplicate activity detected, ignoring');
-      toast({ title: "Warning", description: "This activity was already logged recently.", variant: "destructive" });
-      return;
-    }
-    
+
     setIsLogging(true);
     try {
       const currentUserId = localStorage.getItem('user_id');
       if (!currentUserId) throw new Error('User not authenticated');
 
-      // Save to Supabase
       const { data, error } = await supabase.from('update').insert([
         {
           type: updateType,
-          content: updateContent,
+          content: updateContent.trim(),
           updated_by_user_id: currentUserId,
           date: updateDate.toISOString(),
           lead_id: lead.id,
-          opportunity_id: null,
-          account_id: null,
         }
       ]).select().single();
 
-      if (error) throw error;
+      if (error || !data) throw error || new Error('Failed to log update');
 
-      // Transform the response to match Update interface
       const newUpdate: Update = {
         id: data.id,
         type: data.type,
@@ -269,21 +257,24 @@ export default function LeadCard({ lead, onLeadConverted, onLeadDeleted, onActiv
         accountId: data.account_id,
       };
 
-      // Update local state
       setLogs(prev => [newUpdate, ...prev]);
       setUpdateType('');
       setUpdateContent('');
       setUpdateDate(undefined);
-      toast({ title: 'Update logged', description: 'Your update has been logged.' });
 
-      // Call the optional callback
-      onActivityLogged && onActivityLogged(lead.id, newUpdate);
+      toast({
+        title: "Activity Logged",
+        description: "Your update has been successfully logged.",
+        className: "bg-green-100 dark:bg-green-900 border-green-500"
+      });
+
+      if (onActivityLogged) onActivityLogged(lead.id, newUpdate);
     } catch (error) {
       console.error('Failed to log update:', error);
       toast({ 
-        title: 'Error', 
-        description: error instanceof Error ? error.message : 'Failed to log update. Please try again.', 
-        variant: 'destructive' 
+        title: "Logging Failed", 
+        description: error instanceof Error ? error.message : "Could not log update.", 
+        variant: "destructive" 
       });
     } finally {
       setIsLogging(false);
@@ -295,9 +286,8 @@ export default function LeadCard({ lead, onLeadConverted, onLeadDeleted, onActiv
   };
 
   const handleSaveEdit = () => {
-    // In a real app, update backend here
+    // TODO: Implement save to Supabase
     setEditMode(false);
-    toast({ title: 'Lead updated', description: 'Lead details have been updated.' });
   };
 
   const handleCancelEdit = () => {
@@ -321,32 +311,22 @@ export default function LeadCard({ lead, onLeadConverted, onLeadDeleted, onActiv
       if (error) throw error;
 
       setAssignedUserId(userId);
-      // Update the lead object locally
-      lead.assignedUserId = userId;
-      
-      toast({ 
-        title: 'User Assigned', 
-        description: `Lead assigned to ${users.find(u => u.id === userId)?.name || 'selected user'}.` 
-      });
+      toast({ title: 'Assignment Updated', description: 'Lead has been reassigned successfully.' });
     } catch (error) {
-      console.error('Failed to assign user:', error);
-      toast({ 
-        title: 'Assignment Failed', 
-        description: error instanceof Error ? error.message : 'Failed to assign user to lead.', 
-        variant: 'destructive' 
-      });
+      toast({ title: 'Error', description: 'Failed to reassign lead.', variant: 'destructive' });
     }
   };
 
   const handleStatusChange = async (newStatus: LeadStatus) => {
-    if (newStatus === editStatus) return;
     setIsUpdatingStatus(true);
     try {
       const { error } = await supabase
         .from('lead')
         .update({ status: newStatus })
         .eq('id', lead.id);
+
       if (error) throw error;
+
       setEditStatus(newStatus);
       toast({ title: 'Status updated', description: `Lead status changed to ${newStatus}.` });
       if (onStatusChange) onStatusChange(newStatus);
@@ -361,197 +341,239 @@ export default function LeadCard({ lead, onLeadConverted, onLeadDeleted, onActiv
     <>
       <Card
         className={
-          `shadow-md hover:shadow-lg transition-shadow duration-300 flex flex-col h-full bg-white ${selectMode && selected ? 'ring-2 ring-[#97A487] ring-offset-2' : ''}`
+          `border border-[#CBCAC5] bg-white rounded-lg shadow-sm hover:shadow-md transition-all duration-300 flex flex-col h-full ${selectMode && selected ? 'ring-2 ring-[#97A487] ring-offset-2' : ''}`
         }
         onClick={selectMode ? onSelect : undefined}
         style={selectMode ? { cursor: 'pointer' } : {}}
       >
         <CardHeader className="pb-3">
-          <div className="flex justify-between items-start mb-1">
-            <CardTitle className="text-xl font-headline flex items-center text-foreground">
-              <User className="mr-2 h-5 w-5 text-primary shrink-0" />
-              {lead.companyName}
-            </CardTitle>
-             <Badge
+          <div className="flex justify-between items-start gap-3">
+            <div className="flex-1 min-w-0">
+              <CardTitle className="text-lg font-semibold text-[#282828] truncate">
+                {lead.companyName}
+              </CardTitle>
+              <CardDescription className="text-sm text-[#5E6156] flex items-center mt-1">
+                <User className="mr-2 h-3.5 w-3.5 shrink-0" />
+                {lead.personName}
+              </CardDescription>
+            </div>
+            <Badge
               variant={getStatusBadgeVariant(lead.status)}
-              className={`capitalize whitespace-nowrap ml-2 ${getStatusBadgeColorClasses(lead.status)}`}
+              className={`capitalize whitespace-nowrap text-xs font-medium px-2 py-1 ${getStatusBadgeColorClasses(lead.status)}`}
             >
               {lead.status}
             </Badge>
           </div>
-          <CardDescription className="text-sm text-muted-foreground flex items-center">
-              <Users className="mr-2 h-4 w-4 shrink-0"/> {lead.personName}
-          </CardDescription>
         </CardHeader>
-        <CardContent className="flex-grow space-y-2.5 text-sm" onClick={selectMode ? undefined : () => setIsDialogOpen(true)} style={selectMode ? {} : { cursor: 'pointer' }}>
+        
+        <CardContent className="flex-grow space-y-3 text-sm" onClick={selectMode ? undefined : () => setIsDialogOpen(true)} style={selectMode ? {} : { cursor: 'pointer' }}>
           {lead.email && (
-            <div className="flex items-center text-muted-foreground">
-              <Mail className="mr-2 h-4 w-4 shrink-0" />
-              <a href={`mailto:${lead.email}`} className="hover:text-primary hover:underline">{lead.email}</a>
-            </div>
-          )}
-          {lead.phone && (
-            <div className="flex items-center text-muted-foreground">
-              <Phone className="mr-2 h-4 w-4 shrink-0" />
-              <span>{lead.phone}</span>
-            </div>
-          )}
-          {lead.linkedinProfileUrl && (
-            <div className="flex items-center text-muted-foreground">
-              <Linkedin className="mr-2 h-4 w-4 shrink-0" />
-              <a href={lead.linkedinProfileUrl} target="_blank" rel="noopener noreferrer" className="hover:text-primary hover:underline truncate">
-                {lead.linkedinProfileUrl.replace(/^https?:\/\/(www\.)?linkedin\.com\/in\//, '').replace(/\/$/, '')}
+            <div className="flex items-center text-[#5E6156]">
+              <Mail className="mr-2 h-3.5 w-3.5 shrink-0 text-[#C57E94]" />
+              <a href={`mailto:${lead.email}`} className="hover:text-[#C57E94] hover:underline truncate text-sm">
+                {lead.email}
               </a>
             </div>
           )}
+          
+          {lead.phone && (
+            <div className="flex items-center text-[#5E6156]">
+              <Phone className="mr-2 h-3.5 w-3.5 shrink-0 text-[#4B7B9D]" />
+              <span className="text-sm">{lead.phone}</span>
+            </div>
+          )}
+          
           {lead.country && (
-            <div className="flex items-center text-muted-foreground">
-              <MapPin className="mr-2 h-4 w-4 shrink-0" />
-              <span>{lead.country}</span>
+            <div className="flex items-center text-[#5E6156]">
+              <MapPin className="mr-2 h-3.5 w-3.5 shrink-0 text-[#998876]" />
+              <span className="text-sm">{lead.country}</span>
             </div>
           )}
+          
           {assignedUser && (
-            <div className="flex items-center text-muted-foreground">
-              <Users className="mr-2 h-4 w-4 shrink-0" />
-              <span>Assigned to: {assignedUser}</span>
+            <div className="flex items-center text-[#5E6156]">
+              <UserCheck className="mr-2 h-3.5 w-3.5 shrink-0 text-[#916D5B]" />
+              <span className="text-sm">Assigned to: {assignedUser}</span>
             </div>
           )}
-          <div className="pt-2 space-y-1">
-              <div className="text-xs text-muted-foreground flex items-center">
-                  <CalendarPlus className="mr-1.5 h-3.5 w-3.5 shrink-0"/> Created: {formatDistanceToNow(new Date(lead.createdAt), { addSuffix: true })}
-              </div>
-               <div className="text-xs text-muted-foreground flex items-center">
-                  <History className="mr-1.5 h-3.5 w-3.5 shrink-0"/> Last Updated: {formatDistanceToNow(new Date(lead.updatedAt), { addSuffix: true })}
-              </div>
+          
+          <div className="pt-2 space-y-1.5 border-t border-[#E5E3DF]">
+            <div className="text-xs text-[#998876] flex items-center">
+              <CalendarIcon className="mr-1.5 h-3 w-3 shrink-0" />
+              Created {formatDistanceToNow(new Date(lead.createdAt), { addSuffix: true })}
+            </div>
+            <div className="text-xs text-[#998876] flex items-center">
+              <Clock className="mr-1.5 h-3 w-3 shrink-0" />
+              Updated {formatDistanceToNow(new Date(lead.updatedAt), { addSuffix: true })}
+            </div>
           </div>
         </CardContent>
-        <CardFooter className="pt-4 border-t mt-auto">
-          <Button variant="outline" size="sm" className="mr-auto rounded-[2px]" onClick={() => setIsViewDialogOpen(true)}>
-            <Eye className="mr-2 h-4 w-4" />
-            View
-          </Button>
-          <TooltipProvider delayDuration={0}>
-          {canConvert ? (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button size="sm" variant="add" className='rounded-[2px] p-2'><CheckSquare className="h-4 w-4" /></Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Convert Lead to Account?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          Are you sure you want to convert this lead to an account? This action cannot be undone and the lead will be moved to your accounts list.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleConvertLead} className="bg-[#2B2521] text-white rounded-[4px] border-0 hover:bg-[#3a322c]">Convert</AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </TooltipTrigger>
-                <TooltipContent side="top" align="center">Convert</TooltipContent>
-              </Tooltip>
-          ) : (
-            <Button size="sm" variant="outline" disabled>
-              {lead.status === "Lost" ? <FileWarning className="mr-2 h-4 w-4" /> : <CheckSquare className="mr-2 h-4 w-4" />}
-              {lead.status === "Lost" ? "Lost" : "Converted"}
+        
+        <CardFooter className="pt-3 border-t border-[#E5E3DF] mt-auto">
+          <div className="flex items-center justify-between w-full">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="text-xs border-[#CBCAC5] text-[#5E6156] hover:bg-[#F8F7F3] hover:text-[#282828] rounded-md"
+              onClick={() => setIsViewDialogOpen(true)}
+            >
+              <Eye className="mr-1.5 h-3.5 w-3.5" />
+              View
             </Button>
-          )}
-            {canConvert && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button size="sm" variant="delete" className="ml-2 rounded-[4px] p-2"><Trash2 className="h-4 w-4" /></Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Delete Lead?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          Are you sure you want to delete this lead? This action cannot be undone.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleDeleteLead} className="bg-[#916D5B] text-white rounded-[4px] border-0 hover:bg-[#a98a77]">Delete</AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </TooltipTrigger>
-                <TooltipContent side="top" align="center">Delete</TooltipContent>
-              </Tooltip>
-            )}
-          </TooltipProvider>
+            
+            <div className="flex items-center gap-2">
+              <TooltipProvider delayDuration={0}>
+                {canConvert && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button 
+                        size="sm" 
+                        className="rounded-sm p-2 h-8 w-8 bg-[#998876] text-white hover:bg-[#998876]/80 border-0"
+                        onClick={() => setIsAddOpportunityOpen(true)}
+                      >
+                        <PlusCircle className="h-3.5 w-3.5" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" align="center">New Opportunity</TooltipContent>
+                  </Tooltip>
+                )}
+                
+                {canConvert ? (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button 
+                            size="sm" 
+                            variant="add" 
+                            className="rounded-sm p-2 h-8 w-8"
+                          >
+                            <CheckSquare className="h-3.5 w-3.5" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Convert Lead to Account?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Are you sure you want to convert this lead to an account? This action cannot be undone and the lead will be moved to your accounts list.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={handleConvertLead} className="bg-[#2B2521] text-white rounded-md border-0 hover:bg-[#3a322c]">Convert</AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" align="center">Convert Lead</TooltipContent>
+                  </Tooltip>
+                ) : (
+                  <Button size="sm" variant="outline" disabled className="rounded-sm p-2 h-8 w-8">
+                    {lead.status === "Lost" ? <FileWarning className="h-3.5 w-3.5" /> : <CheckSquare className="h-3.5 w-3.5" />}
+                  </Button>
+                )}
+                
+                {canConvert && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button 
+                            size="sm" 
+                            variant="delete" 
+                            className="rounded-sm p-2 h-8 w-8"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Delete Lead?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Are you sure you want to delete this lead? This action cannot be undone.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={handleDeleteLead} className="bg-[#916D5B] text-white rounded-md border-0 hover:bg-[#a98a77]">Delete</AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" align="center">Delete</TooltipContent>
+                  </Tooltip>
+                )}
+              </TooltipProvider>
+            </div>
+          </div>
         </CardFooter>
       </Card>
+
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-xl bg-white">
-          <DialogHeader>
+        <DialogContent className="sm:max-w-xl bg-white border border-[#CBCAC5] rounded-lg">
+          <DialogHeader className="pb-4 border-b border-[#E5E3DF]">
             <DialogTitle className="flex items-center gap-2">
               {editMode ? (
                 <Input
                   value={editLead.companyName}
                   onChange={e => handleEditChange('companyName', e.target.value)}
-                  className="font-bold text-3xl border-none bg-transparent px-0 focus:ring-0 focus:outline-none"
+                  className="font-bold text-xl border-none bg-transparent px-0 focus:ring-0 focus:outline-none text-[#282828]"
                   placeholder="Company Name"
                 />
               ) : (
-                <span className="font-bold text-3xl">{editLead.companyName}</span>
+                <span className="font-bold text-xl text-[#282828]">{editLead.companyName}</span>
               )}
               {!editMode && (
-                <Button variant="ghost" size="icon" className="ml-2" onClick={() => setEditMode(true)}>
-                  <Pencil className="h-5 w-5" />
+                <Button variant="ghost" size="icon" className="hover:bg-[#F8F7F3]" onClick={() => setEditMode(true)}>
+                  <Pencil className="h-4 w-4 text-[#5E6156]" />
                 </Button>
               )}
             </DialogTitle>
-            <div className="flex flex-col gap-2 mt-2">
-              <div className="flex flex-col gap-1">
-                <span className="font-semibold text-[#55504C]">Name:</span>
+            <div className="flex flex-col gap-3 mt-4">
+              <div className="flex flex-row items-center gap-1">
+                <span className="text-sm font-medium text-[#5E6156]">Contact Person: </span>
                 {editMode ? (
                   <Input
                     value={editLead.personName}
                     onChange={e => handleEditChange('personName', e.target.value)}
-                    className="border border-muted/30 bg-[#EFEDE7] px-2 py-1 rounded focus:ring-0 focus:outline-none"
+                    className="border border-[#CBCAC5] bg-[#F8F7F3] px-3 py-2 rounded-md focus:ring-1 focus:ring-[#916D5B] focus:border-[#916D5B]"
                     placeholder="Person Name"
                   />
                 ) : (
-                  <span className="text-[#282828]">{editLead.personName}</span>
+                  <span className="text-[#282828] font-medium">{editLead.personName}</span>
                 )}
               </div>
               <div>
-                <span className="font-semibold text-[#55504C]">Email:</span>{' '}
+                <span className="text-sm font-medium text-[#5E6156]">Email Address: </span>
                 {editMode ? (
                   <Input
                     value={editLead.email}
                     onChange={e => handleEditChange('email', e.target.value)}
-                    className="border-muted/30 bg-[#EFEDE7] px-2 py-1 focus:ring-0 focus:outline-none"
+                    className="border border-[#CBCAC5] bg-[#F8F7F3] px-3 py-2 rounded-md focus:ring-1 focus:ring-[#916D5B] focus:border-[#916D5B]"
                     placeholder="Email"
                   />
                 ) : (
-                  <span className="text-[#282828]">{editLead.email}</span>
+                  <span className="text-[#282828] font-medium">{editLead.email}</span>
                 )}
               </div>
               <div>
-                <span className="font-semibold text-[#55504C]">Number:</span>{' '}
+                <span className="text-sm font-medium text-[#5E6156]">Phone Number: </span>
                 {editMode ? (
                   <Input
                     value={editLead.phone}
                     onChange={e => handleEditChange('phone', e.target.value)}
-                    className="border-muted/30 bg-[#EFEDE7] px-2 py-1 focus:ring-0 focus:outline-none"
+                    className="border border-[#CBCAC5] bg-[#F8F7F3] px-3 py-2 rounded-md focus:ring-1 focus:ring-[#916D5B] focus:border-[#916D5B]"
                     placeholder="Phone"
                   />
                 ) : (
-                  <span className="text-[#282828]">{editLead.phone || 'N/A'}</span>
+                  <span className="text-[#282828] font-medium">{editLead.phone || 'N/A'}</span>
                 )}
               </div>
               <div>
-                <span className="font-semibold text-[#55504C]">Location:</span>
+                <span className="text-sm font-medium text-[#5E6156]">Location: </span>
                 {editMode ? (
                   <Select value={editLead.country} onValueChange={value => handleEditChange('country', value)}>
-                    <SelectTrigger className="border border-muted/30 bg-[#EFEDE7] px-2 py-1 rounded focus:ring-0 focus:outline-none">
+                    <SelectTrigger className="border border-[#CBCAC5] bg-[#F8F7F3] px-3 py-2 rounded-md focus:ring-1 focus:ring-[#916D5B] focus:border-[#916D5B]">
                       <SelectValue placeholder="Select country" />
                     </SelectTrigger>
                     <SelectContent>
@@ -561,17 +583,17 @@ export default function LeadCard({ lead, onLeadConverted, onLeadDeleted, onActiv
                     </SelectContent>
                   </Select>
                 ) : (
-                  <span className="text-[#282828]">{editLead.country || 'N/A'}</span>
+                  <span className="text-[#282828] font-medium">{editLead.country || 'N/A'}</span>
                 )}
               </div>
               <div>
-                <span className="font-semibold text-[#55504C]">Status:</span>
+                <span className="text-sm font-medium text-[#5E6156]">Status</span>
                 <Select
                   value={editStatus}
                   onValueChange={value => handleStatusChange(value as LeadStatus)}
                   disabled={isUpdatingStatus || editStatus === 'Converted to Account' || editStatus === 'Lost'}
                 >
-                  <SelectTrigger className="border border-muted/30 bg-[#EFEDE7] px-2 py-1 rounded focus:ring-0 focus:outline-none mt-1">
+                  <SelectTrigger className="border border-[#CBCAC5] bg-[#F8F7F3] px-3 py-2 rounded-md focus:ring-1 focus:ring-[#916D5B] focus:border-[#916D5B] mt-1">
                     <SelectValue placeholder="Select status" />
                   </SelectTrigger>
                   <SelectContent>
@@ -580,34 +602,34 @@ export default function LeadCard({ lead, onLeadConverted, onLeadDeleted, onActiv
                     ))}
                   </SelectContent>
                 </Select>
-                {isUpdatingStatus && <span className="ml-2 text-xs text-muted-foreground">Updating...</span>}
+                {isUpdatingStatus && <span className="ml-2 text-xs text-[#998876]">Updating...</span>}
               </div>
             </div>
           </DialogHeader>
-          <div className="mt-4">
+          <div className="mt-6">
             {!editMode && logs.length > 0 && (
               <>
-                <div className="text-xs font-semibold text-muted-foreground uppercase mb-1">Activity Updates</div>
+                <div className="text-xs font-semibold text-[#5E6156] uppercase tracking-wide mb-3">Recent Activity</div>
                 <div className="relative">
-                  <div className="space-y-2 max-h-36 overflow-y-auto pr-1">
+                  <div className="space-y-2 max-h-48 overflow-y-auto pr-2">
                     {logs.map((log, idx) => (
-                      <div key={log.id} className="flex items-start space-x-3 p-3 rounded-r-lg bg-[#9A8A744c] border-l-4 border-muted">
+                      <div key={log.id} className="flex items-start space-x-3 p-3 rounded-lg bg-[#F8F7F3] border border-[#E5E3DF] hover:bg-[#EFEDE7] transition-colors">
                         <div className="flex-shrink-0 mt-1">
                           {getUpdateTypeIcon(log.type)}
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between mb-1">
-                            <p className="text-sm font-medium text-foreground line-clamp-2">
+                            <p className="text-sm font-medium text-[#282828] line-clamp-2">
                               {log.content}
                             </p>
-                            <span className="text-xs text-muted-foreground ml-2">
+                            <span className="text-xs text-[#998876] ml-2 font-medium">
                               {format(new Date(log.date), 'MMM dd')}
                             </span>
                           </div>
                           <div className="flex items-center space-x-2">
-                            <Badge variant="outline" className="text-xs">{log.type}</Badge>
+                            <Badge variant="outline" className="text-xs bg-white border-[#CBCAC5] text-[#5E6156] font-medium">{log.type}</Badge>
                             {log.nextActionDate && (
-                              <span className="text-xs text-blue-600 font-medium">
+                              <span className="text-xs text-[#4B7B9D] font-medium">
                                 Next: {format(parseISO(log.nextActionDate), 'MMM dd, yyyy')}
                               </span>
                             )}
@@ -616,26 +638,37 @@ export default function LeadCard({ lead, onLeadConverted, onLeadDeleted, onActiv
                       </div>
                     ))}
                   </div>
-                  {/* Gradient overlay at the bottom, only if more than one log */}
-                  {logs.length > 2 && (
+                  {logs.length > 3 && (
                     <div className="pointer-events-none absolute left-0 right-0 bottom-0 h-8" style={{background: 'linear-gradient(to bottom, transparent, #fff 90%)'}} />
                   )}
                 </div>
               </>
             )}
             {editMode ? (
-              <div className="flex justify-end gap-2 mt-4">
-                <Button variant="outline" onClick={handleCancelEdit}>Cancel</Button>
-                <Button variant="add" onClick={handleSaveEdit}>Save</Button>
+              <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-[#E5E3DF]">
+                <Button 
+                  variant="outline" 
+                  onClick={handleCancelEdit} 
+                  className="border-[#CBCAC5] text-[#5E6156] hover:bg-[#F8F7F3] hover:text-[#282828] rounded-md"
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  variant="add" 
+                  onClick={handleSaveEdit}
+                  className="bg-[#2B2521] text-white hover:bg-[#3a322c] rounded-md"
+                >
+                  Save Changes
+                </Button>
               </div>
             ) : (
-              <form className="space-y-4 mt-3" onSubmit={(e) => e.preventDefault()}>
-                <div className="flex flex-col md:flex-row gap-2">
+              <form className="space-y-4 mt-4" onSubmit={(e) => e.preventDefault()}>
+                <div className="flex flex-col md:flex-row gap-3">
                   <div className="flex-1 min-w-0">
-                    <Label htmlFor="update-type">Update Type *</Label>
+                    <Label htmlFor="update-type" className="text-sm font-medium text-[#5E6156] mb-2 block">Activity Type</Label>
                     <Select value={updateType} onValueChange={setUpdateType}>
-                      <SelectTrigger id="update-type" className="w-full mt-1">
-                        <SelectValue placeholder="Select update type" />
+                      <SelectTrigger id="update-type" className="w-full border border-[#CBCAC5] bg-[#F8F7F3] focus:ring-1 focus:ring-[#916D5B] focus:border-[#916D5B] rounded-md">
+                        <SelectValue placeholder="Select activity type" />
                       </SelectTrigger>
                       <SelectContent>
                         {updateTypes.map(type => (
@@ -645,7 +678,7 @@ export default function LeadCard({ lead, onLeadConverted, onLeadDeleted, onActiv
                     </Select>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <Label htmlFor="update-date">Date *</Label>
+                    <Label htmlFor="update-date" className="text-sm font-medium text-[#5E6156] mb-2 block">Date</Label>
                     <Popover>
                       <PopoverTrigger asChild>
                         <Input
@@ -654,10 +687,10 @@ export default function LeadCard({ lead, onLeadConverted, onLeadDeleted, onActiv
                           value={updateDate ? format(updateDate, 'dd/MM/yyyy') : ''}
                           placeholder="dd/mm/yyyy"
                           readOnly
-                          className="mt-1 cursor-pointer bg-white"
+                          className="cursor-pointer bg-[#F8F7F3] border-[#CBCAC5] focus:ring-1 focus:ring-[#916D5B] focus:border-[#916D5B] rounded-md"
                         />
                       </PopoverTrigger>
-                      <PopoverContent align="start" className="p-0 w-auto border-none bg-[#CFD4C9] rounded-sm">
+                      <PopoverContent align="start" className="p-0 w-auto border-[#CBCAC5] bg-white rounded-md shadow-lg">
                         <Calendar
                           mode="single"
                           selected={updateDate}
@@ -669,24 +702,34 @@ export default function LeadCard({ lead, onLeadConverted, onLeadDeleted, onActiv
                   </div>
                 </div>
                 <div>
-                  <Label htmlFor="update-content">Content *</Label>
+                  <Label htmlFor="update-content" className="text-sm font-medium text-[#5E6156] mb-2 block">Activity Details</Label>
                   <Textarea
                     id="update-content"
                     value={updateContent}
                     onChange={e => setUpdateContent(e.target.value)}
                     placeholder="Describe the call, meeting, email, or general update..."
-                    className="min-h-[80px] resize-none"
+                    className="min-h-[100px] resize-none border-[#CBCAC5] bg-[#F8F7F3] focus:ring-1 focus:ring-[#916D5B] focus:border-[#916D5B] rounded-md"
                   />
                 </div>
-                <DialogFooter>
+                <DialogFooter className="pt-4">
                   <Button 
                     type="button" 
                     variant="add" 
-                    className="w-full mt-2" 
+                    className="w-full bg-[#2B2521] text-white hover:bg-[#3a322c] rounded-md" 
                     onClick={handleLogUpdate} 
                     disabled={isLogging || !updateType || !updateContent.trim() || !updateDate}
                   >
-                    {isLogging ? 'Adding...' : 'Add Activity'}
+                    {isLogging ? (
+                      <>
+                        <Activity className="mr-2 h-4 w-4 animate-spin" />
+                        Adding Activity...
+                      </>
+                    ) : (
+                      <>
+                        <Activity className="mr-2 h-4 w-4" />
+                        Add Activity
+                      </>
+                    )}
                   </Button>
                 </DialogFooter>
               </form>
@@ -694,26 +737,53 @@ export default function LeadCard({ lead, onLeadConverted, onLeadDeleted, onActiv
           </div>
         </DialogContent>
       </Dialog>
+
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
         <DialogContent className="sm:max-w-lg bg-white">
           <DialogHeader>
-            <DialogTitle>Lead Details</DialogTitle>
+            <DialogTitle className="text-xl font-semibold text-[#282828]">Lead Details</DialogTitle>
           </DialogHeader>
-          <div className="space-y-3">
-            <div className="grid grid-cols-1 gap-2">
-              <div><span className="font-semibold">Company:</span> {lead.companyName}</div>
-              <div><span className="font-semibold">Contact:</span> {lead.personName}</div>
-              <div><span className="font-semibold">Email:</span> {lead.email}</div>
-              <div><span className="font-semibold">Phone:</span> {lead.phone || 'N/A'}</div>
-              <div><span className="font-semibold">Country:</span> {lead.country || 'N/A'}</div>
-              <div><span className="font-semibold">Status:</span> {lead.status}</div>
-              <div><span className="font-semibold">Created:</span> {formatDistanceToNow(new Date(lead.createdAt), { addSuffix: true })}</div>
-              <div><span className="font-semibold">Last Updated:</span> {formatDistanceToNow(new Date(lead.updatedAt), { addSuffix: true })}</div>
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 gap-3">
+              <div className="flex justify-between">
+                <span className="text-sm font-medium text-[#5E6156]">Company:</span>
+                <span className="text-[#282828] font-medium">{lead.companyName}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-sm font-medium text-[#5E6156]">Contact:</span>
+                <span className="text-[#282828] font-medium">{lead.personName}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-sm font-medium text-[#5E6156]">Email:</span>
+                <span className="text-[#282828] font-medium">{lead.email}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-sm font-medium text-[#5E6156]">Phone:</span>
+                <span className="text-[#282828] font-medium">{lead.phone || 'N/A'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-sm font-medium text-[#5E6156]">Country:</span>
+                <span className="text-[#282828] font-medium">{lead.country || 'N/A'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-sm font-medium text-[#5E6156]">Status:</span>
+                <Badge className={`text-xs ${getStatusBadgeColorClasses(lead.status)}`}>
+                  {lead.status}
+                </Badge>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-sm font-medium text-[#5E6156]">Created:</span>
+                <span className="text-[#282828] font-medium">{formatDistanceToNow(new Date(lead.createdAt), { addSuffix: true })}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-sm font-medium text-[#5E6156]">Last Updated:</span>
+                <span className="text-[#282828] font-medium">{formatDistanceToNow(new Date(lead.updatedAt), { addSuffix: true })}</span>
+              </div>
             </div>
-            <div className="pt-2">
-              <span className="font-semibold">Assigned To:</span>
+            <div className="pt-3 border-t border-[#E5E3DF]">
+              <span className="text-sm font-medium text-[#5E6156]">Assigned To:</span>
               <Select value={assignedUserId} onValueChange={handleAssignUser}>
-                <SelectTrigger className="w-full mt-1">
+                <SelectTrigger className="w-full mt-2 border-[#CBCAC5] bg-[#F8F7F3] focus:ring-1 focus:ring-[#916D5B] focus:border-[#916D5B]">
                   <SelectValue placeholder="Assign to user" />
                 </SelectTrigger>
                 <SelectContent>
@@ -723,12 +793,19 @@ export default function LeadCard({ lead, onLeadConverted, onLeadDeleted, onActiv
                 </SelectContent>
               </Select>
               {assignedUserObj && (
-                <div className="mt-1 text-sm text-muted-foreground">Currently assigned to: <span className="font-medium">{assignedUserObj.name}</span></div>
+                <div className="mt-2 text-sm text-[#998876]">Currently assigned to: <span className="font-medium text-[#282828]">{assignedUserObj.name}</span></div>
               )}
             </div>
           </div>
         </DialogContent>
       </Dialog>
+
+      <AddOpportunityDialog
+        open={isAddOpportunityOpen}
+        onOpenChange={setIsAddOpportunityOpen}
+        accountId={undefined}
+        key={lead.id}
+      />
     </>
   );
 }

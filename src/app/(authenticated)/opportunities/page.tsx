@@ -5,7 +5,7 @@ import PageTitle from '@/components/common/PageTitle';
 import OpportunityCard from '@/components/opportunities/OpportunityCard';
 import type { Opportunity, OpportunityStatus } from '@/types';
 import { Button } from '@/components/ui/button';
-import { ListFilter, Search, BarChartBig } from 'lucide-react';
+import { ListFilter, Search, BarChartBig, List, Grid, Eye, PlusCircle } from 'lucide-react';
 import Image from 'next/image';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -14,6 +14,8 @@ import { Label } from '@/components/ui/label';
 import AddOpportunityDialog from '@/components/opportunities/AddOpportunityDialog';
 import { supabase } from '@/lib/supabaseClient';
 import { Loader2 } from 'lucide-react';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
 
 interface OpportunityData {
   id: string;
@@ -38,6 +40,9 @@ export default function OpportunitiesPage() {
   const [accountFilter, setAccountFilter] = useState<string | 'all'>('all');
   const [isAddOpportunityDialogOpen, setIsAddOpportunityDialogOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [view, setView] = useState<'grid' | 'table'>('grid');
+  const [owners, setOwners] = useState<Record<string, { name: string; email: string }>>({});
+  const [userRole, setUserRole] = useState<string>('user');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -51,6 +56,7 @@ export default function OpportunitiesPage() {
       // Fetch user role
       const { data: userData } = await supabase.from('users').select('role').eq('id', localUserId).single();
       const userRole = userData?.role || 'user';
+      setUserRole(userRole);
       
       // Fetch accounts
       const { data: accountsData } = await supabase.from('account').select('id, name');
@@ -64,8 +70,21 @@ export default function OpportunitiesPage() {
       const { data, error } = await query;
       if (!error && data) {
         setOpportunities(data);
+        // Fetch owners for all unique owner_ids
+        const ownerIds = Array.from(new Set(data.map((opp: any) => opp.owner_id).filter(Boolean)));
+        if (ownerIds.length > 0) {
+          const { data: usersData } = await supabase.from('users').select('id, name, email').in('id', ownerIds);
+          const ownersMap: Record<string, { name: string; email: string }> = {};
+          usersData?.forEach((user: any) => {
+            ownersMap[user.id] = { name: user.name, email: user.email };
+          });
+          setOwners(ownersMap);
+        } else {
+          setOwners({});
+        }
       } else {
         setOpportunities([]);
+        setOwners({});
       }
       setIsLoading(false);
     };
@@ -136,10 +155,26 @@ export default function OpportunitiesPage() {
       </PageTitle>
 
       <Card className="shadow-sm">
-        <CardHeader className="pb-4">
+        <CardHeader className="pb-4 flex flex-row items-center justify-between">
             <CardTitle className="text-lg flex items-center">
                 <ListFilter className="mr-2 h-5 w-5 text-primary"/> Filter & Search Opportunities
             </CardTitle>
+            <div className="flex items-center gap-2">
+              <TooltipProvider delayDuration={0}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant={view === 'grid' ? 'default' : 'outline'} size="icon" className="rounded-[4px]" onClick={() => setView('grid')}><Grid className="h-5 w-5" /></Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Grid View</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant={view === 'table' ? 'default' : 'outline'} size="icon" className="rounded-[4px]" onClick={() => setView('table')}><List className="h-5 w-5" /></Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Table View</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
@@ -190,36 +225,106 @@ export default function OpportunitiesPage() {
       </Card>
 
       {filteredOpportunities.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-8">
-          {filteredOpportunities.map((opportunity) => (
-            <OpportunityCard
-              key={opportunity.id}
-              opportunity={mapOpportunityFromSupabase(opportunity)}
-              accountName={accounts.find(a => a.id === opportunity.account_id)?.name || ''}
-              onStatusChange={newStatus => {
-                setOpportunities(prev =>
-                  prev.map(op =>
-                    op.id === opportunity.id ? { ...op, status: newStatus } : op
-                  )
-                );
-              }}
-              onValueChange={newValue => {
-                setOpportunities(prev =>
-                  prev.map(op =>
-                    op.id === opportunity.id ? { ...op, value: newValue } : op
-                  )
-                );
-              }}
-              onTimelineChange={(newStartDate, newEndDate) => {
-                setOpportunities(prev =>
-                  prev.map(op =>
-                    op.id === opportunity.id ? { ...op, start_date: newStartDate, end_date: newEndDate } : op
-                  )
-                );
-              }}
-            />
-          ))}
-        </div>
+        view === 'grid' ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-8">
+            {filteredOpportunities.map((opportunity) => (
+              <OpportunityCard
+                key={opportunity.id}
+                opportunity={mapOpportunityFromSupabase(opportunity)}
+                accountName={accounts.find(a => a.id === opportunity.account_id)?.name || ''}
+                onStatusChange={newStatus => {
+                  setOpportunities(prev =>
+                    prev.map(op =>
+                      op.id === opportunity.id ? { ...op, status: newStatus } : op
+                    )
+                  );
+                }}
+                onValueChange={newValue => {
+                  setOpportunities(prev =>
+                    prev.map(op =>
+                      op.id === opportunity.id ? { ...op, value: newValue } : op
+                    )
+                  );
+                }}
+                onTimelineChange={(newStartDate, newEndDate) => {
+                  setOpportunities(prev =>
+                    prev.map(op =>
+                      op.id === opportunity.id ? { ...op, start_date: newStartDate, end_date: newEndDate } : op
+                    )
+                  );
+                }}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="overflow-x-auto rounded-[8px] shadow">
+            <Table className='bg-white'>
+              <TableHeader>
+                <TableRow className='bg-[#CBCAC5] hover:bg-[#CBCAC5]'>
+                  <TableHead className='text-[#282828] rounded-tl-[8px]'>Name</TableHead>
+                  <TableHead className='text-[#282828]'>Account</TableHead>
+                  <TableHead className='text-[#282828]'>Value</TableHead>
+                  <TableHead className='text-[#282828]'>Status</TableHead>
+                  <TableHead className='text-[#282828]'>Timeline</TableHead>
+                  {userRole === 'admin' && <TableHead className='text-[#282828]'>Assigned To</TableHead>}
+                  <TableHead className='text-[#282828] rounded-tr-[8px]'>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredOpportunities.map((opportunity) => (
+                  <TableRow key={opportunity.id} className="hover:bg-transparent">
+                    <TableCell className="font-semibold text-foreground">{opportunity.name}</TableCell>
+                    <TableCell>{accounts.find(a => a.id === opportunity.account_id)?.name || '-'}</TableCell>
+                    <TableCell className="font-medium">${opportunity.value.toLocaleString()}</TableCell>
+                    <TableCell>
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        opportunity.status === 'Win' ? 'bg-green-100 text-green-800' :
+                        opportunity.status === 'Loss' ? 'bg-red-100 text-red-800' :
+                        opportunity.status === 'Negotiation' ? 'bg-amber-100 text-amber-800' :
+                        opportunity.status === 'Proposal' ? 'bg-blue-100 text-blue-800' :
+                        opportunity.status === 'On Hold' ? 'bg-gray-100 text-gray-800' :
+                        'bg-sky-100 text-sky-800'
+                      }`}>
+                        {opportunity.status}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {(() => {
+                        const start = new Date(opportunity.start_date);
+                        const end = new Date(opportunity.end_date);
+                        if (start && end && !isNaN(start.getTime()) && !isNaN(end.getTime())) {
+                          return `${start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+                        }
+                        return 'N/A';
+                      })()}
+                    </TableCell>
+                    {userRole === 'admin' && <TableCell>{owners[opportunity.owner_id]?.name || '-'}</TableCell>}
+                    <TableCell className="flex gap-2">
+                      <TooltipProvider delayDuration={0}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button variant="outline" size="sm" className="rounded-[4px] p-2">
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>View Details</TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button size="sm" variant="add" className="rounded-[4px] p-2">
+                              <PlusCircle className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Add Activity</TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )
       ) : (
         <div className="text-center py-16">
           <BarChartBig className="mx-auto h-16 w-16 text-muted-foreground/50 mb-6" />

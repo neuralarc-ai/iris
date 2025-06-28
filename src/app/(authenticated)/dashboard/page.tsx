@@ -48,33 +48,43 @@ export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [userRole, setUserRole] = useState<string | null>(null);
   const [opportunityStatusCounts, setOpportunityStatusCounts] = useState<{ name: string, count: number }[]>([]);
 
-  // Fetch current user ID on component mount
+  // Fetch current user ID and role on component mount
   useEffect(() => {
     const userId = localStorage.getItem('user_id');
     setCurrentUserId(userId);
+    if (userId) {
+      supabase
+        .from('users')
+        .select('role')
+        .eq('id', userId)
+        .single()
+        .then(({ data, error }) => {
+          if (!error && data) setUserRole(data.role);
+          else setUserRole(null);
+        });
+    } else {
+      setUserRole(null);
+    }
   }, []);
 
   const fetchDashboardData = async () => {
-    if (!currentUserId) {
-      console.error('No user ID found');
+    if (!currentUserId || !userRole) {
+      console.error('No user ID or role found');
       return;
     }
-
     setIsLoading(true);
     try {
-      // Fetch all opportunities for the current user (for status counts)
-      const { data: allOpportunities, error: allOpportunitiesError } = await supabase
-        .from('opportunity')
-        .select('status')
-        .eq('owner_id', currentUserId);
-
+      // Opportunities Pipeline (status counts)
+      let oppStatusQuery = supabase.from('opportunity').select('status');
+      if (userRole !== 'admin') oppStatusQuery = oppStatusQuery.eq('owner_id', currentUserId);
+      const { data: allOpportunities, error: allOpportunitiesError } = await oppStatusQuery;
       if (allOpportunitiesError) {
         console.error('Error fetching all opportunities for status counts:', allOpportunitiesError);
         setOpportunityStatusCounts([]);
       } else if (allOpportunities) {
-        // Count each status
         const counts: Record<string, number> = {
           "Scope Of Work": 0, "Proposal": 0, "Negotiation": 0,
           "On Hold": 0, "Win": 0, "Loss": 0,
@@ -87,8 +97,8 @@ export default function DashboardPage() {
         setOpportunityStatusCounts(statusOrder.map(name => ({ name, count: counts[name] })));
       }
 
-      // Fetch latest 2 updates for the current user
-      const { data: updatesData, error: updatesError } = await supabase
+      // Recent Updates
+      let updatesQuery = supabase
         .from('update')
         .select(`
           id,
@@ -101,10 +111,10 @@ export default function DashboardPage() {
           opportunity_id,
           account_id
         `)
-        .eq('updated_by_user_id', currentUserId)
         .order('date', { ascending: false })
         .limit(2);
-
+      if (userRole !== 'admin') updatesQuery = updatesQuery.eq('updated_by_user_id', currentUserId);
+      const { data: updatesData, error: updatesError } = await updatesQuery;
       if (updatesError) {
         console.error('Error fetching updates:', updatesError);
         setRecentUpdates([]);
@@ -125,8 +135,8 @@ export default function DashboardPage() {
         setRecentUpdates([]);
       }
 
-      // Fetch latest 2 opportunities for the current user
-      const { data: opportunitiesData, error: opportunitiesError } = await supabase
+      // Latest Opportunities
+      let oppsQuery = supabase
         .from('opportunity')
         .select(`
           id,
@@ -141,10 +151,10 @@ export default function DashboardPage() {
           updated_at,
           owner_id
         `)
-        .eq('owner_id', currentUserId)
         .order('created_at', { ascending: false })
         .limit(2);
-
+      if (userRole !== 'admin') oppsQuery = oppsQuery.eq('owner_id', currentUserId);
+      const { data: opportunitiesData, error: opportunitiesError } = await oppsQuery;
       if (opportunitiesError) {
         console.error('Error fetching opportunities:', opportunitiesError);
         setLatestOpportunities([]);
@@ -163,7 +173,6 @@ export default function DashboardPage() {
           updatedAt: opp.updated_at || new Date().toISOString(),
         }));
         setLatestOpportunities(transformedOpportunities);
-
         // Fetch account names for opportunities
         if (opportunitiesData.length > 0) {
           const accountIds = opportunitiesData.map(opp => opp.account_id).filter(Boolean);
@@ -172,16 +181,12 @@ export default function DashboardPage() {
               .from('account')
               .select('id, name')
               .in('id', accountIds);
-            
-            // Create a map of account IDs to names
             const accountMap = new Map();
             if (accountsData) {
               accountsData.forEach(account => {
                 accountMap.set(account.id, account.name);
               });
             }
-
-            // Update opportunities with account names
             setLatestOpportunities(prev => prev.map(opp => ({
               ...opp,
               accountName: accountMap.get(opp.accountId) || 'Unknown Account'
@@ -192,14 +197,13 @@ export default function DashboardPage() {
         setLatestOpportunities([]);
       }
 
-      // Generate overall sales forecast
+      // Sales Forecast
       if (opportunitiesData && opportunitiesData.length > 0) {
         const totalValue = opportunitiesData.reduce((sum, opp) => sum + (opp.value || 0), 0);
         setOverallSalesForecast(`Optimistic outlook for next quarter with strong potential from key deals. Total pipeline value: $${totalValue.toLocaleString()}. Several opportunities are in active stages.`);
       } else {
         setOverallSalesForecast("No active opportunities to forecast. Add new opportunities to see AI-powered sales predictions.");
       }
-      
       setLastRefreshed(new Date());
     } catch (error) {
       console.error("Failed to fetch dashboard data:", error);
@@ -212,10 +216,10 @@ export default function DashboardPage() {
   };
 
   useEffect(() => {
-    if (currentUserId) {
+    if (currentUserId && userRole) {
       fetchDashboardData();
     }
-  }, [currentUserId]);
+  }, [currentUserId, userRole]);
 
   return (
     <div className="max-w-[1440px] px-4 mx-auto w-full pb-8 space-y-10 md:space-y-12"> 

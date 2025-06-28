@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import type { Account, Opportunity, Update, UpdateType, Lead } from '@/types';
-import { Loader2, MessageSquarePlus, Briefcase, BarChartBig, User, CalendarIcon } from 'lucide-react';
+import { Loader2, MessageSquarePlus, Briefcase, BarChartBig, User, CalendarIcon, Activity } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
 import { Input } from "@/components/ui/input";
 import { Calendar } from "@/components/ui/calendar";
@@ -296,14 +296,11 @@ export default function AddUpdateDialog({ open, onOpenChange, onUpdateAdded }: A
       if (!isOpen) resetForm();
       onOpenChange(isOpen);
     }}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-lg focus-within:ring-0 focus-within:outline-none ">
         <DialogHeader>
           <DialogTitle className="flex items-center">
-            <MessageSquarePlus className="mr-2 h-5 w-5" /> Log New Communication Update
+            <Activity className="mr-2 h-5 w-5" /> Add New Activity
           </DialogTitle>
-          <DialogDescription>
-            Choose to log an update for a lead or for an account's opportunity.
-          </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 py-4 max-h-[70vh] overflow-y-auto pr-3">
           
@@ -311,16 +308,16 @@ export default function AddUpdateDialog({ open, onOpenChange, onUpdateAdded }: A
             <Label className="mb-2 block">Log Update For:</Label>
             <RadioGroup defaultValue="account" value={entityType} onValueChange={(value: EntityType) => setEntityType(value)} className="flex space-x-4">
               <div className="flex items-center space-x-2">
+                <RadioGroupItem value="lead" id="rLead" />
+                <Label htmlFor="rLead" className="font-normal">Lead</Label>
+              </div>
+              <div className="flex items-center space-x-2">
                 <RadioGroupItem value="account" id="rAccount" />
                 <Label htmlFor="rAccount" className="font-normal">Account</Label>
               </div>
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="opportunity" id="rOpportunity" />
                 <Label htmlFor="rOpportunity" className="font-normal">Opportunity</Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="lead" id="rLead" />
-                <Label htmlFor="rLead" className="font-normal">Lead</Label>
               </div>
             </RadioGroup>
           </div>
@@ -451,18 +448,45 @@ export default function AddUpdateDialog({ open, onOpenChange, onUpdateAdded }: A
             </div>
           )}
 
-          <div>
-            <Label htmlFor="update-type">Update Type <span className="text-destructive">*</span></Label>
-            <Select value={updateType} onValueChange={(value) => setUpdateTypeState(value as UpdateType)} disabled={isLoading}>
-              <SelectTrigger id="update-type">
-                <SelectValue placeholder="Select update type" />
-              </SelectTrigger>
-              <SelectContent>
-                {updateTypeOptions.map(type => (
-                  <SelectItem key={type} value={type}>{type}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="flex gap-4">
+            <div className="flex-1">
+              <Label htmlFor="update-type">Update Type <span className="text-destructive">*</span></Label>
+              <Select value={updateType} onValueChange={(value) => setUpdateTypeState(value as UpdateType)} disabled={isLoading}>
+                <SelectTrigger id="update-type">
+                  <SelectValue placeholder="Select update type" />
+                </SelectTrigger>
+                <SelectContent>
+                  {updateTypeOptions.map(type => (
+                    <SelectItem key={type} value={type}>{type}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex-1">
+              <Label htmlFor="next-action-date">Next Action Date</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Input
+                    id="next-action-date"
+                    type="text"
+                    value={nextActionDate ? format(nextActionDate, 'dd/MM/yyyy') : ''}
+                    placeholder="dd/mm/yyyy"
+                    readOnly
+                    disabled={isLoading}
+                    className="cursor-pointer bg-white"
+                  />
+                </PopoverTrigger>
+                <PopoverContent align="start" className="p-0 w-auto border-none bg-[#CFD4C9] rounded-sm">
+                  <Calendar
+                    mode="single"
+                    selected={nextActionDate}
+                    onSelect={setNextActionDate}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
           </div>
 
           <div>
@@ -474,31 +498,8 @@ export default function AddUpdateDialog({ open, onOpenChange, onUpdateAdded }: A
               placeholder="Describe the call, meeting, email, or general update..."
               rows={5}
               disabled={isLoading}
+              className="resize-none"
             />
-          </div>
-
-          <div>
-            <Label htmlFor="next-action-date">Next Action Date</Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className="w-full justify-start text-left font-normal"
-                  disabled={isLoading}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {nextActionDate ? format(nextActionDate, 'MMM dd, yyyy') : 'Select next action date'}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={nextActionDate}
-                  onSelect={setNextActionDate}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
           </div>
 
           <DialogFooter className="pt-4">
@@ -507,6 +508,7 @@ export default function AddUpdateDialog({ open, onOpenChange, onUpdateAdded }: A
             </Button>
             <Button 
                 type="submit" 
+                variant="add"
                 disabled={
                     isLoading || 
                     (entityType === 'opportunity' && !selectedOpportunityId) ||
@@ -514,7 +516,7 @@ export default function AddUpdateDialog({ open, onOpenChange, onUpdateAdded }: A
                     (entityType === 'account' && !selectedAccountId)
                 }
             >
-              {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Log Update"}
+              {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Add Activity"}
             </Button>
           </DialogFooter>
         </form>

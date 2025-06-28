@@ -20,7 +20,6 @@ import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/comp
 import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogCancel, AlertDialogAction } from '@/components/ui/alert-dialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/lib/supabaseClient';
 
 const leadStatusOptions: LeadStatus[] = ["New", "Contacted", "Qualified", "Proposal Sent", "Lost"];
@@ -108,12 +107,61 @@ export default function LeadsPage() {
     setLeads(prevLeads => [newLead, ...prevLeads].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()));
   };
 
-  const handleLeadConverted = (convertedLeadId: string, newAccountId: string) => {
-    setLeads(prev => prev.map(lead => 
-      lead.id === convertedLeadId 
-        ? { ...lead, status: 'Converted to Account' as LeadStatus }
-        : lead
-    ));
+  const handleLeadConverted = async (convertedLeadId: string, newAccountId: string) => {
+    try {
+      // Find the lead that was converted
+      const convertedLead = leads.find(lead => lead.id === convertedLeadId);
+      if (!convertedLead) {
+        console.error('Converted lead not found in local state');
+        return;
+      }
+
+      // Remove the converted lead from the leads list
+      setLeads(prev => prev.filter(lead => lead.id !== convertedLeadId));
+
+      // Create an opportunity automatically for the converted lead
+      const currentUserId = localStorage.getItem('user_id');
+      if (!currentUserId) throw new Error('User not authenticated');
+
+      // Create opportunity with default values
+      const { error: opportunityError } = await supabase.from('opportunity').insert([
+        {
+          name: `Opportunity for ${convertedLead.companyName}`,
+          account_id: newAccountId,
+          status: 'Scope Of Work',
+          value: 0, // Default value, can be updated later
+          description: `Initial opportunity created from converted lead: ${convertedLead.personName} - ${convertedLead.companyName}`,
+          start_date: new Date().toISOString(),
+          end_date: new Date(new Date().setMonth(new Date().getMonth() + 3)).toISOString(), // 3 months from now
+          owner_id: currentUserId,
+          currency: 'USD',
+        }
+      ]).select().single();
+
+      if (opportunityError) {
+        console.error('Failed to create opportunity:', opportunityError);
+        // Don't throw error here as the lead conversion was successful
+        toast({
+          title: "Lead Converted",
+          description: `${convertedLead.companyName} has been converted to an account. Opportunity creation failed - you can create one manually.`,
+          className: "bg-yellow-100 dark:bg-yellow-900 border-yellow-500"
+        });
+      } else {
+        toast({
+          title: "Lead Converted Successfully!",
+          description: `${convertedLead.companyName} has been converted to an account and an initial opportunity has been created.`,
+          className: "bg-green-100 dark:bg-green-900 border-green-500"
+        });
+      }
+
+    } catch (error) {
+      console.error('Error in handleLeadConverted:', error);
+      toast({
+        title: "Error",
+        description: "Lead was converted but there was an issue with the follow-up process.",
+        variant: "destructive"
+      });
+    }
   };
 
   const addLeadToSupabase = async (leadData: any): Promise<Lead> => {
@@ -721,14 +769,15 @@ export default function LeadsPage() {
     <div className="max-w-[1440px] px-4 mx-auto w-full space-y-6">
       <PageTitle title="Lead Management" subtitle="Track and manage potential clients.">
         <div className="flex items-center gap-2">
-            <Button onClick={handleImportCsv} className='bg-transparent border border-[#2B2521] text-[#2B2521] w-fit rounded-[4px] hover:bg-[#CFB496]'>
-                <Image src="/images/import.svg" alt="Import" width={20} height={20} className="mr-2" /> Import CSV
-            </Button>
             <Button 
+              variant="outline"
               onClick={() => setSelectMode(true)} 
-              className='bg-transparent border border-[#97A487] text-[#97A487] w-fit rounded-[4px] hover:bg-[#97A487] hover:text-white'
+              className='bg-transparent hover:bg-[#E6D0D7] border border-[#5E6156] text-[#5E6156] rounded-[4px]'
             >
               <Users className="mr-2 h-4 w-4" /> Select
+            </Button>
+            <Button onClick={handleImportCsv} className='bg-transparent border border-[#2B2521] text-[#2B2521] w-fit rounded-[4px] hover:bg-[#CFB496]'>
+                <Image src="/images/import.svg" alt="Import" width={20} height={20} className="mr-2" /> Import CSV
             </Button>
             <Button onClick={() => setIsAddLeadDialogOpen(true)} variant="add" className='w-fit'>
                 <Image src="/images/add.svg" alt="Add" width={20} height={20} className="mr-2" /> Add New Lead
@@ -813,14 +862,15 @@ export default function LeadsPage() {
               <div className="flex items-center gap-2">
                 <Button
                   variant="outline"
-                  className="border-[#97A487] text-[#97A487] hover:bg-[#97A487] hover:text-white rounded-[6px] px-3 py-2 text-sm"
+                  className="bg-[#B9B6B1] border-none text-[#282828]/80 hover:bg-[#B9B6B1]/80 hover:text-[#282828] text-sm"
                   onClick={handleExitSelectMode}
                 >
                   <X className="mr-2 h-4 w-4" />
                   Cancel
                 </Button>
                 <Button
-                  className="bg-[#97A487] text-white hover:bg-[#8A9A7A] rounded-[6px] px-3 py-2 text-sm"
+                  variant="add"
+                  className="text-white text-sm"
                   onClick={() => setIsBulkAssignDialogOpen(true)}
                   disabled={selectedLeads.length === 0}
                 >
@@ -828,7 +878,7 @@ export default function LeadsPage() {
                 </Button>
                 <Button
                   variant="destructive"
-                  className="bg-red-600 text-white hover:bg-red-700 rounded-[6px] px-3 py-2 text-sm"
+                  className="bg-[#916D5B] text-white hover:bg-[#916D5B]/80 text-sm"
                   onClick={() => setIsBulkDeleteDialogOpen(true)}
                   disabled={selectedLeads.length === 0}
                 >
@@ -892,13 +942,13 @@ export default function LeadsPage() {
         <div className="mt-6">
       {filteredLeads.length > 0 ? (
         view === 'list' ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredLeads.map((lead) => (
             <LeadCard
               key={lead.id}
               lead={lead}
               assignedUser={users.find(u => u.id === lead.assignedUserId)?.name || ''}
-              onLeadConverted={(convertedLeadId) => handleLeadConverted(convertedLeadId, 'newAccountId')}
+              onLeadConverted={handleLeadConverted}
               onLeadDeleted={(leadId: string) => {
                 setLeads(prev => prev.filter(l => l.id !== leadId));
               }}
@@ -966,14 +1016,6 @@ export default function LeadsPage() {
                         {lead.status !== "Converted to Account" && lead.status !== "Lost" && (
                           <Tooltip>
                             <TooltipTrigger asChild>
-                                  <Button size="sm" onClick={(e) => { e.stopPropagation(); handleLeadConverted(lead.id, 'newAccountId'); }} variant="add" className="rounded-[4px] p-2"><CheckSquare className="h-4 w-4" /></Button>
-                            </TooltipTrigger>
-                            <TooltipContent>Convert</TooltipContent>
-                          </Tooltip>
-                        )}
-                        {lead.status !== "Converted to Account" && lead.status !== "Lost" && (
-                          <Tooltip>
-                            <TooltipTrigger asChild>
                               <AlertDialog>
                                 <AlertDialogTrigger asChild>
                                   <Button size="sm" variant="delete" className="rounded-[4px] p-2"><Trash2 className="h-4 w-4" /></Button>
@@ -1025,7 +1067,7 @@ export default function LeadsPage() {
                         key={lead.id}
                         lead={lead}
                         assignedUser={users.find(u => u.id === lead.assignedUserId)?.name || ''}
-                        onLeadConverted={(convertedLeadId) => handleLeadConverted(convertedLeadId, 'newAccountId')}
+                        onLeadConverted={handleLeadConverted}
                         onLeadDeleted={(leadId: string) => {
                           setLeads(prev => prev.filter(l => l.id !== leadId));
                         }}
@@ -1090,14 +1132,6 @@ export default function LeadsPage() {
                             <TableCell>{users.find(u => u.id === lead.assignedUserId)?.name || ''}</TableCell>
                             <TableCell className="flex gap-2">
                               <TooltipProvider delayDuration={0}>
-                                {lead.status !== "Converted to Account" && lead.status !== "Lost" && (
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <Button size="sm" onClick={(e) => { e.stopPropagation(); handleLeadConverted(lead.id, 'newAccountId'); }} variant="add" className="rounded-[4px] p-2"><CheckSquare className="h-4 w-4" /></Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent>Convert</TooltipContent>
-                                  </Tooltip>
-                                )}
                                 {lead.status !== "Converted to Account" && lead.status !== "Lost" && (
                                   <Tooltip>
                                     <TooltipTrigger asChild>

@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { BarChartBig, DollarSign, CalendarDays, Eye, AlertTriangle, CheckCircle2, Briefcase, Lightbulb, TrendingUp, Users, Clock, MessageSquarePlus, Calendar as CalendarIcon, Sparkles, Pencil, Check, X, Phone, Mail, FileText } from 'lucide-react';
+import { BarChartBig, DollarSign, CalendarDays, Eye, AlertTriangle, CheckCircle2, Briefcase, Lightbulb, TrendingUp, Users, Clock, MessageSquarePlus, Calendar as CalendarIcon, Sparkles, Pencil, Check, X, Phone, Mail, FileText, Activity, UserCheck, User } from 'lucide-react';
 import type { Opportunity, OpportunityForecast as AIOpportunityForecast, Account, OpportunityStatus, Update } from '@/types';
 import { Progress } from "@/components/ui/progress";
 import {format, differenceInDays, parseISO, isValid, formatDistanceToNowStrict, formatDistanceToNow} from 'date-fns';
@@ -22,6 +22,7 @@ import { supabase } from '@/lib/supabaseClient';
 import { countries } from '@/lib/countryData';
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 interface OpportunityCardProps {
   opportunity: Opportunity;
@@ -594,87 +595,85 @@ export default function OpportunityCard({ opportunity, accountName, onStatusChan
 
   return (
     <>
-      <Card className="shadow-md hover:shadow-lg transition-shadow duration-300 bg-white flex flex-col h-full cursor-pointer" onClick={() => setIsDialogOpen(true)}>
-        <CardHeader className="pb-3">
-          <div className="flex justify-between items-start mb-2">
-            <CardTitle className="text-lg font-headline text-foreground line-clamp-1 flex items-center">
-              <BarChartBig className="mr-2 h-5 w-5 text-primary shrink-0" />
+      <Card className="shadow-sm hover:shadow-md transition-all duration-200 bg-white border border-[#CBCAC5]/50 flex flex-col h-full cursor-pointer group" onClick={() => setIsDialogOpen(true)}>
+        <CardHeader className="pb-3 px-4 pt-4">
+          {/* Header with title and status */}
+          <div className="flex justify-between items-start mb-3">
+            <CardTitle className="text-lg font-semibold text-[#282828] line-clamp-1 flex items-center">
+              <BarChartBig className="mr-2 h-5 w-5 text-[#916D5B] shrink-0" />
               {opportunity.name}
             </CardTitle>
-            <Badge variant="secondary" className={`capitalize whitespace-nowrap ml-2 ${getStatusBadgeColorClasses(opportunity.status)}`}>{opportunity.status}</Badge>
+            <Badge variant="secondary" className={`capitalize whitespace-nowrap ml-2 text-xs font-medium ${getStatusBadgeColorClasses(opportunity.status)}`}>{opportunity.status}</Badge>
           </div>
-          <div className="space-y-1">
-            <div className="flex items-center text-muted-foreground">
-              <Briefcase className="mr-2 h-4 w-4 shrink-0" />
-              <span className="text-xs">{accountName}</span>
-            </div>
-            <div className="flex items-center text-muted-foreground">
-              <DollarSign className="mr-2 h-4 w-4 text-green-600 shrink-0" />
-              <span className="font-medium text-foreground">
-                {currencySymbol} {opportunity.value.toLocaleString()}
-              </span>
-            </div>
-            {assignedUser && (
-              <div className="flex items-center text-muted-foreground">
-                <Users className="mr-2 h-4 w-4 shrink-0" />
-                <span className="text-xs">Assigned To: <span className="font-semibold text-foreground">{assignedUser.name}</span></span>
+          
+          {/* Key info grid */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <div className="flex items-center text-[#5E6156] text-xs">
+                <Briefcase className="mr-1.5 h-3.5 w-3.5 shrink-0" />
+                <span className="font-medium">{accountName || 'No Account'}</span>
               </div>
-            )}
+              <div className="flex items-center text-[#916D5B]">
+                <span className="text-lg font-bold">
+                  {currencySymbol} {opportunity.value.toLocaleString()}
+                </span>
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              {assignedUser ? (
+                <div className="flex items-center text-[#5E6156] text-xs">
+                  <User className="mr-1.5 h-3.5 w-3.5 shrink-0" />
+                  <span className="font-medium">{assignedUser.name}</span>
+                </div>
+              ) : (
+                <div className="flex items-center text-[#998876] text-xs">
+                  <User className="mr-1.5 h-3.5 w-3.5 shrink-0" />
+                  <span>Unassigned</span>
+                </div>
+              )}
+            </div>
           </div>
         </CardHeader>
-        <CardContent className="space-y-3 flex-grow">
-          <div className="bg-[#F8F7F3] p-3 rounded-[4px]">
-            <p className="text-sm text-foreground line-clamp-3">{opportunity.description}</p>
+        
+        <CardContent className="px-4 pb-4 flex-grow space-y-3">
+          {/* Description section */}
+          <div>
+            <div className="text-xs font-semibold text-[#916D5B] uppercase tracking-wide mb-2">Description</div>
+            <div className="bg-[#F8F7F3] p-3 rounded-sm border border-[#CBCAC5]/30">
+              <p className="text-sm text-[#282828] line-clamp-2 leading-relaxed">
+                {opportunity.description || 'No description added.'}
+              </p>
+            </div>
           </div>
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-            <div className="flex items-center text-muted-foreground text-xs">
-              <CalendarDays className="mr-2 h-4 w-4 shrink-0" />
-              <span>{
+          
+          {/* Timeline section */}
+          <div className="flex items-center justify-between pt-2 border-t border-[#CBCAC5]/30">
+            <div className="flex items-center text-[#5E6156] text-xs">
+              <CalendarDays className="mr-1.5 h-3.5 w-3.5 shrink-0" />
+              <span className="font-medium">{
                 (() => {
                   const start = safeParseISO(opportunity.startDate);
                   const end = safeParseISO(opportunity.endDate);
                   if (start && end) {
-                    return `${format(start, 'MMM dd, yyyy')} - ${format(end, 'MMM dd, yyyy')}`;
+                    return `${format(start, 'MMM dd')} - ${format(end, 'MMM dd, yyyy')}`;
                   }
-                  return 'N/A';
+                  return 'No timeline set';
                 })()
               }</span>
             </div>
-            <div className="flex items-center text-muted-foreground text-xs">
-              <Clock className="mr-1 h-3 w-3 shrink-0"/>{timeRemaining(opportunity.status as OpportunityStatus)}
-            </div>
           </div>
-          {/* {(forecast || isLoadingForecast) && opportunity.status !== 'Win' && opportunity.status !== 'Loss' && (
-            <div className="pt-3 border-t mt-3">
-              <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-1.5 flex items-center">
-                <Lightbulb className="mr-1.5 h-3.5 w-3.5 text-yellow-500" /> AI Forecast
-              </h4>
-              {isLoadingForecast ? (
-                <div className="flex items-center space-x-2 h-12">
-                  <LoadingSpinner size={16} />
-                  <span className="text-xs text-muted-foreground">Generating forecast...</span>
-                </div>
-              ) : forecast ? (
-                <div className="space-y-1 text-xs">
-                  <p className="text-foreground line-clamp-1">
-                    <span className="font-medium">Est. Completion:</span> {forecast.completionDateEstimate}
-                  </p>
-                  <p className="text-foreground line-clamp-2 leading-snug">
-                    <span className="font-medium">Bottlenecks:</span> {forecast.bottleneckIdentification || "None identified"}
-                  </p>
-                </div>
-              ) : (
-                <p className="text-xs text-muted-foreground h-12 flex items-center">No AI forecast data for this opportunity.</p>
-              )}
-            </div>
-          )} */}
         </CardContent>
-        <CardFooter className="pt-4 border-t mt-auto flex gap-2">
-          <Button variant="outline" size="sm" asChild className="mr-auto rounded-[4px]" onClick={(e) => { e.stopPropagation(); setIsViewDialogOpen(true); }}>
-            <div>
-              <Eye className="mr-2 h-4 w-4" />
-              View Details
-            </div>
+        
+        <CardFooter className="px-4 py-3 border-t border-[#CBCAC5]/30 bg-[#F8F7F3]/50">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="w-full rounded-sm border-[#CBCAC5] text-[#5E6156] hover:bg-[#916D5B] hover:text-white hover:border-[#916D5B] transition-colors duration-200" 
+            onClick={(e) => { e.stopPropagation(); setIsViewDialogOpen(true); }}
+          >
+            <Eye className="mr-2 h-4 w-4" />
+            View Details
           </Button>
         </CardFooter>
       </Card>
@@ -692,7 +691,7 @@ export default function OpportunityCard({ opportunity, accountName, onStatusChan
             {/* Details Section */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
               <div className="bg-[#F3F4F6] p-4 rounded-lg flex flex-col items-center justify-center min-h-[56px]">
-                <div className="text-sm font-medium text-[#6B7280]">Value</div>
+                <div className="text-sm font-medium text-muted-foreground">Value</div>
                 <div className="text-2xl font-bold text-[#5E6156] mt-1">
                   {isEditingValue ? (
                     <div className="flex flex-col items-center gap-2">
@@ -713,7 +712,7 @@ export default function OpportunityCard({ opportunity, accountName, onStatusChan
                 </div>
               </div>
               <div className="bg-[#F3F4F6] p-4 rounded-lg flex flex-col items-center justify-center min-h-[56px]">
-                <div className="text-sm font-medium text-[#6B7280]">Status</div>
+                <div className="text-sm font-medium text-muted-foreground">Status</div>
                 <Select
                   value={editStatus}
                   onValueChange={value => handleStatusChange(value as OpportunityStatus)}
@@ -731,7 +730,7 @@ export default function OpportunityCard({ opportunity, accountName, onStatusChan
                 {isUpdatingStatus && <span className="text-xs text-muted-foreground mt-1">Updating...</span>}
               </div>
               <div className="bg-[#F3F4F6] p-4 rounded-lg flex flex-col items-center justify-center min-h-[56px]">
-                <div className="text-sm font-medium text-[#6B7280] flex items-center gap-2">
+                <div className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                   Expected Close
                   <Button variant="ghost" size="icon" className="h-4 w-4 p-0" onClick={() => setIsEditingTimeline(true)}>
                     <Pencil className="h-3 w-3" />
@@ -773,8 +772,8 @@ export default function OpportunityCard({ opportunity, accountName, onStatusChan
 
             {/* Full Description */}
             <div>
-              <h4 className="text-sm font-semibold text-foreground mb-2">Description</h4>
-              <div className="bg-muted/30 p-4 rounded-lg">
+              <h4 className="text-sm font-bold text-muted-foreground mb-2">Description</h4>
+              <div className="bg-muted/30 p-4 rounded-sm">
                 <p className="text-sm text-foreground">
                   {opportunity.description || 'No description available.'}
                 </p>
@@ -783,12 +782,12 @@ export default function OpportunityCard({ opportunity, accountName, onStatusChan
 
             {/* All Activity Logs */}
             <div className="mt-4">
-              <div className="text-xs font-semibold text-muted-foreground uppercase mb-1">Activity Updates</div>
+              <div className="text-sm font-bold text-muted-foreground mb-1">Recent Activity</div>
               <div className="relative">
                 {isLoadingLogs ? (
                   <div className="flex items-center justify-center h-32">
                     <LoadingSpinner size={24} />
-                    <span className="ml-2 text-muted-foreground">Loading activity updates...</span>
+                    <span className="ml-2 text-muted-foreground">Loading activity...</span>
                   </div>
                 ) : activityLogs.length > 0 ? (
                   <div className="space-y-2 max-h-36 overflow-y-auto pr-1">
@@ -801,51 +800,66 @@ export default function OpportunityCard({ opportunity, accountName, onStatusChan
                 )}
                 {/* Gradient overlay at the bottom, only if more than one log */}
                 {activityLogs.length > 2 && (
-                  <div className="pointer-events-none absolute left-0 right-0 bottom-0 h-8" style={{background: 'linear-gradient(to bottom, transparent, #fff 90%)'}} />
+                  <div className="pointer-events-none absolute left-0 right-0 bottom-0 h-4 bg-gradient-to-b from-transparent to-white/70 to-70%" />
                 )}
               </div>
             </div>
 
             {/* Add New Activity Form */}
             <div>
-              <h4 className="text-sm font-semibold text-foreground mb-2">Add New Activity</h4>
+              
               <div className="space-y-3">
-                <div className="flex flex-col md:flex-row gap-2 items-center min-h-[44px]">
-                  <Select value={newActivityType} onValueChange={value => setNewActivityType(value as 'General' | 'Call' | 'Meeting' | 'Email')}>
-                    <SelectTrigger className="w-fit min-w-[120px]">
-                      <SelectValue placeholder="Type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="General">General</SelectItem>
-                      <SelectItem value="Call">Call</SelectItem>
-                      <SelectItem value="Meeting">Meeting</SelectItem>
-                      <SelectItem value="Email">Email</SelectItem>
-                    </SelectContent>
-                  </Select>
+                <div className="flex gap-4">
+                  <div className="flex-1">
+                    <Label htmlFor="activity-type" className="text-muted-foreground font-semibold">Update Type</Label>
+                    <Select value={newActivityType} onValueChange={value => setNewActivityType(value as 'General' | 'Call' | 'Meeting' | 'Email')}>
+                      <SelectTrigger id="activity-type" className="w-full">
+                        <SelectValue placeholder="Type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="General">General</SelectItem>
+                        <SelectItem value="Call">Call</SelectItem>
+                        <SelectItem value="Meeting">Meeting</SelectItem>
+                        <SelectItem value="Email">Email</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex-1">
+                    <Label htmlFor="next-action-date" className="text-muted-foreground font-semibold">Next Action Date</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Input
+                          id="next-action-date"
+                          type="text"
+                          value={nextActionDate ? format(nextActionDate, 'dd/MM/yyyy') : ''}
+                          placeholder="dd/mm/yyyy"
+                          readOnly
+                          disabled={isLoggingActivity}
+                          className="cursor-pointer bg-white"
+                        />
+                      </PopoverTrigger>
+                      <PopoverContent align="start" className="p-0 w-auto border-none bg-[#CFD4C9] rounded-sm">
+                        <Calendar
+                          mode="single"
+                          selected={nextActionDate}
+                          onSelect={setNextActionDate}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                </div>
+                <div>
+                  <Label htmlFor="activity-content" className="text-muted-foreground font-semibold">Content</Label>
                   <Textarea
+                    id="activity-content"
                     placeholder="Describe the activity..."
                     value={newActivityDescription}
                     onChange={(e) => setNewActivityDescription(e.target.value)}
-                    className="min-h-[44px] resize-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 flex-1"
+                    className="min-h-[94px] resize-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0"
                   />
                 </div>
-                <div className="flex items-center justify-between gap-2 w-full">
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button variant="outline" className="w-fit">
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {nextActionDate ? format(nextActionDate, 'MMM dd, yyyy') : 'Select next action'}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={nextActionDate}
-                        onSelect={(date) => setNextActionDate(date)}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
+                <div className="flex justify-end">
                   <Button 
                     variant="add" 
                     className="w-fit"
@@ -855,7 +869,7 @@ export default function OpportunityCard({ opportunity, accountName, onStatusChan
                     {isLoggingActivity ? (
                       <LoadingSpinner size={16} className="mr-2" />
                     ) : (
-                      <MessageSquarePlus className="mr-2 h-4 w-4" />
+                      <Activity className="mr-2 h-4 w-4" />
                     )}
                     Add Activity
                   </Button>

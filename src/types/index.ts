@@ -94,6 +94,7 @@ export interface User {
   email: string;
   pin: string;
   createdAt: string;
+  role: string;
 }
 
 export interface ApiSettings {

@@ -14,6 +14,7 @@ import {
   BarChartBig,
   Activity,
   Settings,
+  Users,
 } from "lucide-react";
 import UserProfile from "./UserProfile";
 import { cn } from "@/lib/utils";
@@ -28,7 +29,7 @@ import { supabase } from '@/lib/supabaseClient';
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/leads", label: "Leads", icon: UserPlus },
+  { href: "/leads", label: "Leads", icon: Users },
   { href: "/accounts", label: "Accounts", icon: Briefcase },
   { href: "/opportunities", label: "Opportunities", icon: BarChartBig },
   { href: "/activity", label: "Activity", icon: Activity },

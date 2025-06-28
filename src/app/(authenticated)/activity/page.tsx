@@ -438,8 +438,8 @@ export default function UpdatesPage() {
       ) : (
          <div className="text-center py-16">
           <MessageSquare className="mx-auto h-16 w-16 text-muted-foreground/50 mb-6" />
-          <p className="text-xl font-semibold text-foreground mb-2">No Updates Found</p>
-          <p className="text-muted-foreground">Try adjusting your search or filter criteria, or log a new update.</p>
+          <p className="text-xl font-semibold text-foreground mb-2">No activity Found</p>
+          <p className="text-muted-foreground">Try adjusting your search or filter criteria, or add a new activity.</p>
         </div>
       )}
       <AddUpdateDialog
