@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { BarChartBig, DollarSign, CalendarDays, Eye, AlertTriangle, CheckCircle2, Briefcase, Lightbulb, TrendingUp, Users, Clock, MessageSquarePlus, Calendar as CalendarIcon, Sparkles, Pencil, Check, X } from 'lucide-react';
+import { BarChartBig, DollarSign, CalendarDays, Eye, AlertTriangle, CheckCircle2, Briefcase, Lightbulb, TrendingUp, Users, Clock, MessageSquarePlus, Calendar as CalendarIcon, Sparkles, Pencil, Check, X, Phone, Mail, FileText } from 'lucide-react';
 import type { Opportunity, OpportunityForecast as AIOpportunityForecast, Account, OpportunityStatus, Update } from '@/types';
 import { Progress } from "@/components/ui/progress";
 import {format, differenceInDays, parseISO, isValid, formatDistanceToNowStrict, formatDistanceToNow} from 'date-fns';
@@ -21,6 +21,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { supabase } from '@/lib/supabaseClient';
 import { countries } from '@/lib/countryData';
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
 
 interface OpportunityCardProps {
   opportunity: Opportunity;
@@ -68,6 +69,20 @@ function calculateProgress(startDate: string, endDate: string, status: Opportuni
 const currencyMap = Object.fromEntries(
   countries.map(c => [c.currencyCode, c.currencySymbol || c.currencyCode])
 );
+
+const getUpdateTypeIcon = (type: Update['type']) => {
+  switch (type) {
+    case 'Call':
+      return <Phone className="h-4 w-4 text-blue-500" />;
+    case 'Email':
+      return <Mail className="h-4 w-4 text-green-500" />;
+    case 'Meeting':
+      return <Users className="h-4 w-4 text-purple-500" />;
+    case 'General':
+    default:
+      return <FileText className="h-4 w-4 text-gray-500" />;
+  }
+};
 
 export default function OpportunityCard({ opportunity, accountName, onStatusChange, onValueChange, onTimelineChange }: OpportunityCardProps) {
   // const [forecast, setForecast] = useState<AIOpportunityForecast | null>(null);
@@ -253,6 +268,7 @@ export default function OpportunityCard({ opportunity, accountName, onStatusChan
             leadId: log.lead_id,
             opportunityId: log.opportunity_id,
             accountId: log.account_id,
+            nextActionDate: log.next_action_date,
           }));
           setActivityLogs(transformedLogs);
         } else {
@@ -306,6 +322,7 @@ export default function OpportunityCard({ opportunity, accountName, onStatusChan
           leadId: log.lead_id,
           opportunityId: log.opportunity_id,
           accountId: log.account_id,
+          nextActionDate: log.next_action_date,
         }));
         setActivityLogs(transformedLogs);
       }
@@ -415,6 +432,7 @@ export default function OpportunityCard({ opportunity, accountName, onStatusChan
           lead_id: null,
           opportunity_id: opportunity.id,
           account_id: opportunity.accountId,
+          next_action_date: nextActionDate?.toISOString() || null,
         }
       ]).select().single();
 
@@ -433,12 +451,14 @@ export default function OpportunityCard({ opportunity, accountName, onStatusChan
         leadId: data.lead_id,
         opportunityId: data.opportunity_id,
         accountId: data.account_id,
+        nextActionDate: data.next_action_date,
       };
 
       // Update local state and refresh logs
       setActivityLogs(prev => [newUpdate, ...prev]);
       setNewActivityDescription('');
       setNewActivityType('General');
+      setNextActionDate(undefined);
       
       // Also refresh from backend to ensure consistency
       await refreshActivityLogs();
@@ -455,14 +475,22 @@ export default function OpportunityCard({ opportunity, accountName, onStatusChan
   const renderActivityLogItem = (log: Update) => {
     const logDate = safeParseISO(log.date);
     return (
-      <div key={log.id} className="flex items-start space-x-3 p-3 rounded-r-lg bg-muted/30 border-l-4 border-muted">
+      <div key={log.id} className="flex items-start space-x-3 p-3 rounded-r-lg bg-[#9A8A744c] border-l-4 border-muted">
+        <div className="flex-shrink-0 mt-1">
+          {getUpdateTypeIcon(log.type)}
+        </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between mb-1">
             <p className="text-sm font-medium text-foreground line-clamp-2">{log.content}</p>
-            <span className="text-xs flex-shrink-0 text-muted-foreground ml-2">{logDate ? format(logDate, 'MMM dd') : 'N/A'}</span>
+            <span className="text-xs text-muted-foreground ml-2">{logDate ? format(logDate, 'MMM dd') : 'N/A'}</span>
           </div>
           <div className="flex items-center space-x-2">
             <Badge variant="outline" className="text-xs">{log.type}</Badge>
+            {log.nextActionDate && (
+              <span className="text-xs text-blue-600 font-medium">
+                Next: {format(parseISO(log.nextActionDate), 'MMM dd, yyyy')}
+              </span>
+            )}
           </div>
         </div>
       </div>
@@ -651,43 +679,40 @@ export default function OpportunityCard({ opportunity, accountName, onStatusChan
         </CardFooter>
       </Card>
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
-          <DialogHeader>
-            <DialogTitle className="text-xl font-headline flex items-center">
-              <BarChartBig className="mr-2 h-5 w-5 text-primary shrink-0" />
-              {opportunity.name}
-            </DialogTitle>
-            <DialogDescription>{opportunity.description}</DialogDescription>
+        <DialogContent className="sm:max-w-xl bg-white" onClick={e => e.stopPropagation()}>
+          <DialogHeader className="flex flex-row items-center justify-between w-full">
+            <div className="flex items-center gap-2">
+              <DialogTitle className="text-xl font-headline">
+                {opportunity.name}
+              </DialogTitle>
+            </div>
           </DialogHeader>
+
           <div className="flex-1 overflow-y-auto space-y-6">
             {/* Details Section */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="bg-white/30 p-4 rounded-lg flex flex-col items-center justify-center min-h-[56px]">
-                <div className="text-sm font-medium text-[#6B7280] flex items-center gap-2">
-                  Value
-                  <Button variant="ghost" size="icon" className="h-4 w-4 p-0" onClick={() => setIsEditingValue(true)}>
-                    <Pencil className="h-3 w-3" />
-                  </Button>
-                </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+              <div className="bg-[#F3F4F6] p-4 rounded-lg flex flex-col items-center justify-center min-h-[56px]">
+                <div className="text-sm font-medium text-[#6B7280]">Value</div>
                 <div className="text-2xl font-bold text-[#5E6156] mt-1">
                   {isEditingValue ? (
-                    <>
-                      <input
-                        type="text"
+                    <div className="flex flex-col items-center gap-2">
+                      <Input
                         value={editValue}
-                        onChange={e => setEditValue(e.target.value.replace(/[^\d,]/g, ''))}
-                        className="border rounded px-2 py-1 w-28 text-right"
-                        disabled={isUpdatingValue}
+                        onChange={(e) => setEditValue(e.target.value)}
+                        className="w-20 text-center"
+                        placeholder="0"
                       />
-                      <button onClick={handleValueSave} disabled={isUpdatingValue} className="ml-1 text-green-600 hover:text-green-800"><Check className="w-4 h-4" /></button>
-                      <button onClick={() => { setIsEditingValue(false); setEditValue(opportunity.value.toString()); }} disabled={isUpdatingValue} className="ml-1 text-red-600 hover:text-red-800"><X className="w-4 h-4" /></button>
-                    </>
+                      <div className="flex gap-1">
+                        <button onClick={handleValueSave} disabled={isUpdatingValue} className="text-green-600 hover:text-green-800"><Check className="w-4 h-4" /></button>
+                        <button onClick={() => { setIsEditingValue(false); setEditValue(opportunity.value.toString()); }} disabled={isUpdatingValue} className="text-red-600 hover:text-red-800"><X className="w-4 h-4" /></button>
+                      </div>
+                    </div>
                   ) : (
                     <>{currencySymbol} {opportunity.value.toLocaleString()}</>
                   )}
                 </div>
               </div>
-              <div className="bg-white/30 p-4 rounded-lg flex flex-col items-center justify-center min-h-[56px]">
+              <div className="bg-[#F3F4F6] p-4 rounded-lg flex flex-col items-center justify-center min-h-[56px]">
                 <div className="text-sm font-medium text-[#6B7280]">Status</div>
                 <Select
                   value={editStatus}
@@ -705,7 +730,7 @@ export default function OpportunityCard({ opportunity, accountName, onStatusChan
                 </Select>
                 {isUpdatingStatus && <span className="text-xs text-muted-foreground mt-1">Updating...</span>}
               </div>
-              <div className="bg-white/30 p-4 rounded-lg flex flex-col items-center justify-center min-h-[56px]">
+              <div className="bg-[#F3F4F6] p-4 rounded-lg flex flex-col items-center justify-center min-h-[56px]">
                 <div className="text-sm font-medium text-[#6B7280] flex items-center gap-2">
                   Expected Close
                   <Button variant="ghost" size="icon" className="h-4 w-4 p-0" onClick={() => setIsEditingTimeline(true)}>
@@ -745,25 +770,43 @@ export default function OpportunityCard({ opportunity, accountName, onStatusChan
                 </div>
               </div>
             </div>
-            {/* Activity Updates */}
+
+            {/* Full Description */}
             <div>
-              <h4 className="text-sm font-semibold text-foreground mb-3">Activity Updates</h4>
-              {isLoadingLogs ? (
-                <div className="flex items-center justify-center h-32">
-                  <LoadingSpinner size={24} />
-                  <span className="ml-2 text-muted-foreground">Loading activity updates...</span>
-                </div>
-              ) : activityLogs.length > 0 ? (
-                <div className="space-y-2 h-32 overflow-y-auto">
-                  {activityLogs.map((log) => renderActivityLogItem(log))}
-                </div>
-              ) : (
-                <div className="flex items-center justify-center h-32 text-muted-foreground">
-                  <span>No activity updates yet</span>
-                </div>
-              )}
+              <h4 className="text-sm font-semibold text-foreground mb-2">Description</h4>
+              <div className="bg-muted/30 p-4 rounded-lg">
+                <p className="text-sm text-foreground">
+                  {opportunity.description || 'No description available.'}
+                </p>
+              </div>
             </div>
-            {/* Log New Activity Form */}
+
+            {/* All Activity Logs */}
+            <div className="mt-4">
+              <div className="text-xs font-semibold text-muted-foreground uppercase mb-1">Activity Updates</div>
+              <div className="relative">
+                {isLoadingLogs ? (
+                  <div className="flex items-center justify-center h-32">
+                    <LoadingSpinner size={24} />
+                    <span className="ml-2 text-muted-foreground">Loading activity updates...</span>
+                  </div>
+                ) : activityLogs.length > 0 ? (
+                  <div className="space-y-2 max-h-36 overflow-y-auto pr-1">
+                    {activityLogs.map((log) => renderActivityLogItem(log))}
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center h-32 text-muted-foreground">
+                    <span>No activity updates yet</span>
+                  </div>
+                )}
+                {/* Gradient overlay at the bottom, only if more than one log */}
+                {activityLogs.length > 2 && (
+                  <div className="pointer-events-none absolute left-0 right-0 bottom-0 h-8" style={{background: 'linear-gradient(to bottom, transparent, #fff 90%)'}} />
+                )}
+              </div>
+            </div>
+
+            {/* Add New Activity Form */}
             <div>
               <h4 className="text-sm font-semibold text-foreground mb-2">Add New Activity</h4>
               <div className="space-y-3">
@@ -786,47 +829,36 @@ export default function OpportunityCard({ opportunity, accountName, onStatusChan
                     className="min-h-[44px] resize-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 flex-1"
                   />
                 </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <Button 
-                      variant="add" 
-                      className="w-fit"
-                      onClick={handleLogActivity}
-                      disabled={isLoggingActivity || !newActivityDescription.trim()}
-                    >
-                      {isLoggingActivity ? (
-                        <LoadingSpinner size={16} className="mr-2" />
-                      ) : (
-                        <MessageSquarePlus className="mr-2 h-4 w-4" />
-                      )}
-                      Add Activity
-                    </Button>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button variant="outline" className="w-fit">
-                          <CalendarIcon className="mr-2 h-4 w-4" />
-                          {nextActionDate ? format(nextActionDate, 'MMM dd, yyyy') : 'Set next action'}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={nextActionDate}
-                          onSelect={(date) => setNextActionDate(date)}
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-                  {/*
+                <div className="flex items-center justify-between gap-2 w-full">
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" className="w-fit">
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {nextActionDate ? format(nextActionDate, 'MMM dd, yyyy') : 'Select next action'}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={nextActionDate}
+                        onSelect={(date) => setNextActionDate(date)}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
                   <Button 
-                    variant="outline"
-                    onClick={toggleAiInsights}
+                    variant="add" 
+                    className="w-fit"
+                    onClick={handleLogActivity}
+                    disabled={isLoggingActivity || !newActivityDescription.trim()}
                   >
-                    <Sparkles className="mr-2 h-4 w-4" />
-                    AI Advice
+                    {isLoggingActivity ? (
+                      <LoadingSpinner size={16} className="mr-2" />
+                    ) : (
+                      <MessageSquarePlus className="mr-2 h-4 w-4" />
+                    )}
+                    Add Activity
                   </Button>
-                  */}
                 </div>
               </div>
             </div>
@@ -855,8 +887,8 @@ export default function OpportunityCard({ opportunity, accountName, onStatusChan
                   return 'N/A';
                 })()
               }</div>
-              <div><span className="font-semibold">Created:</span> {formatDistanceToNow(new Date(opportunity.createdAt), { addSuffix: true })}</div>
-              <div><span className="font-semibold">Last Updated:</span> {formatDistanceToNow(new Date(opportunity.updatedAt), { addSuffix: true })}</div>
+              <div><span className="font-semibold">Created:</span> {opportunity.createdAt && !isNaN(new Date(opportunity.createdAt).getTime()) ? formatDistanceToNow(new Date(opportunity.createdAt), { addSuffix: true }) : 'N/A'}</div>
+              <div><span className="font-semibold">Last Updated:</span> {opportunity.updatedAt && !isNaN(new Date(opportunity.updatedAt).getTime()) ? formatDistanceToNow(new Date(opportunity.updatedAt), { addSuffix: true }) : 'N/A'}</div>
             </div>
             <div className="pt-2">
               <span className="font-semibold">Assigned To:</span>

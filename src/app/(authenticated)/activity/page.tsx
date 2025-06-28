@@ -94,6 +94,7 @@ export default function UpdatesPage() {
           leadId: update.lead_id,
           opportunityId: update.opportunity_id,
           accountId: update.account_id,
+          nextActionDate: update.next_action_date,
         }));
         setUpdates(transformedUpdates.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
       } else {
@@ -170,6 +171,7 @@ export default function UpdatesPage() {
         leadId: update.lead_id,
         opportunityId: update.opportunity_id,
         accountId: update.account_id,
+        nextActionDate: update.next_action_date,
       }));
       setUpdates(transformedUpdates.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
     }
