@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Users, User, Mail, Phone, Eye, CheckSquare, FileWarning, CalendarPlus, History, Linkedin, MapPin, Trash2, Pencil, X } from 'lucide-react';
-import type { Lead, Update } from '@/types';
+import type { Lead, Update, LeadStatus } from '@/types';
 import { add, formatDistanceToNow, format } from 'date-fns';
 import { convertLeadToAccount, deleteLead, mockUsers } from '@/lib/data';
 import { supabase } from '@/lib/supabaseClient';
@@ -30,6 +30,7 @@ interface LeadCardProps {
   selected?: boolean;
   onSelect?: () => void;
   assignedUser?: string;
+  onStatusChange?: (newStatus: LeadStatus) => void;
 }
 
 const getStatusBadgeVariant = (status: Lead['status']): "default" | "secondary" | "destructive" | "outline" => {
@@ -56,7 +57,7 @@ const getStatusBadgeColorClasses = (status: Lead['status']): string => {
   }
 }
 
-export default function LeadCard({ lead, onLeadConverted, onLeadDeleted, onActivityLogged, selectMode = false, selected = false, onSelect, assignedUser }: LeadCardProps) {
+export default function LeadCard({ lead, onLeadConverted, onLeadDeleted, onActivityLogged, selectMode = false, selected = false, onSelect, assignedUser, onStatusChange }: LeadCardProps) {
   const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = React.useState(false);
   const [updateType, setUpdateType] = React.useState('');
@@ -76,6 +77,11 @@ export default function LeadCard({ lead, onLeadConverted, onLeadDeleted, onActiv
   const [isViewDialogOpen, setIsViewDialogOpen] = React.useState(false);
   const [assignedUserId, setAssignedUserId] = React.useState(lead.assignedUserId || '');
   const assignedUserObj = mockUsers.find(u => u.id === assignedUserId);
+  const leadStatusOptions: LeadStatus[] = [
+    "New", "Contacted", "Qualified", "Proposal Sent", "Lost"
+  ];
+  const [editStatus, setEditStatus] = React.useState<LeadStatus>(lead.status);
+  const [isUpdatingStatus, setIsUpdatingStatus] = React.useState(false);
 
   // Fetch existing logs from Supabase
   useEffect(() => {
@@ -108,6 +114,10 @@ export default function LeadCard({ lead, onLeadConverted, onLeadDeleted, onActiv
 
     fetchLogs();
   }, [lead.id]);
+
+  useEffect(() => {
+    setEditStatus(lead.status);
+  }, [lead.status]);
 
   const handleConvertLead = async () => {
     if (lead.status === "Converted to Account" || lead.status === "Lost") {
@@ -289,6 +299,25 @@ export default function LeadCard({ lead, onLeadConverted, onLeadDeleted, onActiv
     setAssignedUserId(userId);
     // Optionally update mock data for demo
     lead.assignedUserId = userId;
+  };
+
+  const handleStatusChange = async (newStatus: LeadStatus) => {
+    if (newStatus === editStatus) return;
+    setIsUpdatingStatus(true);
+    try {
+      const { error } = await supabase
+        .from('lead')
+        .update({ status: newStatus })
+        .eq('id', lead.id);
+      if (error) throw error;
+      setEditStatus(newStatus);
+      toast({ title: 'Status updated', description: `Lead status changed to ${newStatus}.` });
+      if (onStatusChange) onStatusChange(newStatus);
+    } catch (error) {
+      toast({ title: 'Error', description: error instanceof Error ? error.message : 'Failed to update status.', variant: 'destructive' });
+    } finally {
+      setIsUpdatingStatus(false);
+    }
   };
 
   return (
@@ -497,6 +526,24 @@ export default function LeadCard({ lead, onLeadConverted, onLeadDeleted, onActiv
                 ) : (
                   <span className="text-[#282828]">{editLead.country || 'N/A'}</span>
                 )}
+              </div>
+              <div>
+                <span className="font-semibold text-[#55504C]">Status:</span>
+                <Select
+                  value={editStatus}
+                  onValueChange={value => handleStatusChange(value as LeadStatus)}
+                  disabled={isUpdatingStatus || editStatus === 'Converted to Account' || editStatus === 'Lost'}
+                >
+                  <SelectTrigger className="border border-muted/30 bg-[#EFEDE7] px-2 py-1 rounded focus:ring-0 focus:outline-none mt-1">
+                    <SelectValue placeholder="Select status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {leadStatusOptions.map(opt => (
+                      <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {isUpdatingStatus && <span className="ml-2 text-xs text-muted-foreground">Updating...</span>}
               </div>
             </div>
           </DialogHeader>

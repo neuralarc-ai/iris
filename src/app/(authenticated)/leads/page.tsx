@@ -846,11 +846,14 @@ export default function LeadsPage() {
             <LeadCard
               key={lead.id}
               lead={lead}
-                    assignedUser={users.find(u => u.id === lead.assignedUserId)?.name || ''}
-                    onLeadConverted={(convertedLeadId) => handleLeadConverted(convertedLeadId, 'newAccountId')}
-                    onLeadDeleted={(leadId: string) => {
-                      setLeads(prev => prev.filter(l => l.id !== leadId));
-                    }}
+              assignedUser={users.find(u => u.id === lead.assignedUserId)?.name || ''}
+              onLeadConverted={(convertedLeadId) => handleLeadConverted(convertedLeadId, 'newAccountId')}
+              onLeadDeleted={(leadId: string) => {
+                setLeads(prev => prev.filter(l => l.id !== leadId));
+              }}
+              onStatusChange={(newStatus) => {
+                setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, status: newStatus } : l));
+              }}
             />
           ))}
         </div>
@@ -970,6 +973,9 @@ export default function LeadsPage() {
                         onLeadConverted={(convertedLeadId) => handleLeadConverted(convertedLeadId, 'newAccountId')}
                         onLeadDeleted={(leadId: string) => {
                           setLeads(prev => prev.filter(l => l.id !== leadId));
+                        }}
+                        onStatusChange={(newStatus) => {
+                          setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, status: newStatus } : l));
                         }}
                       />
                     ))}
