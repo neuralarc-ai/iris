@@ -658,16 +658,9 @@ export default function OpportunityCard({ opportunity, accountName, onStatusChan
           <div className="flex-1 overflow-y-auto space-y-6">
             {/* Details Section */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="bg-white/30 p-3 rounded-lg">
-                <div className="flex items-center justify-between">
-                  <div className="text-sm font-medium text-muted-foreground">Value</div>
-                  {!isEditingValue && (
-                    <button onClick={() => { setIsEditingValue(true); setIsEditingTimeline(false); }} className="ml-2 p-1 hover:bg-muted rounded" title="Edit Value">
-                      <Pencil className="w-4 h-4 text-muted-foreground" />
-                    </button>
-                  )}
-                </div>
-                <div className="text-lg font-bold text-[#97A487] flex items-center gap-2">
+              <div className="bg-[#F3F4F6] p-4 rounded-lg flex flex-col items-center justify-center min-h-[56px]">
+                <div className="text-sm font-medium text-[#6B7280]">Value</div>
+                <div className="text-2xl font-bold text-[#5E6156] mt-1">
                   {isEditingValue ? (
                     <>
                       <input
@@ -685,14 +678,14 @@ export default function OpportunityCard({ opportunity, accountName, onStatusChan
                   )}
                 </div>
               </div>
-              <div className="bg-white/30 p-3 rounded-lg">
-                <div className="text-sm font-medium text-muted-foreground">Status</div>
+              <div className="bg-[#F3F4F6] p-4 rounded-lg flex flex-col items-center justify-center min-h-[56px]">
+                <div className="text-sm font-medium text-[#6B7280]">Status</div>
                 <Select
                   value={editStatus}
                   onValueChange={value => handleStatusChange(value as OpportunityStatus)}
                   disabled={isUpdatingStatus}
                 >
-                  <SelectTrigger className="w-full mt-1">
+                  <SelectTrigger className="w-full mt-2 bg-[#E5E7EB] text-[#333] rounded-[8px] px-4 py-1 text-base font-semibold capitalize">
                     <SelectValue placeholder="Select status" />
                   </SelectTrigger>
                   <SelectContent>
@@ -701,47 +694,15 @@ export default function OpportunityCard({ opportunity, accountName, onStatusChan
                     ))}
                   </SelectContent>
                 </Select>
+                {isUpdatingStatus && <span className="text-xs text-muted-foreground mt-1">Updating...</span>}
               </div>
-              <div className="bg-white/30 p-3 rounded-lg">
-                <div className="flex items-center justify-between">
-                  <div className="text-sm font-medium text-muted-foreground">Timeline</div>
-                  {!isEditingTimeline && (
-                    <button onClick={() => { setIsEditingTimeline(true); setIsEditingValue(false); }} className="ml-2 p-1 hover:bg-muted rounded" title="Edit Timeline">
-                      <Pencil className="w-4 h-4 text-muted-foreground" />
-                    </button>
-                  )}
-                </div>
-                <div className="text-xs text-muted-foreground flex items-center gap-2 flex-wrap">
-                  {isEditingTimeline ? (
-                    <>
-                      <input
-                        type="date"
-                        value={editStartDate.slice(0, 10)}
-                        onChange={e => setEditStartDate(e.target.value)}
-                        className="border rounded px-2 py-1 w-[120px] min-w-0"
-                        disabled={isUpdatingTimeline}
-                      />
-                      <span>-</span>
-                      <input
-                        type="date"
-                        value={editEndDate.slice(0, 10)}
-                        onChange={e => setEditEndDate(e.target.value)}
-                        className="border rounded px-2 py-1 w-[120px] min-w-0"
-                        disabled={isUpdatingTimeline}
-                      />
-                      <button onClick={handleTimelineSave} disabled={isUpdatingTimeline} className="ml-1 text-green-600 hover:text-green-800"><Check className="w-4 h-4" /></button>
-                      <button onClick={() => { setIsEditingTimeline(false); setEditStartDate(opportunity.startDate); setEditEndDate(opportunity.endDate); }} disabled={isUpdatingTimeline} className="ml-1 text-red-600 hover:text-red-800"><X className="w-4 h-4" /></button>
-                    </>
-                  ) : (
-                    (() => {
-                      const start = safeParseISO(opportunity.startDate);
-                      const end = safeParseISO(opportunity.endDate);
-                      if (start && end) {
-                        return `${format(start, 'MMM dd, yyyy')} - ${format(end, 'MMM dd, yyyy')}`;
-                      }
-                      return 'N/A';
-                    })()
-                  )}
+              <div className="bg-[#F3F4F6] p-4 rounded-lg flex flex-col items-center justify-center min-h-[56px]">
+                <div className="text-sm font-medium text-[#6B7280]">Expected Close</div>
+                <div className="text-lg font-semibold mt-1">
+                  {(() => {
+                    const end = safeParseISO(opportunity.endDate);
+                    return end ? format(end, 'MMM dd, yyyy') : 'N/A';
+                  })()}
                 </div>
               </div>
             </div>
@@ -767,7 +728,7 @@ export default function OpportunityCard({ opportunity, accountName, onStatusChan
             <div>
               <h4 className="text-sm font-semibold text-foreground mb-2">Add New Activity</h4>
               <div className="space-y-3">
-                <div className="flex flex-col md:flex-row gap-2">
+                <div className="flex flex-col md:flex-row gap-2 items-center min-h-[44px]">
                   <Select value={newActivityType} onValueChange={value => setNewActivityType(value as 'General' | 'Call' | 'Meeting' | 'Email')}>
                     <SelectTrigger className="w-fit min-w-[120px]">
                       <SelectValue placeholder="Type" />
@@ -783,7 +744,7 @@ export default function OpportunityCard({ opportunity, accountName, onStatusChan
                     placeholder="Describe the activity..."
                     value={newActivityDescription}
                     onChange={(e) => setNewActivityDescription(e.target.value)}
-                    className="min-h-[80px] resize-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 flex-1"
+                    className="min-h-[44px] resize-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 flex-1"
                   />
                 </div>
                 <div className="flex items-center justify-between">

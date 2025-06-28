@@ -31,10 +31,10 @@ interface UpdateItemProps {
 
 const getUpdateTypeIcon = (type: Update['type']) => {
   switch (type) {
-    case 'Call': return <MessageCircleMore className="h-4 w-4 text-primary shrink-0" />; 
-    case 'Meeting': return <Users className="h-4 w-4 text-primary shrink-0" />;
-    case 'Email': return <Mail className="h-4 w-4 text-primary shrink-0" />;
-    default: return <MessageSquare className="h-4 w-4 text-primary shrink-0" />; 
+    case 'Call': return <MessageCircleMore className="h-4 w-4" style={{ color: '#2B2521' }} />; 
+    case 'Meeting': return <Users className="h-4 w-4" style={{ color: '#2B2521' }} />;
+    case 'Email': return <Mail className="h-4 w-4" style={{ color: '#2B2521' }} />;
+    default: return <MessageSquare className="h-4 w-4" style={{ color: '#2B2521' }} />; 
   }
 };
 
@@ -46,6 +46,19 @@ const getSentimentIcon = (sentiment?: string) => {
     if (lowerSentiment.includes("neutral")) return <Activity className="h-4 w-4 text-yellow-500"/>;
     return <Activity className="h-4 w-4"/>;
 }
+
+// Add status badge color classes for opportunity statuses
+const getOpportunityStatusBadgeClasses = (status: string) => {
+  switch (status) {
+    case 'Scope Of Work': return 'bg-sky-500/20 text-sky-700 border-sky-500/30';
+    case 'Proposal': return 'bg-blue-500/20 text-blue-700 border-blue-500/30';
+    case 'Negotiation': return 'bg-amber-500/20 text-amber-700 border-amber-500/30';
+    case 'Win': return 'bg-green-500/20 text-green-700 border-green-500/30';
+    case 'Loss': return 'bg-red-500/20 text-red-700 border-red-500/30';
+    case 'On Hold': return 'bg-slate-500/20 text-slate-700 border-slate-500/30';
+    default: return 'bg-gray-500/20 text-gray-700 border-gray-500/30';
+  }
+};
 
 export default function UpdateItem({ update, groupedUpdates }: UpdateItemProps) {
   // State for related data
@@ -395,47 +408,47 @@ export default function UpdateItem({ update, groupedUpdates }: UpdateItemProps) 
   const getHeaderTitle = () => {
     if (opportunity) {
       return (
-        <div className="flex items-center justify-between">
-          <span className="font-semibold">{opportunity.name}</span>
+        <span className="font-semibold flex flex-col">
+          <span>{opportunity.name}</span>
           {totalUpdates > 1 && (
-            <Badge variant="secondary" className="ml-2">
+            <Badge variant="secondary" className="mt-1 w-fit whitespace-nowrap" style={{ backgroundColor: '#916D5B', color: '#fff', border: 'none' }}>
               {totalUpdates} updates
             </Badge>
           )}
-        </div>
+        </span>
       );
     } else if (lead) {
       return (
-        <div className="flex items-center justify-between">
-          <span className="font-semibold">{lead.personName} ({lead.companyName})</span>
+        <span className="font-semibold flex flex-col">
+          <span>{lead.personName} ({lead.companyName})</span>
           {totalUpdates > 1 && (
-            <Badge variant="secondary" className="ml-2">
+            <Badge variant="secondary" className="mt-1 w-fit whitespace-nowrap" style={{ backgroundColor: '#916D5B', color: '#fff', border: 'none' }}>
               {totalUpdates} updates
             </Badge>
           )}
-        </div>
+        </span>
       );
     } else if (account) {
       return (
-        <div className="flex items-center justify-between">
-          <span className="font-semibold">{account.name}</span>
+        <span className="font-semibold flex flex-col">
+          <span>{account.name}</span>
           {totalUpdates > 1 && (
-            <Badge variant="secondary" className="ml-2">
+            <Badge variant="secondary" className="mt-1 w-fit whitespace-nowrap" style={{ backgroundColor: '#916D5B', color: '#fff', border: 'none' }}>
               {totalUpdates} updates
             </Badge>
           )}
-        </div>
+        </span>
       );
     }
     return (
-      <div className="flex items-center justify-between">
-        <span className="font-semibold">Update</span>
+      <span className="font-semibold flex flex-col">
+        <span>Update</span>
         {totalUpdates > 1 && (
-          <Badge variant="secondary" className="ml-2">
+          <Badge variant="secondary" className="mt-1 w-fit whitespace-nowrap" style={{ backgroundColor: '#916D5B', color: '#fff', border: 'none' }}>
             {totalUpdates} updates
           </Badge>
         )}
-      </div>
+      </span>
     );
   };
 
@@ -464,7 +477,9 @@ export default function UpdateItem({ update, groupedUpdates }: UpdateItemProps) 
   const renderActivityLogItem = (log: Update) => {
     const isCurrentUpdate = log.id === update.id;
     return (
-      <div key={log.id} className={`flex items-start space-x-3 p-3 rounded-lg ${isCurrentUpdate ? 'bg-primary/5 border-l-4 border-primary' : 'bg-muted/30 border-l-4 border-muted'}`}>
+      <div key={log.id} className={
+        'flex items-start space-x-3 p-3 rounded-r-lg bg-[#9A8A744c] border-l-4 border-muted'
+      }>
         <div className="flex-shrink-0 mt-1">
           {getUpdateTypeIcon(log.type)}
         </div>
@@ -503,9 +518,14 @@ export default function UpdateItem({ update, groupedUpdates }: UpdateItemProps) 
           <div className="flex justify-between items-start mb-2">
             <CardTitle className="text-lg font-headline text-foreground line-clamp-1">
               {getHeaderTitle()}
-          </CardTitle>
-            {getStatusBadge()}
-        </div>
+            </CardTitle>
+            {opportunity && (
+              <Badge variant="secondary" className={`capitalize whitespace-nowrap ml-2 border ${getOpportunityStatusBadgeClasses(opportunity.status)}`}>
+                {opportunity.status}
+              </Badge>
+            )}
+            {getStatusBadge && !opportunity && getStatusBadge()}
+          </div>
 
           <div className="space-y-1">
             {getValueDisplay()}
@@ -522,7 +542,7 @@ export default function UpdateItem({ update, groupedUpdates }: UpdateItemProps) 
           {/* Activity Log (max 2 items) */}
           <div className="space-y-2">
             <h4 className="text-sm font-semibold text-foreground">Recent Activity</h4>
-            <div className="bg-white/30 p-3 rounded-[4px] space-y-2">
+            <div className="bg-white/30  rounded-[4px] space-y-2">
               {activityLogs.slice(0, 2).map((log) => renderActivityLogItem(log))}
               {activityLogs.length > 2 && (
                 <div className="flex items-center justify-center pt-2 border-t border-muted/30">
@@ -535,12 +555,9 @@ export default function UpdateItem({ update, groupedUpdates }: UpdateItemProps) 
           </div>
         </CardContent>
 
-        <CardFooter className="pt-4 border-t mt-auto">
-          <Button variant="outline" size="sm" asChild className="mr-auto rounded-[2px]">
-            <div onClick={(e) => {
-              e.stopPropagation();
-              setIsDialogOpen(true);
-            }}>
+        <CardFooter className="pt-4 border-t mt-auto flex gap-2">
+          <Button variant="outline" size="sm" asChild className="mr-auto rounded-[2px]" onClick={(e) => { e.stopPropagation(); setIsDialogOpen(true); }}>
+            <div>
               <Eye className="mr-2 h-4 w-4" />
               View
             </div>
@@ -584,24 +601,24 @@ export default function UpdateItem({ update, groupedUpdates }: UpdateItemProps) 
 
           <div className="flex-1 overflow-y-auto space-y-6">
             {/* Details Section */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {getValueDisplay() && (
-                <div className="bg-white/30 p-3 rounded-lg">
-                  <div className="text-sm font-medium text-muted-foreground">Value</div>
-                  {getValueDisplay()}
+            {opportunity && (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                <div className="bg-[#F3F4F6] p-4 rounded-lg flex flex-col items-center justify-center min-h-[56px]">
+                  <div className="text-sm font-medium text-[#6B7280]">Value</div>
+                  <div className="text-2xl font-bold text-[#5E6156] mt-1">${opportunity.value.toLocaleString()}</div>
                 </div>
-              )}
-              <div className="bg-white/30 p-3 rounded-lg">
-                <div className="text-sm font-medium text-muted-foreground">Status</div>
-                {getStatusBadge()}
+                <div className="bg-[#F3F4F6] p-4 rounded-lg flex flex-col items-center justify-center min-h-[56px]">
+                  <div className="text-sm font-medium text-[#6B7280]">Status</div>
+                  <span className={`mt-2 rounded-full px-4 py-1 text-base font-semibold capitalize border ${getOpportunityStatusBadgeClasses(opportunity.status)}`}>
+                    {opportunity.status}
+                  </span>
+                </div>
+                <div className="bg-[#F3F4F6] p-4 rounded-lg flex flex-col items-center justify-center min-h-[56px]">
+                  <div className="text-sm font-medium text-[#6B7280]">Expected Close</div>
+                  <div className="text-lg font-semibold mt-1">{format(parseISO(opportunity.endDate), 'MMM dd, yyyy')}</div>
+                </div>
               </div>
-              {getExpectedClose() && (
-                <div className="bg-white/30 p-3 rounded-lg">
-                  <div className="text-sm font-medium text-muted-foreground">Expected Close</div>
-                  {getExpectedClose()}
-                </div>
-              )}
-            </div>
+            )}
 
             {/* Full Description */}
             <div>
@@ -619,7 +636,7 @@ export default function UpdateItem({ update, groupedUpdates }: UpdateItemProps) 
               <div className="relative">
                 <div className="space-y-2 max-h-36 overflow-y-auto pr-1">
                   {activityLogs.map((log, idx) => (
-                    <div key={log.id} className="flex items-start space-x-3 p-3 rounded-r-sm bg-muted/30 border-l-4 border-muted">
+                    <div key={log.id} className="flex items-start space-x-3 p-3 rounded-r-lg bg-[#9A8A744c] border-l-4 border-muted">
                       <div className="flex-shrink-0 mt-1">
                         {getUpdateTypeIcon(log.type)}
                       </div>
@@ -650,7 +667,7 @@ export default function UpdateItem({ update, groupedUpdates }: UpdateItemProps) 
             <div>
               <h4 className="text-sm font-semibold text-foreground mb-2">Add New Activity</h4>
               <div className="space-y-3">
-                <div className="flex flex-col md:flex-row gap-2">
+                <div className="flex flex-col md:flex-row gap-2 items-center min-h-[44px]">
                   <Select value={newActivityType} onValueChange={value => setNewActivityType(value as 'General' | 'Call' | 'Meeting' | 'Email')}>
                     <SelectTrigger className="w-fit min-w-[120px]">
                       <SelectValue placeholder="Type" />
@@ -666,41 +683,39 @@ export default function UpdateItem({ update, groupedUpdates }: UpdateItemProps) 
                     placeholder="Describe the activity..."
                     value={newActivityDescription}
                     onChange={(e) => setNewActivityDescription(e.target.value)}
-                    className="min-h-[80px] resize-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 flex-1"
+                    className="min-h-[44px] resize-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 flex-1"
                   />
                 </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <Button 
-                      variant="add" 
-                      className="w-fit"
-                      onClick={handleLogActivity}
-                      disabled={isLoggingActivity || !newActivityDescription.trim()}
-                    >
-                      {isLoggingActivity ? (
-                        <LoadingSpinner size={16} className="mr-2" />
-                      ) : (
-                        <MessageSquarePlus className="mr-2 h-4 w-4" />
-                      )}
-                      Add Activity
-                    </Button>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button variant="outline" className="w-fit">
-                          <CalendarIcon className="mr-2 h-4 w-4" />
-                          {nextActionDate ? format(nextActionDate, 'MMM dd, yyyy') : 'Set next action'}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={nextActionDate}
-                          onSelect={setNextActionDate}
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
-                  </div>
+                <div className="flex items-center justify-between gap-2 w-full">
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" className="w-fit">
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {nextActionDate ? format(nextActionDate, 'MMM dd, yyyy') : 'Select next action'}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={nextActionDate}
+                        onSelect={setNextActionDate}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  <Button 
+                    variant="add" 
+                    className="w-fit"
+                    onClick={handleLogActivity}
+                    disabled={isLoggingActivity || !newActivityDescription.trim()}
+                  >
+                    {isLoggingActivity ? (
+                      <LoadingSpinner size={16} className="mr-2" />
+                    ) : (
+                      <MessageSquarePlus className="mr-2 h-4 w-4" />
+                    )}
+                    Add Activity
+                  </Button>
                 </div>
               </div>
             </div>
