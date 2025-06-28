@@ -60,8 +60,20 @@ export default function AccountCard({ account, view = 'grid', onNewOpportunity, 
   });
 
   useEffect(() => {
-    setOpportunities(getOpportunitiesByAccount(account.id));
-    setLogs(mockUpdates.filter(u => u.accountId === account.id).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+    // Fetch opportunities from Supabase for this account
+    const fetchOpportunities = async () => {
+      const { data, error } = await supabase
+        .from('opportunity')
+        .select('*')
+        .eq('account_id', account.id)
+        .order('updated_at', { ascending: false });
+      if (!error && data) {
+        setOpportunities(data);
+      } else {
+        setOpportunities([]);
+      }
+    };
+    fetchOpportunities();
   }, [account.id]);
 
   // Fetch existing logs from Supabase
@@ -338,7 +350,17 @@ export default function AccountCard({ account, view = 'grid', onNewOpportunity, 
           {view === 'grid' && (
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button variant="outline" size="sm" asChild className="rounded-[4px] p-2 mr-auto"><Link href={`/accounts?id=${account.id}#details`}><Eye className="h-4 w-4" /></Link></Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="rounded-[4px] p-2 mr-auto"
+                  onClick={e => {
+                    e.stopPropagation();
+                    setDialogOpen(true);
+                  }}
+                >
+                  <Eye className="h-4 w-4" />
+                </Button>
               </TooltipTrigger>
               <TooltipContent>View Details</TooltipContent>
             </Tooltip>
