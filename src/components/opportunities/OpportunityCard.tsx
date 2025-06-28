@@ -11,7 +11,7 @@ import { Progress } from "@/components/ui/progress";
 import {format, differenceInDays, parseISO, isValid, formatDistanceToNowStrict, formatDistanceToNow} from 'date-fns';
 import { aiPoweredOpportunityForecasting } from '@/ai/flows/ai-powered-opportunity-forecasting';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
-import { getAccountById, mockUsers } from '@/lib/data';
+import { getAccountById } from '@/lib/data';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
@@ -25,6 +25,7 @@ import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@
 interface OpportunityCardProps {
   opportunity: Opportunity;
   accountName?: string;
+  onStatusChange?: (newStatus: OpportunityStatus) => void;
 }
 
 const getStatusBadgeColorClasses = (status: Opportunity['status']): string => {
@@ -66,7 +67,7 @@ const currencyMap = Object.fromEntries(
   countries.map(c => [c.currencyCode, c.currencySymbol || c.currencyCode])
 );
 
-export default function OpportunityCard({ opportunity, accountName }: OpportunityCardProps) {
+export default function OpportunityCard({ opportunity, accountName, onStatusChange }: OpportunityCardProps) {
   // const [forecast, setForecast] = useState<AIOpportunityForecast | null>(null);
   // const [isLoadingForecast, setIsLoadingForecast] = useState(false);
   const [associatedAccount, setAssociatedAccount] = useState<Account | undefined>(undefined);
@@ -75,12 +76,17 @@ export default function OpportunityCard({ opportunity, accountName }: Opportunit
   const [activityLogs, setActivityLogs] = useState<Update[]>([]);
   const [isLoadingLogs, setIsLoadingLogs] = useState(false);
   const [newActivityDescription, setNewActivityDescription] = useState('');
+  const [newActivityType, setNewActivityType] = useState<'General' | 'Call' | 'Meeting' | 'Email'>('General');
   const [isLoggingActivity, setIsLoggingActivity] = useState(false);
   const [nextActionDate, setNextActionDate] = useState<Date | undefined>(undefined);
   const [showAiInsights, setShowAiInsights] = useState(false);
-  const [assignedUser, setAssignedUser] = useState<{ name: string; email: string } | null>(null);
+  const [assignedUser, setAssignedUser] = useState<{ id: string; name: string; email: string } | null>(null);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
-  const [assignedUserId, setAssignedUserId] = useState('user_admin_000'); // Default to admin for now
+  const [assignedUserId, setAssignedUserId] = useState<string | null>(null);
+  const [allUsers, setAllUsers] = useState<{ id: string; name: string; email: string }[]>([]);
+  const [currentUserRole, setCurrentUserRole] = useState<string>('user');
+  const [editStatus, setEditStatus] = useState<OpportunityStatus>(opportunity.status as OpportunityStatus);
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
 
   const status = opportunity.status as OpportunityStatus;
 
@@ -93,8 +99,51 @@ export default function OpportunityCard({ opportunity, accountName }: Opportunit
     }
   }, [opportunity.accountId]);
 
-  // Note: Opportunity interface doesn't have ownerId, so we'll skip this for now
-  // If owner assignment is needed, it should be added to the Opportunity interface
+  // Fetch current user role
+  useEffect(() => {
+    const fetchRole = async () => {
+      const userId = localStorage.getItem('user_id');
+      if (!userId) return;
+      const { data, error } = await supabase.from('users').select('role').eq('id', userId).single();
+      if (!error && data) setCurrentUserRole(data.role);
+    };
+    fetchRole();
+  }, []);
+
+  // Fetch assigned user from DB
+  useEffect(() => {
+    const fetchAssignedUser = async () => {
+      const ownerId = opportunity.ownerId || (opportunity as any).owner_id;
+      if (!ownerId) {
+        setAssignedUser(null);
+        setAssignedUserId(null);
+        return;
+      }
+      const { data, error } = await supabase
+        .from('users')
+        .select('id, name, email')
+        .eq('id', ownerId)
+        .single();
+      if (!error && data) {
+        setAssignedUser(data);
+        setAssignedUserId(data.id);
+      } else {
+        setAssignedUser(null);
+        setAssignedUserId(null);
+      }
+    };
+    fetchAssignedUser();
+  }, [opportunity.ownerId, (opportunity as any).owner_id]);
+
+  // Fetch all users for assignment dropdown (admin only)
+  useEffect(() => {
+    if (currentUserRole !== 'admin') return;
+    const fetchAllUsers = async () => {
+      const { data, error } = await supabase.from('users').select('id, name, email');
+      if (!error && data) setAllUsers(data);
+    };
+    fetchAllUsers();
+  }, [currentUserRole]);
 
   // Fetch existing logs from Supabase
   useEffect(() => {
@@ -313,6 +362,10 @@ export default function OpportunityCard({ opportunity, accountName }: Opportunit
       toast({ title: "Error", description: "Please enter a description for the activity.", variant: "destructive" });
       return;
     }
+    if (!newActivityType) {
+      toast({ title: "Error", description: "Please select an activity type.", variant: "destructive" });
+      return;
+    }
     
     // Prevent duplicate submissions
     if (isLoggingActivity) {
@@ -343,7 +396,7 @@ export default function OpportunityCard({ opportunity, accountName }: Opportunit
       // Save to Supabase
       const { data, error } = await supabase.from('update').insert([
         {
-          type: 'General',
+          type: newActivityType,
           content: newActivityDescription,
           updated_by_user_id: currentUserId,
           date: new Date().toISOString(),
@@ -373,6 +426,7 @@ export default function OpportunityCard({ opportunity, accountName }: Opportunit
       // Update local state and refresh logs
       setActivityLogs(prev => [newUpdate, ...prev]);
       setNewActivityDescription('');
+      setNewActivityType('General');
       
       // Also refresh from backend to ensure consistency
       await refreshActivityLogs();
@@ -405,15 +459,54 @@ export default function OpportunityCard({ opportunity, accountName }: Opportunit
 
   const toggleAiInsights = () => setShowAiInsights((prev) => !prev);
 
-  const handleAssignUser = (userId: string) => {
+  const handleAssignUser = async (userId: string) => {
     setAssignedUserId(userId);
-    const user = mockUsers.find(u => u.id === userId);
-    if (user) {
-      setAssignedUser({ name: user.name, email: user.email });
+    // Update the assignment in the backend
+    const { error } = await supabase
+      .from('opportunity')
+      .update({ owner_id: userId })
+      .eq('id', opportunity.id);
+    if (!error) {
+      // Fetch and update assigned user
+      const { data, error: userError } = await supabase
+        .from('users')
+        .select('id, name, email')
+        .eq('id', userId)
+        .single();
+      if (!userError && data) setAssignedUser(data);
     }
   };
 
-  const assignedUserObj = mockUsers.find(u => u.id === assignedUserId);
+  // Keep editStatus in sync if opportunity.status changes (e.g., after parent update)
+  useEffect(() => {
+    setEditStatus(opportunity.status as OpportunityStatus);
+  }, [opportunity.status]);
+
+  const handleStatusChange = async (newStatus: OpportunityStatus) => {
+    setIsUpdatingStatus(true);
+    const { error } = await supabase
+      .from('opportunity')
+      .update({ status: newStatus })
+      .eq('id', opportunity.id);
+    if (!error) {
+      setEditStatus(newStatus);
+      toast({ title: "Status Updated", description: `Status changed to ${newStatus}` });
+      if (onStatusChange) onStatusChange(newStatus);
+    } else {
+      toast({ title: "Error", description: "Failed to update status", variant: "destructive" });
+    }
+    setIsUpdatingStatus(false);
+  };
+
+  // Status options for editing
+  const statusOptions = [
+    'Scope Of Work',
+    'Proposal',
+    'Negotiation',
+    'On Hold',
+    'Win',
+    'Loss',
+  ];
 
   return (
     <>
@@ -527,7 +620,20 @@ export default function OpportunityCard({ opportunity, accountName }: Opportunit
               </div>
               <div className="bg-white/30 p-3 rounded-lg">
                 <div className="text-sm font-medium text-muted-foreground">Status</div>
-                <Badge variant="secondary" className={`capitalize whitespace-nowrap ml-2 ${getStatusBadgeColorClasses(opportunity.status)}`}>{opportunity.status}</Badge>
+                <Select
+                  value={editStatus}
+                  onValueChange={value => handleStatusChange(value as OpportunityStatus)}
+                  disabled={isUpdatingStatus}
+                >
+                  <SelectTrigger className="w-full mt-1">
+                    <SelectValue placeholder="Select status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {statusOptions.map(opt => (
+                      <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="bg-white/30 p-3 rounded-lg">
                 <div className="text-sm font-medium text-muted-foreground">Timeline</div>
@@ -570,14 +676,27 @@ export default function OpportunityCard({ opportunity, accountName }: Opportunit
             </div>
             {/* Log New Activity Form */}
             <div>
-              <h4 className="text-sm font-semibold text-foreground mb-2">Log New Activity</h4>
+              <h4 className="text-sm font-semibold text-foreground mb-2">Add New Activity</h4>
               <div className="space-y-3">
-                <Textarea
-                  placeholder="Describe the activity..."
-                  value={newActivityDescription}
-                  onChange={(e) => setNewActivityDescription(e.target.value)}
-                  className="min-h-[80px] resize-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0"
-                />
+                <div className="flex flex-col md:flex-row gap-2">
+                  <Select value={newActivityType} onValueChange={value => setNewActivityType(value as 'General' | 'Call' | 'Meeting' | 'Email')}>
+                    <SelectTrigger className="w-fit min-w-[120px]">
+                      <SelectValue placeholder="Type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="General">General</SelectItem>
+                      <SelectItem value="Call">Call</SelectItem>
+                      <SelectItem value="Meeting">Meeting</SelectItem>
+                      <SelectItem value="Email">Email</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Textarea
+                    placeholder="Describe the activity..."
+                    value={newActivityDescription}
+                    onChange={(e) => setNewActivityDescription(e.target.value)}
+                    className="min-h-[80px] resize-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 flex-1"
+                  />
+                </div>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
                     <Button 
@@ -650,18 +769,19 @@ export default function OpportunityCard({ opportunity, accountName }: Opportunit
             </div>
             <div className="pt-2">
               <span className="font-semibold">Assigned To:</span>
-              <Select value={assignedUserId} onValueChange={handleAssignUser}>
-                <SelectTrigger className="w-full mt-1">
-                  <SelectValue placeholder="Assign to user" />
-                </SelectTrigger>
-                <SelectContent>
-                  {mockUsers.map(user => (
-                    <SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {assignedUserObj && (
-                <div className="mt-1 text-sm text-muted-foreground">Currently assigned to: <span className="font-medium">{assignedUserObj.name}</span></div>
+              {currentUserRole === 'admin' ? (
+                <Select value={assignedUserId || ''} onValueChange={handleAssignUser}>
+                  <SelectTrigger className="w-full mt-1">
+                    <SelectValue placeholder="Assign to user" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {allUsers.map(user => (
+                      <SelectItem key={user.id} value={user.id}>{user.name} ({user.email})</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <span className="ml-2">{assignedUser ? `${assignedUser.name} (${assignedUser.email})` : <span className="text-muted-foreground">Unassigned</span>}</span>
               )}
             </div>
           </div>
