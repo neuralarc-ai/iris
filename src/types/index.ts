@@ -51,6 +51,7 @@ export interface Opportunity {
   startDate: string;
   endDate: string;
   currency?: string;
+  ownerId?: string;
 }
 
 export interface Update {
