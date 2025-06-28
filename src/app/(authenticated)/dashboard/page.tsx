@@ -3,13 +3,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import PageTitle from '@/components/common/PageTitle';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, TrendingUp, Users, AlertTriangle, Lightbulb, BarChartHorizontalBig, CalendarClock, DollarSign, AlertCircle, CheckCircle, History } from 'lucide-react';
+import { RefreshCw, TrendingUp, Users, Lightbulb, BarChartHorizontalBig, History } from 'lucide-react';
 import { aiPoweredOpportunityForecasting } from '@/ai/flows/ai-powered-opportunity-forecasting';
 import { mockOpportunities, mockLeads, getRecentUpdates } from '@/lib/data';
-import type { Opportunity, OpportunityForecast, Lead, OpportunityStatus, Update } from '@/types';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { LoadingSpinner } from '@/components/common/LoadingSpinner';
+import type { Opportunity, OpportunityForecast, Update } from '@/types';
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import Link from 'next/link';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { format, parseISO } from 'date-fns';
@@ -19,19 +17,6 @@ import OpportunityCard from '@/components/opportunities/OpportunityCard';
 interface OpportunityWithForecast extends Opportunity {
   forecast?: OpportunityForecast;
 }
-
-const getStatusBadgeVariant = (status: OpportunityStatus | undefined): "default" | "secondary" | "destructive" | "outline" => {
-  switch (status) {
-    case 'Need Analysis': return 'outline';
-    case 'Negotiation': return 'secondary';
-    case 'In Progress': return 'default';
-    case 'Completed': return 'default';
-    case 'On Hold': return 'secondary';
-    case 'Cancelled': return 'destructive';
-    default: return 'secondary';
-  }
-};
-
 
 export default function DashboardPage() {
   const [forecastedOpportunities, setForecastedOpportunities] = useState<OpportunityWithForecast[]>([]);
@@ -44,7 +29,7 @@ export default function DashboardPage() {
     setIsLoading(true);
     try {
       const activeOpportunities = mockOpportunities.filter(
-        opp => opp.status !== 'Completed' && opp.status !== 'Cancelled'
+        opp => opp.status !== 'Win' && opp.status !== 'Loss'
       ).slice(0, 2); 
 
       const forecastPromises = activeOpportunities.map(async (opp) => {
@@ -88,11 +73,13 @@ export default function DashboardPage() {
   }, []);
 
   const opportunityStatusData = useMemo(() => {
-    const counts: Record<OpportunityStatus, number> = {
-      "Need Analysis": 0, "Negotiation": 0, "In Progress": 0,
-      "On Hold": 0, "Completed": 0, "Cancelled": 0,
+    const counts: Record<string, number> = {
+      "Scope Of Work": 0, "Proposal": 0, "Negotiation": 0,
+      "On Hold": 0, "Win": 0, "Loss": 0,
     };
-    mockOpportunities.forEach(opp => { counts[opp.status]++; });
+    mockOpportunities.forEach(opp => { 
+      counts[opp.status] = (counts[opp.status] || 0) + 1; 
+    });
     return Object.entries(counts).map(([name, value]) => ({ name, count: value })).filter(item => item.count > 0);
   }, []);
 

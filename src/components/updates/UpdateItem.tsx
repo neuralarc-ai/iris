@@ -15,7 +15,7 @@ import {
   Sparkles, Calendar as CalendarIcon,
   Plus, MessageSquarePlus, Eye
 } from 'lucide-react';
-import type { Update, UpdateInsights as AIUpdateInsights, Opportunity, Account, User, Lead } from '@/types';
+import type { Update, UpdateInsights as AIUpdateInsights, Opportunity, Account, User, Lead, UpdateType } from '@/types';
 import { format, parseISO } from 'date-fns';
 import { generateInsights, RelationshipHealthOutput } from '@/ai/flows/intelligent-insights'; 
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
@@ -685,14 +685,9 @@ export default function UpdateItem({ update }: UpdateItemProps) {
                   <div>
                     <h4 className="text-sm font-semibold text-foreground mb-2">Relationship Health</h4>
                     <div className="bg-muted/30 p-3 rounded-lg">
-                      <p className="text-sm text-foreground mb-2">{insights.relationshipHealth.overallAssessment}</p>
-                      <div className="space-y-1">
-                        {insights.relationshipHealth.keyFactors.map((factor, index) => (
-                          <div key={index} className="flex items-center text-xs">
-                            <div className={`w-2 h-2 rounded-full mr-2 ${factor.impact === 'positive' ? 'bg-green-500' : factor.impact === 'negative' ? 'bg-red-500' : 'bg-yellow-500'}`}></div>
-                            {factor.factor}
-                          </div>
-                        ))}
+                      <p className="text-sm text-foreground mb-2">{insights.relationshipHealth.summary}</p>
+                      <div className="text-sm text-foreground">
+                        Health Score: {insights.relationshipHealth.healthScore}
                       </div>
                     </div>
                   </div>

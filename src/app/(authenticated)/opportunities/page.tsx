@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from 'react';
 import PageTitle from '@/components/common/PageTitle';
 import OpportunityCard from '@/components/opportunities/OpportunityCard';
-import { mockOpportunities as initialMockOpportunities, mockAccounts, mockLeads } from '@/lib/data';
 import type { Opportunity, OpportunityStatus } from '@/types';
 import { Button } from '@/components/ui/button';
 import { ListFilter, Search, BarChartBig } from 'lucide-react';
@@ -14,34 +13,51 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import AddOpportunityDialog from '@/components/opportunities/AddOpportunityDialog';
 import { supabase } from '@/lib/supabaseClient';
-import { useAuth } from '@/hooks/use-auth';
 import { Loader2 } from 'lucide-react';
 
+interface OpportunityData {
+  id: string;
+  name: string;
+  account_id: string;
+  status: OpportunityStatus;
+  value: number;
+  description: string;
+  start_date: string;
+  end_date: string;
+  owner_id: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export default function OpportunitiesPage() {
-  const [opportunities, setOpportunities] = useState<any[]>([]);
-  const [accounts, setAccounts] = useState<any[]>([]);
+  const [opportunities, setOpportunities] = useState<OpportunityData[]>([]);
+  const [accounts, setAccounts] = useState<{ id: string; name: string }[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<OpportunityStatus | 'all'>('all');
   const [accountFilter, setAccountFilter] = useState<string | 'all'>('all');
   const [isAddOpportunityDialogOpen, setIsAddOpportunityDialogOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [role, setRole] = useState<string>('user');
-  const [userId, setUserId] = useState<string>('');
 
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true);
       const localUserId = localStorage.getItem('user_id');
-      setUserId(localUserId || '');
+      if (!localUserId) {
+        setIsLoading(false);
+        return;
+      }
+      
       // Fetch user role
       const { data: userData } = await supabase.from('users').select('role').eq('id', localUserId).single();
-      setRole(userData?.role || 'user');
+      const userRole = userData?.role || 'user';
+      
       // Fetch accounts
       const { data: accountsData } = await supabase.from('account').select('id, name');
       setAccounts(accountsData || []);
+      
       // Fetch opportunities
       let query = supabase.from('opportunity').select('*').order('updated_at', { ascending: false });
-      if (userData?.role !== 'admin') {
+      if (userRole !== 'admin') {
         query = query.eq('owner_id', localUserId);
       }
       const { data, error } = await query;
@@ -55,7 +71,7 @@ export default function OpportunitiesPage() {
     fetchData();
   }, [isAddOpportunityDialogOpen]);
 
-  const opportunityStatusOptions: OpportunityStatus[] = ["Need Analysis", "Negotiation", "In Progress", "On Hold", "Completed", "Cancelled"];
+  const opportunityStatusOptions: OpportunityStatus[] = ["Scope Of Work", "Proposal", "Negotiation", "On Hold", "Win", "Loss"];
   const accountOptions = accounts.map(account => ({ id: account.id, name: account.name }));
 
   const filteredOpportunities = opportunities.filter(opportunity => {
@@ -65,20 +81,37 @@ export default function OpportunitiesPage() {
     return matchesSearch && matchesStatus && matchesAccount;
   }).sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
 
-  const handleOpportunityAdded = (newOpportunity: any) => {
-    setOpportunities(prevOpportunities => [newOpportunity, ...prevOpportunities.filter(op => op.id !== newOpportunity.id)]);
+  const handleOpportunityAdded = (newOpportunity: Opportunity) => {
+    // Convert Opportunity to OpportunityData format for state
+    const opportunityData: OpportunityData = {
+      id: newOpportunity.id,
+      name: newOpportunity.name,
+      account_id: newOpportunity.accountId,
+      status: newOpportunity.status,
+      value: newOpportunity.value,
+      description: newOpportunity.description,
+      start_date: newOpportunity.startDate,
+      end_date: newOpportunity.endDate,
+      owner_id: '', // Will be set by the dialog
+      created_at: newOpportunity.createdAt,
+      updated_at: newOpportunity.updatedAt,
+    };
+    setOpportunities(prevOpportunities => [opportunityData, ...prevOpportunities.filter(op => op.id !== newOpportunity.id)]);
   };
 
-  function mapOpportunityFromSupabase(opp: any) {
+  function mapOpportunityFromSupabase(opp: OpportunityData): Opportunity {
     return {
-      ...opp,
+      id: opp.id,
+      name: opp.name,
       accountId: opp.account_id,
+      status: opp.status,
+      value: opp.value,
+      description: opp.description,
       startDate: opp.start_date,
       endDate: opp.end_date,
-      ownerId: opp.owner_id,
+      updateIds: [], // Not implemented yet
       createdAt: opp.created_at,
       updatedAt: opp.updated_at,
-      // add other fields as needed
     };
   }
 

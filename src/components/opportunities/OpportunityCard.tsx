@@ -81,15 +81,8 @@ export default function OpportunityCard({ opportunity, accountName }: Opportunit
     }
   }, [opportunity.accountId]);
 
-  useEffect(() => {
-    if (opportunity.ownerId) {
-      (async () => {
-        const { data, error } = await supabase.from('users').select('name, email').eq('id', opportunity.ownerId).single();
-        if (!error && data) setAssignedUser({ name: data.name, email: data.email });
-        else setAssignedUser(null);
-      })();
-    }
-  }, [opportunity.ownerId]);
+  // Note: Opportunity interface doesn't have ownerId, so we'll skip this for now
+  // If owner assignment is needed, it should be added to the Opportunity interface
 
   // Fetch existing logs from Supabase
   useEffect(() => {
@@ -147,7 +140,7 @@ export default function OpportunityCard({ opportunity, accountName }: Opportunit
   };
 
   useEffect(() => {
-    if(opportunity.status !== 'Completed' && opportunity.status !== 'Cancelled' && opportunity.name && opportunity.startDate && opportunity.endDate && opportunity.value && opportunity.status && opportunity.description) {
+    if(opportunity.status !== 'Win' && opportunity.status !== 'Loss' && opportunity.name && opportunity.startDate && opportunity.endDate && opportunity.value && opportunity.status && opportunity.description) {
         fetchForecast();
     } else {
       setForecast(null); // No forecast for completed/cancelled
@@ -170,7 +163,7 @@ export default function OpportunityCard({ opportunity, accountName }: Opportunit
 
 
   function timeRemaining(status: OpportunityStatus): string {
-    if (status === 'Completed' || status === 'Cancelled') return status;
+    if (status === 'Win' || status === 'Loss') return status;
     const end = safeParseISO(opportunity.endDate);
     if (!end) return 'N/A';
     const now = new Date();
@@ -327,7 +320,7 @@ export default function OpportunityCard({ opportunity, accountName }: Opportunit
               {opportunityHealthIcon} {opportunityHealthText}
             </div>
           </div>
-          {(forecast || isLoadingForecast) && opportunity.status !== 'Completed' && opportunity.status !== 'Cancelled' && (
+          {(forecast || isLoadingForecast) && opportunity.status !== 'Win' && opportunity.status !== 'Loss' && (
             <div className="pt-3 border-t mt-3">
               <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-1.5 flex items-center">
                 <Lightbulb className="mr-1.5 h-3.5 w-3.5 text-yellow-500" /> AI Forecast

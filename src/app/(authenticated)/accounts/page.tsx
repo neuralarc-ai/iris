@@ -72,11 +72,11 @@ export default function AccountsPage() {
   }, [isAddAccountDialogOpen]);
 
   const filteredAccounts = accounts.filter(account => {
-    const matchesSearch = account.name.toLowerCase().includes(searchTerm.toLowerCase()) || (account.contact_email && account.contact_email.toLowerCase().includes(searchTerm.toLowerCase()));
+    const matchesSearch = account.name.toLowerCase().includes(searchTerm.toLowerCase()) || (account.contactEmail && account.contactEmail.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesStatus = statusFilter === 'all' || account.status === statusFilter;
     const matchesType = typeFilter === 'all' || account.type === typeFilter;
     return matchesSearch && matchesStatus && matchesType;
-  }).sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
+  }).sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
 
 
   const handleAccountAddedOrUpdated = (updatedAccount: Account) => {
@@ -200,7 +200,7 @@ export default function AccountsPage() {
               <AccountCard
                 key={account.id}
                 account={account}
-                owner={owners[account.owner_id]?.name || '-'}
+                owner={owners[(account as any).owner_id]?.name || '-'}
                 onAccountDeleted={handleAccountDeleted}
                 onAccountUpdated={handleAccountUpdated}
                 onNewOpportunity={() => {
@@ -229,10 +229,10 @@ export default function AccountsPage() {
                   <TableRow key={account.id} className="hover:bg-transparent">
                     <TableCell className="font-semibold text-foreground">{account.name}</TableCell>
                     <TableCell>{account.contactPersonName || '-'}</TableCell>
-                    <TableCell>{account.contact_email}</TableCell>
+                    <TableCell>{account.contactEmail}</TableCell>
                     <TableCell>{account.type}</TableCell>
                     <TableCell>{account.status}</TableCell>
-                    <TableCell>{owners[account.owner_id]?.name || '-'}</TableCell>
+                    <TableCell>{owners[(account as any).owner_id]?.name || '-'}</TableCell>
                     <TableCell className="flex gap-2">
                       <TooltipProvider delayDuration={0}>
                         <Tooltip>

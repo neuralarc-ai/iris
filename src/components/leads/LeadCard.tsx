@@ -117,7 +117,7 @@ export default function LeadCard({ lead, onLeadConverted, onLeadDeleted, onActiv
 
     try {
       // Carry forward the assigned user from the lead
-      const ownerId = lead.assignedUserId || lead.owner_id || localStorage.getItem('user_id');
+      const ownerId = lead.assignedUserId || localStorage.getItem('user_id');
       if (!ownerId) throw new Error('User not authenticated');
 
       const { data: accountData, error: accountError } = await supabase.from('account').insert([
