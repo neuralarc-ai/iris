@@ -97,7 +97,7 @@ export default function OpportunityCard({ opportunity, accountName, onStatusChan
   // Editable Timeline
   const [isEditingTimeline, setIsEditingTimeline] = useState(false);
   const [editStartDate, setEditStartDate] = useState(opportunity.startDate);
-  const [editEndDate, setEditEndDate] = useState(opportunity.endDate);
+  const [editEndDate, setEditEndDate] = useState<Date | undefined>(safeParseISO(opportunity.endDate) || undefined);
   const [isUpdatingTimeline, setIsUpdatingTimeline] = useState(false);
 
   const status = opportunity.status as OpportunityStatus;
@@ -522,9 +522,10 @@ export default function OpportunityCard({ opportunity, accountName, onStatusChan
 
   // Keep edit fields in sync if opportunity changes
   useEffect(() => {
+    setEditStatus(opportunity.status as OpportunityStatus);
     setEditValue(opportunity.value.toString());
     setEditStartDate(opportunity.startDate);
-    setEditEndDate(opportunity.endDate);
+    setEditEndDate(safeParseISO(opportunity.endDate) || undefined);
   }, [opportunity.value, opportunity.startDate, opportunity.endDate]);
 
   const handleValueSave = async () => {
@@ -545,19 +546,22 @@ export default function OpportunityCard({ opportunity, accountName, onStatusChan
   };
 
   const handleTimelineSave = async () => {
+    if (!editEndDate) return;
     setIsUpdatingTimeline(true);
-    const { error } = await supabase
-      .from('opportunity')
-      .update({ start_date: editStartDate, end_date: editEndDate })
-      .eq('id', opportunity.id);
-    if (!error) {
-      toast({ title: "Timeline Updated", description: `Timeline changed` });
+    try {
+      const { error } = await supabase
+        .from('opportunity')
+        .update({ end_date: editEndDate.toISOString() })
+        .eq('id', opportunity.id);
+      if (error) throw error;
       setIsEditingTimeline(false);
-      if (typeof onTimelineChange === 'function') onTimelineChange(editStartDate, editEndDate);
-    } else {
-      toast({ title: "Error", description: "Failed to update timeline", variant: "destructive" });
+      toast({ title: 'Timeline updated', description: 'Expected close date has been updated.' });
+      if (onTimelineChange) onTimelineChange(opportunity.startDate, editEndDate.toISOString());
+    } catch (error) {
+      toast({ title: 'Error', description: error instanceof Error ? error.message : 'Failed to update timeline.', variant: 'destructive' });
+    } finally {
+      setIsUpdatingTimeline(false);
     }
-    setIsUpdatingTimeline(false);
   };
 
   return (
@@ -658,8 +662,13 @@ export default function OpportunityCard({ opportunity, accountName, onStatusChan
           <div className="flex-1 overflow-y-auto space-y-6">
             {/* Details Section */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="bg-[#F3F4F6] p-4 rounded-lg flex flex-col items-center justify-center min-h-[56px]">
-                <div className="text-sm font-medium text-[#6B7280]">Value</div>
+              <div className="bg-white/30 p-4 rounded-lg flex flex-col items-center justify-center min-h-[56px]">
+                <div className="text-sm font-medium text-[#6B7280] flex items-center gap-2">
+                  Value
+                  <Button variant="ghost" size="icon" className="h-4 w-4 p-0" onClick={() => setIsEditingValue(true)}>
+                    <Pencil className="h-3 w-3" />
+                  </Button>
+                </div>
                 <div className="text-2xl font-bold text-[#5E6156] mt-1">
                   {isEditingValue ? (
                     <>
@@ -678,7 +687,7 @@ export default function OpportunityCard({ opportunity, accountName, onStatusChan
                   )}
                 </div>
               </div>
-              <div className="bg-[#F3F4F6] p-4 rounded-lg flex flex-col items-center justify-center min-h-[56px]">
+              <div className="bg-white/30 p-4 rounded-lg flex flex-col items-center justify-center min-h-[56px]">
                 <div className="text-sm font-medium text-[#6B7280]">Status</div>
                 <Select
                   value={editStatus}
@@ -696,13 +705,43 @@ export default function OpportunityCard({ opportunity, accountName, onStatusChan
                 </Select>
                 {isUpdatingStatus && <span className="text-xs text-muted-foreground mt-1">Updating...</span>}
               </div>
-              <div className="bg-[#F3F4F6] p-4 rounded-lg flex flex-col items-center justify-center min-h-[56px]">
-                <div className="text-sm font-medium text-[#6B7280]">Expected Close</div>
+              <div className="bg-white/30 p-4 rounded-lg flex flex-col items-center justify-center min-h-[56px]">
+                <div className="text-sm font-medium text-[#6B7280] flex items-center gap-2">
+                  Expected Close
+                  <Button variant="ghost" size="icon" className="h-4 w-4 p-0" onClick={() => setIsEditingTimeline(true)}>
+                    <Pencil className="h-3 w-3" />
+                  </Button>
+                </div>
                 <div className="text-lg font-semibold mt-1">
-                  {(() => {
-                    const end = safeParseISO(opportunity.endDate);
-                    return end ? format(end, 'MMM dd, yyyy') : 'N/A';
-                  })()}
+                  {isEditingTimeline ? (
+                    <div className="flex flex-col items-center gap-2">
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" size="sm" className="w-full">
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {editEndDate ? format(editEndDate, 'MMM dd, yyyy') : 'Select date'}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="center">
+                          <Calendar
+                            mode="single"
+                            selected={editEndDate}
+                            onSelect={setEditEndDate}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                      <div className="flex gap-1">
+                        <button onClick={handleTimelineSave} disabled={isUpdatingTimeline} className="text-green-600 hover:text-green-800"><Check className="w-4 h-4" /></button>
+                        <button onClick={() => { setIsEditingTimeline(false); setEditEndDate(safeParseISO(opportunity.endDate) || undefined); }} disabled={isUpdatingTimeline} className="text-red-600 hover:text-red-800"><X className="w-4 h-4" /></button>
+                      </div>
+                    </div>
+                  ) : (
+                    (() => {
+                      const end = safeParseISO(opportunity.endDate);
+                      return end ? format(end, 'MMM dd, yyyy') : 'N/A';
+                    })()
+                  )}
                 </div>
               </div>
             </div>
