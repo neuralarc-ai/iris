@@ -18,7 +18,7 @@ export default function Footer() {
             href="https://neuralarc.ai" 
             target="_blank" 
             rel="noopener noreferrer" 
-            className="font-bold hover:underline ml-1"
+            className="font-extrabold hover:underline ml-1"
           >
             NeuralArc
           </a>

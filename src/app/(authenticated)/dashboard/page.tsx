@@ -267,7 +267,7 @@ export default function DashboardPage() {
                       <YAxis dataKey="name" type="category" stroke="#55504C" fontSize={12} width={100} interval={0}/>
                       <Tooltip
                           contentStyle={{
-                              backgroundColor: "#EFEDE7",
+                              backgroundColor: "rgba(239, 237, 231, 0.7)",
                               borderColor: "#CBCAC5",
                               borderRadius: 8,
                               boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.04), 0 2px 4px -2px rgb(0 0 0 / 0.04)",
@@ -296,8 +296,26 @@ export default function DashboardPage() {
                   Lead Engagement
                 </CardTitle>
               </CardHeader>
-              <CardContent className="flex-grow flex items-center justify-center">
-                <span className="text-xl text-muted-foreground font-semibold">Coming Soon!</span>
+              <CardContent className="flex-grow flex flex-col items-center justify-center gap-4">
+                <div className="flex flex-col items-center animate-fade-in">
+                  {/* Modern chat bubbles with gradient */}
+                  <svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" className="mb-2 drop-shadow-lg">
+                    <defs>
+                      <linearGradient id="leadGradient" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
+                        <stop stopColor="#C57E94"/>
+                        <stop offset="1" stopColor="#4B7B9D"/>
+                      </linearGradient>
+                    </defs>
+                    <ellipse cx="32" cy="32" rx="30" ry="28" fill="url(#leadGradient)" fillOpacity="0.13"/>
+                    <rect x="16" y="22" width="32" height="16" rx="8" fill="#fff" stroke="#C57E94" strokeWidth="2.5"/>
+                    <rect x="24" y="34" width="16" height="8" rx="4" fill="#F8F7F3" stroke="#4B7B9D" strokeWidth="2"/>
+                    <circle cx="24" cy="30" r="2" fill="#C57E94"/>
+                    <circle cx="32" cy="30" r="2" fill="#C57E94"/>
+                    <circle cx="40" cy="30" r="2" fill="#C57E94"/>
+                  </svg>
+                  <span className="text-xl font-semibold text-[#916D5B] text-center">Lead engagement tools are on the way!</span>
+                </div>
+                <p className="text-base text-muted-foreground max-w-xs text-center">Soon you'll be able to track, nurture, and convert leads with AI-powered insights. Stay tuned!</p>
               </CardContent>
             </Card>
           </div>
@@ -327,8 +345,22 @@ export default function DashboardPage() {
                         ))
                     ) : (
                         !isLoading && (
-                          <div className="col-span-2 flex items-center justify-center bg-white rounded-[8px] h-[343px] shadow-sm border text-center">
-                            <span className="text-lg text-muted-foreground font-medium">No recent activity found</span>
+                          <div className="col-span-2 flex flex-col items-center justify-center bg-white rounded-[8px] h-[343px] shadow-sm border text-center gap-4 animate-fade-in">
+                            {/* Pastel calendar with magnifier */}
+                            <svg width="56" height="56" viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg" className="mb-2">
+                              <defs>
+                                <linearGradient id="activityGradient" x1="0" y1="0" x2="56" y2="56" gradientUnits="userSpaceOnUse">
+                                  <stop stopColor="#998876"/>
+                                  <stop offset="1" stopColor="#CBCAC5"/>
+                                </linearGradient>
+                              </defs>
+                              <rect x="8" y="16" width="32" height="24" rx="6" fill="#F8F7F3" stroke="url(#activityGradient)" strokeWidth="2"/>
+                              <rect x="12" y="20" width="24" height="8" rx="2" fill="#CBCAC5"/>
+                              <circle cx="40" cy="40" r="7" fill="#fff" stroke="#C57E94" strokeWidth="2"/>
+                              <path d="M44 44L48 48" stroke="#C57E94" strokeWidth="2" strokeLinecap="round"/>
+                            </svg>
+                            <span className="text-lg text-muted-foreground font-medium text-center">No recent activity yet</span>
+                            <span className="text-sm text-muted-foreground text-center">Once you start engaging, updates will appear here!</span>
                           </div>
                         )
                     )}
@@ -361,8 +393,22 @@ export default function DashboardPage() {
                     ))
                     ) : (
                         !isLoading && (
-                          <div className="col-span-2 flex items-center justify-center bg-white rounded-[8px] h-[343px] shadow-sm border text-center">
-                            <span className="text-lg text-muted-foreground font-medium">No opportunities found</span>
+                          <div className="col-span-2 flex flex-col items-center justify-center bg-white rounded-[8px] h-[343px] shadow-sm border text-center gap-4 animate-fade-in">
+                            {/* Hopeful horizon icon */}
+                            <svg width="56" height="56" viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg" className="mb-2">
+                              <defs>
+                                <linearGradient id="oppGradient" x1="0" y1="0" x2="56" y2="56" gradientUnits="userSpaceOnUse">
+                                  <stop stopColor="#5E6156"/>
+                                  <stop offset="1" stopColor="#C57E94"/>
+                                </linearGradient>
+                              </defs>
+                              <ellipse cx="28" cy="40" rx="20" ry="8" fill="#F8F7F3"/>
+                              <rect x="16" y="24" width="24" height="10" rx="5" fill="url(#oppGradient)" fillOpacity="0.18"/>
+                              <circle cx="28" cy="29" r="5" fill="#CBCAC5"/>
+                              <rect x="26" y="34" width="4" height="6" rx="2" fill="#C57E94"/>
+                            </svg>
+                            <span className="text-lg text-muted-foreground font-medium text-center">No opportunities found</span>
+                            <span className="text-sm text-muted-foreground text-center">Add your first opportunity to get started!</span>
                           </div>
                         )
                     )}
