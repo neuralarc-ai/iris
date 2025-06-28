@@ -566,7 +566,7 @@ export default function UpdateItem({ update, groupedUpdates }: UpdateItemProps) 
 
       {/* Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+        <DialogContent className="sm:max-w-xl bg-white" onClick={e => e.stopPropagation()}>
           <DialogHeader>
             <DialogTitle className="text-xl font-headline">
               {getHeaderTitle()}
@@ -606,10 +606,35 @@ export default function UpdateItem({ update, groupedUpdates }: UpdateItemProps) 
             </div>
 
             {/* All Activity Logs */}
-            <div>
-              <h4 className="text-sm font-semibold text-foreground mb-3">Activity Log</h4>
-              <div className="space-y-2 h-32 overflow-y-auto">
-                {activityLogs.map((log) => renderActivityLogItem(log))}
+            <div className="mt-4">
+              <div className="text-xs font-semibold text-muted-foreground uppercase mb-1">Activity Log</div>
+              <div className="relative">
+                <div className="space-y-2 max-h-36 overflow-y-auto pr-1">
+                  {activityLogs.map((log, idx) => (
+                    <div key={log.id} className="flex items-start space-x-3 p-3 rounded-r-sm bg-muted/30 border-l-4 border-muted">
+                      <div className="flex-shrink-0 mt-1">
+                        {getUpdateTypeIcon(log.type)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-1">
+                          <p className="text-sm font-medium text-foreground line-clamp-2">
+                            {log.content}
+                          </p>
+                          <span className="text-xs text-muted-foreground ml-2">
+                            {format(new Date(log.date), 'MMM dd')}
+                          </span>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <span className="text-xs text-muted-foreground">{log.type}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {/* Gradient overlay at the bottom, only if more than one log */}
+                {activityLogs.length > 2 && (
+                  <div className="pointer-events-none absolute left-0 right-0 bottom-0 h-8" style={{background: 'linear-gradient(to bottom, transparent, #fff 90%)'}} />
+                )}
               </div>
             </div>
 

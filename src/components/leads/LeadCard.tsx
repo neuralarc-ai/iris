@@ -528,7 +528,7 @@ export default function LeadCard({ lead, onLeadConverted, onLeadDeleted, onActiv
                     ))}
                   </div>
                   {/* Gradient overlay at the bottom, only if more than one log */}
-                  {logs.length > 1 && (
+                  {logs.length > 2 && (
                     <div className="pointer-events-none absolute left-0 right-0 bottom-0 h-8" style={{background: 'linear-gradient(to bottom, transparent, #fff 90%)'}} />
                   )}
                 </div>
