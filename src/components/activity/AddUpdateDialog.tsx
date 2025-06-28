@@ -16,9 +16,12 @@ import {
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import type { Account, Opportunity, Update, UpdateType, Lead } from '@/types';
-import { Loader2, MessageSquarePlus, Briefcase, BarChartBig, User } from 'lucide-react';
+import { Loader2, MessageSquarePlus, Briefcase, BarChartBig, User, CalendarIcon } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
 import { Input } from "@/components/ui/input";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { format } from "date-fns";
 
 interface AddUpdateDialogProps {
   open: boolean;
@@ -37,6 +40,7 @@ export default function AddUpdateDialog({ open, onOpenChange, onUpdateAdded }: A
   const [selectedOpportunityId, setSelectedOpportunityId] = useState<string>('');
   const [updateType, setUpdateTypeState] = useState<UpdateType | ''>('');
   const [content, setContent] = useState('');
+  const [nextActionDate, setNextActionDate] = useState<Date | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(false);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -152,6 +156,7 @@ export default function AddUpdateDialog({ open, onOpenChange, onUpdateAdded }: A
     setSelectedOpportunityId('');
     setUpdateTypeState('');
     setContent('');
+    setNextActionDate(undefined);
     setAccountSearch('');
     setOpportunitySearch('');
     setLeadSearch('');
@@ -170,6 +175,7 @@ export default function AddUpdateDialog({ open, onOpenChange, onUpdateAdded }: A
         lead_id: updateData.leadId || null,
         opportunity_id: updateData.opportunityId || null,
         account_id: updateData.accountId || null,
+        next_action_date: updateData.nextActionDate || null,
       }
     ]).select().single();
 
@@ -186,6 +192,7 @@ export default function AddUpdateDialog({ open, onOpenChange, onUpdateAdded }: A
       leadId: data.lead_id,
       opportunityId: data.opportunity_id,
       accountId: data.account_id,
+      nextActionDate: data.next_action_date,
     };
   };
 
@@ -226,6 +233,7 @@ export default function AddUpdateDialog({ open, onOpenChange, onUpdateAdded }: A
           leadId: selectedLeadId,
           type: updateType as UpdateType,
           content: content,
+          nextActionDate: nextActionDate?.toISOString() || null,
         };
         const lead = leads.find(l => l.id === selectedLeadId);
         successMessage = `Update for lead "${lead?.companyName}" has been logged.`
@@ -236,6 +244,7 @@ export default function AddUpdateDialog({ open, onOpenChange, onUpdateAdded }: A
           accountId: selectedOpportunity?.accountId || null,
           type: updateType as UpdateType,
           content: content,
+          nextActionDate: nextActionDate?.toISOString() || null,
         };
         successMessage = `Update for opportunity "${selectedOpportunity?.name}" has been logged.`
       } else { // account
@@ -243,6 +252,7 @@ export default function AddUpdateDialog({ open, onOpenChange, onUpdateAdded }: A
           accountId: selectedAccountId,
           type: updateType as UpdateType,
           content: content,
+          nextActionDate: nextActionDate?.toISOString() || null,
         };
         const account = accounts.find(acc => acc.id === selectedAccountId);
         successMessage = `Update for account "${account?.name}" has been logged.`
@@ -466,6 +476,31 @@ export default function AddUpdateDialog({ open, onOpenChange, onUpdateAdded }: A
               disabled={isLoading}
             />
           </div>
+
+          <div>
+            <Label htmlFor="next-action-date">Next Action Date</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="w-full justify-start text-left font-normal"
+                  disabled={isLoading}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {nextActionDate ? format(nextActionDate, 'MMM dd, yyyy') : 'Select next action date'}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={nextActionDate}
+                  onSelect={setNextActionDate}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+
           <DialogFooter className="pt-4">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isLoading}>
               Cancel

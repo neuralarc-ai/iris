@@ -48,6 +48,8 @@ export default function LeadsPage() {
   const [isBulkAssignDialogOpen, setIsBulkAssignDialogOpen] = useState(false);
   const [bulkAssignUser, setBulkAssignUser] = useState('');
   const [isBulkAssigning, setIsBulkAssigning] = useState(false);
+  const [isBulkDeleteDialogOpen, setIsBulkDeleteDialogOpen] = useState(false);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
 
   useEffect(() => {
     const fetchLeadsAndUsers = async () => {
@@ -537,6 +539,47 @@ export default function LeadsPage() {
     }
   };
 
+  const handleBulkDelete = async () => {
+    if (selectedLeads.length === 0) {
+      toast({ title: "Error", description: "Please select at least one lead to delete.", variant: "destructive" });
+      return;
+    }
+
+    setIsBulkDeleting(true);
+    try {
+      // Delete all selected leads from Supabase
+      const { error } = await supabase
+        .from('lead')
+        .delete()
+        .in('id', selectedLeads);
+
+      if (error) {
+        throw error;
+      }
+
+      // Update local state
+      setLeads(prevLeads => 
+        prevLeads.filter(lead => !selectedLeads.includes(lead.id))
+      );
+
+      toast({
+        title: "Bulk Delete Successful",
+        description: `${selectedLeads.length} lead${selectedLeads.length === 1 ? '' : 's'} deleted successfully.`,
+        variant: "destructive"
+      });
+
+      // Reset and close dialog
+      setSelectedLeads([]);
+      setSelectMode(false);
+      setIsBulkDeleteDialogOpen(false);
+    } catch (error) {
+      console.error("Bulk delete failed:", error);
+      toast({ title: "Error", description: "Failed to delete leads. Please try again.", variant: "destructive" });
+    } finally {
+      setIsBulkDeleting(false);
+    }
+  };
+
   // Helper function to determine if a lead should be rejected
   const shouldRejectLead = (leadData: any): { rejected: boolean; reasons: string[] } => {
     const reasons: string[] = [];
@@ -685,7 +728,7 @@ export default function LeadsPage() {
               onClick={() => setSelectMode(true)} 
               className='bg-transparent border border-[#97A487] text-[#97A487] w-fit rounded-[4px] hover:bg-[#97A487] hover:text-white'
             >
-              <Users className="mr-2 h-4 w-4" /> Bulk Assign
+              <Users className="mr-2 h-4 w-4" /> Select
             </Button>
             <Button onClick={() => setIsAddLeadDialogOpen(true)} variant="add" className='w-fit'>
                 <Image src="/images/add.svg" alt="Add" width={20} height={20} className="mr-2" /> Add New Lead
@@ -747,17 +790,6 @@ export default function LeadsPage() {
                   </SelectContent>
                 </Select>
               </div>
-              <Button
-                className="border-input border text-[#282828] bg-white/30 h-10 px-3 text-sm rounded-md"
-                style={{marginTop: '28px'}}
-                onClick={() => selectMode ? handleExitSelectMode() : setSelectMode(true)}
-              >
-                {selectMode ? (
-                  <><X className="mr-2 h-4 w-4" />Cancel</>
-                ) : (
-                  <><CheckSquare className="mr-2 h-4 w-4" />Select</>
-                )}
-              </Button>
             </div>
             </div>
           </div>
@@ -778,13 +810,32 @@ export default function LeadsPage() {
                   Select All ({filteredLeads.length})
                 </Button>
               </div>
-              <Button
-                className="bg-[#97A487] text-white hover:bg-[#8A9A7A] rounded-[6px] px-3 py-2 text-sm"
-                onClick={() => setIsBulkAssignDialogOpen(true)}
-                disabled={selectedLeads.length === 0}
-              >
-                Assign {selectedLeads.length} Lead{selectedLeads.length === 1 ? '' : 's'}
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  className="border-[#97A487] text-[#97A487] hover:bg-[#97A487] hover:text-white rounded-[6px] px-3 py-2 text-sm"
+                  onClick={handleExitSelectMode}
+                >
+                  <X className="mr-2 h-4 w-4" />
+                  Cancel
+                </Button>
+                <Button
+                  className="bg-[#97A487] text-white hover:bg-[#8A9A7A] rounded-[6px] px-3 py-2 text-sm"
+                  onClick={() => setIsBulkAssignDialogOpen(true)}
+                  disabled={selectedLeads.length === 0}
+                >
+                  Assign {selectedLeads.length} Lead{selectedLeads.length === 1 ? '' : 's'}
+                </Button>
+                <Button
+                  variant="destructive"
+                  className="bg-red-600 text-white hover:bg-red-700 rounded-[6px] px-3 py-2 text-sm"
+                  onClick={() => setIsBulkDeleteDialogOpen(true)}
+                  disabled={selectedLeads.length === 0}
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete {selectedLeads.length} Lead{selectedLeads.length === 1 ? '' : 's'}
+                </Button>
+              </div>
             </div>
           )}
         </CardContent>
@@ -854,6 +905,10 @@ export default function LeadsPage() {
               onStatusChange={(newStatus) => {
                 setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, status: newStatus } : l));
               }}
+              selectMode={selectMode}
+              selected={selectedLeads.includes(lead.id)}
+              onSelect={() => handleSelectLead(lead.id)}
+              users={users}
             />
           ))}
         </div>
@@ -977,6 +1032,10 @@ export default function LeadsPage() {
                         onStatusChange={(newStatus) => {
                           setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, status: newStatus } : l));
                         }}
+                        selectMode={selectMode}
+                        selected={selectedLeads.includes(lead.id)}
+                        onSelect={() => handleSelectLead(lead.id)}
+                        users={users}
                       />
                     ))}
                   </div>
@@ -1242,6 +1301,40 @@ export default function LeadsPage() {
                 </>
               ) : (
                 `Assign ${selectedLeads.length} Lead${selectedLeads.length === 1 ? '' : 's'}`
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={isBulkDeleteDialogOpen} onOpenChange={setIsBulkDeleteDialogOpen}>
+        <DialogContent className="max-w-md bg-white">
+          <DialogHeader>
+            <DialogTitle>Bulk Delete Leads</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete {selectedLeads.length} selected lead{selectedLeads.length === 1 ? '' : 's'}? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-sm text-muted-foreground">
+              This will permanently delete the selected leads from the system.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline-dark" onClick={() => setIsBulkDeleteDialogOpen(false)} disabled={isBulkDeleting}>
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive" 
+              disabled={isBulkDeleting} 
+              onClick={handleBulkDelete}
+            >
+              {isBulkDeleting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                `Delete ${selectedLeads.length} Lead${selectedLeads.length === 1 ? '' : 's'}`
               )}
             </Button>
           </DialogFooter>

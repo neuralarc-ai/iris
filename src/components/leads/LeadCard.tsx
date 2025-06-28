@@ -4,10 +4,10 @@ import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Users, User, Mail, Phone, Eye, CheckSquare, FileWarning, CalendarPlus, History, Linkedin, MapPin, Trash2, Pencil, X } from 'lucide-react';
+import { Users, User, Mail, Phone, Eye, CheckSquare, FileWarning, CalendarPlus, History, Linkedin, MapPin, Trash2, Pencil, X, FileText } from 'lucide-react';
 import type { Lead, Update, LeadStatus } from '@/types';
-import { add, formatDistanceToNow, format } from 'date-fns';
-import { convertLeadToAccount, deleteLead, mockUsers } from '@/lib/data';
+import { add, formatDistanceToNow, format, parseISO } from 'date-fns';
+import { convertLeadToAccount, deleteLead } from '@/lib/data';
 import { supabase } from '@/lib/supabaseClient';
 import { useToast } from "@/hooks/use-toast";
 import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from '@/components/ui/alert-dialog';
@@ -31,6 +31,7 @@ interface LeadCardProps {
   onSelect?: () => void;
   assignedUser?: string;
   onStatusChange?: (newStatus: LeadStatus) => void;
+  users?: Array<{ id: string; name: string; email: string }>;
 }
 
 const getStatusBadgeVariant = (status: Lead['status']): "default" | "secondary" | "destructive" | "outline" => {
@@ -57,7 +58,21 @@ const getStatusBadgeColorClasses = (status: Lead['status']): string => {
   }
 }
 
-export default function LeadCard({ lead, onLeadConverted, onLeadDeleted, onActivityLogged, selectMode = false, selected = false, onSelect, assignedUser, onStatusChange }: LeadCardProps) {
+const getUpdateTypeIcon = (type: Update['type']) => {
+  switch (type) {
+    case 'Call':
+      return <Phone className="h-4 w-4 text-blue-500" />;
+    case 'Email':
+      return <Mail className="h-4 w-4 text-green-500" />;
+    case 'Meeting':
+      return <Users className="h-4 w-4 text-purple-500" />;
+    case 'General':
+    default:
+      return <FileText className="h-4 w-4 text-gray-500" />;
+  }
+};
+
+export default function LeadCard({ lead, onLeadConverted, onLeadDeleted, onActivityLogged, selectMode = false, selected = false, onSelect, assignedUser, onStatusChange, users = [] }: LeadCardProps) {
   const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = React.useState(false);
   const [updateType, setUpdateType] = React.useState('');
@@ -76,7 +91,7 @@ export default function LeadCard({ lead, onLeadConverted, onLeadDeleted, onActiv
   const [logs, setLogs] = React.useState<Update[]>([]);
   const [isViewDialogOpen, setIsViewDialogOpen] = React.useState(false);
   const [assignedUserId, setAssignedUserId] = React.useState(lead.assignedUserId || '');
-  const assignedUserObj = mockUsers.find(u => u.id === assignedUserId);
+  const assignedUserObj = users.find(u => u.id === assignedUserId);
   const leadStatusOptions: LeadStatus[] = [
     "New", "Contacted", "Qualified", "Proposal Sent", "Lost"
   ];
@@ -104,6 +119,7 @@ export default function LeadCard({ lead, onLeadConverted, onLeadDeleted, onActiv
             leadId: log.lead_id,
             opportunityId: log.opportunity_id,
             accountId: log.account_id,
+            nextActionDate: log.next_action_date,
           }));
           setLogs(transformedLogs);
         }
@@ -295,10 +311,31 @@ export default function LeadCard({ lead, onLeadConverted, onLeadDeleted, onActiv
     setEditMode(false);
   };
 
-  const handleAssignUser = (userId: string) => {
-    setAssignedUserId(userId);
-    // Optionally update mock data for demo
-    lead.assignedUserId = userId;
+  const handleAssignUser = async (userId: string) => {
+    try {
+      const { error } = await supabase
+        .from('lead')
+        .update({ owner_id: userId })
+        .eq('id', lead.id);
+
+      if (error) throw error;
+
+      setAssignedUserId(userId);
+      // Update the lead object locally
+      lead.assignedUserId = userId;
+      
+      toast({ 
+        title: 'User Assigned', 
+        description: `Lead assigned to ${users.find(u => u.id === userId)?.name || 'selected user'}.` 
+      });
+    } catch (error) {
+      console.error('Failed to assign user:', error);
+      toast({ 
+        title: 'Assignment Failed', 
+        description: error instanceof Error ? error.message : 'Failed to assign user to lead.', 
+        variant: 'destructive' 
+      });
+    }
   };
 
   const handleStatusChange = async (newStatus: LeadStatus) => {
@@ -550,13 +587,13 @@ export default function LeadCard({ lead, onLeadConverted, onLeadDeleted, onActiv
           <div className="mt-4">
             {!editMode && logs.length > 0 && (
               <>
-                <div className="text-xs font-semibold text-muted-foreground uppercase mb-1">Activity</div>
+                <div className="text-xs font-semibold text-muted-foreground uppercase mb-1">Activity Updates</div>
                 <div className="relative">
                   <div className="space-y-2 max-h-36 overflow-y-auto pr-1">
                     {logs.map((log, idx) => (
-                      <div key={log.id} className="flex items-start space-x-3 p-3 rounded-r-sm bg-muted/30 border-l-4 border-muted">
+                      <div key={log.id} className="flex items-start space-x-3 p-3 rounded-r-lg bg-[#9A8A744c] border-l-4 border-muted">
                         <div className="flex-shrink-0 mt-1">
-                          <CheckSquare className="h-4 w-4 text-primary shrink-0" />
+                          {getUpdateTypeIcon(log.type)}
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between mb-1">
@@ -568,7 +605,12 @@ export default function LeadCard({ lead, onLeadConverted, onLeadDeleted, onActiv
                             </span>
                           </div>
                           <div className="flex items-center space-x-2">
-                            <span className="text-xs text-muted-foreground">{log.type}</span>
+                            <Badge variant="outline" className="text-xs">{log.type}</Badge>
+                            {log.nextActionDate && (
+                              <span className="text-xs text-blue-600 font-medium">
+                                Next: {format(parseISO(log.nextActionDate), 'MMM dd, yyyy')}
+                              </span>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -675,7 +717,7 @@ export default function LeadCard({ lead, onLeadConverted, onLeadDeleted, onActiv
                   <SelectValue placeholder="Assign to user" />
                 </SelectTrigger>
                 <SelectContent>
-                  {mockUsers.map(user => (
+                  {users.map(user => (
                     <SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>
                   ))}
                 </SelectContent>

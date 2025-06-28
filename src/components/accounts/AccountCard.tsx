@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Briefcase, ListChecks, PlusCircle, Eye, MessageSquareHeart, Lightbulb, Users, Mail, Phone, Tag, Trash2, X, Pencil } from 'lucide-react';
+import { Briefcase, ListChecks, PlusCircle, Eye, MessageSquareHeart, Lightbulb, Users, Mail, Phone, Tag, Trash2, X, Pencil, FileText } from 'lucide-react';
 import type { Account, DailyAccountSummary as AIDailySummary, Opportunity, Update, UpdateType } from '@/types';
 import { getOpportunitiesByAccount, mockUpdates, addUpdate } from '@/lib/data';
 import { generateDailyAccountSummary } from '@/ai/flows/daily-account-summary';
@@ -17,7 +17,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/hooks/use-auth';
@@ -97,6 +97,7 @@ export default function AccountCard({ account, view = 'grid', onNewOpportunity, 
             leadId: log.lead_id,
             opportunityId: log.opportunity_id,
             accountId: log.account_id,
+            nextActionDate: log.next_action_date,
           }));
           setLogs(transformedLogs);
         }
@@ -272,6 +273,20 @@ export default function AccountCard({ account, view = 'grid', onNewOpportunity, 
       description: account.description || '',
     });
     setEditMode(false);
+  };
+
+  const getUpdateTypeIcon = (type: Update['type']) => {
+    switch (type) {
+      case 'Call':
+        return <Phone className="h-4 w-4 text-blue-500" />;
+      case 'Email':
+        return <Mail className="h-4 w-4 text-green-500" />;
+      case 'Meeting':
+        return <Users className="h-4 w-4 text-purple-500" />;
+      case 'General':
+      default:
+        return <FileText className="h-4 w-4 text-gray-500" />;
+    }
   };
 
   return (
@@ -515,34 +530,42 @@ export default function AccountCard({ account, view = 'grid', onNewOpportunity, 
           </DialogHeader>
           <div className="mt-4">
             {!editMode && logs.length > 0 && (
-              <div className="relative">
-                <div className="space-y-2 max-h-36 overflow-y-auto pr-1">
-                  {logs.map((log, idx) => (
-                    <div key={log.id} className="flex items-start space-x-3 p-3 rounded-r-sm bg-muted/30 border-l-4 border-muted">
-                      <div className="flex-shrink-0 mt-1">
-                        <ListChecks className="h-4 w-4 text-primary shrink-0" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between mb-1">
-                          <p className="text-sm font-medium text-foreground line-clamp-2">
-                            {log.content}
-                          </p>
-                          <span className="text-xs text-muted-foreground ml-2">
-                            {format(new Date(log.date), 'MMM dd')}
-                          </span>
+              <>
+                <div className="text-xs font-semibold text-muted-foreground uppercase mb-1">Activity Updates</div>
+                <div className="relative">
+                  <div className="space-y-2 max-h-36 overflow-y-auto pr-1">
+                    {logs.map((log, idx) => (
+                      <div key={log.id} className="flex items-start space-x-3 p-3 rounded-r-lg bg-[#9A8A744c] border-l-4 border-muted">
+                        <div className="flex-shrink-0 mt-1">
+                          {getUpdateTypeIcon(log.type)}
                         </div>
-                        <div className="flex items-center space-x-2">
-                          <span className="text-xs text-muted-foreground">{log.type}</span>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between mb-1">
+                            <p className="text-sm font-medium text-foreground line-clamp-2">
+                              {log.content}
+                            </p>
+                            <span className="text-xs text-muted-foreground ml-2">
+                              {format(new Date(log.date), 'MMM dd')}
+                            </span>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <Badge variant="outline" className="text-xs">{log.type}</Badge>
+                            {log.nextActionDate && (
+                              <span className="text-xs text-blue-600 font-medium">
+                                Next: {format(parseISO(log.nextActionDate), 'MMM dd, yyyy')}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
+                  {/* Gradient overlay at the bottom, only if more than one log */}
+                  {logs.length > 2 && (
+                    <div className="pointer-events-none absolute left-0 right-0 bottom-0 h-8" style={{background: 'linear-gradient(to bottom, transparent, #fff 90%)'}} />
+                  )}
                 </div>
-                {/* Gradient overlay at the bottom, only if more than one log */}
-                {logs.length > 2 && (
-                  <div className="pointer-events-none absolute left-0 right-0 bottom-0 h-8" style={{background: 'linear-gradient(to bottom, transparent, #fff 90%)'}} />
-                )}
-              </div>
+              </>
             )}
             {editMode ? (
               <div className="flex justify-end gap-2 mt-4">

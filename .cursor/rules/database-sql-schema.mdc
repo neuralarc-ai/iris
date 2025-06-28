@@ -149,3 +149,6 @@ ALTER TABLE lead
       'Converted to Account',
       'Lost'
     ));
+
+
+ALTER TABLE update ADD COLUMN next_action_date timestamptz;

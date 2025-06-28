@@ -160,6 +160,7 @@ export default function UpdateItem({ update, groupedUpdates }: UpdateItemProps) 
               leadId: upd.lead_id,
               opportunityId: upd.opportunity_id,
               accountId: upd.account_id,
+              nextActionDate: upd.next_action_date,
             }));
             setActivityLogs(transformedUpdates);
           }
@@ -215,6 +216,7 @@ export default function UpdateItem({ update, groupedUpdates }: UpdateItemProps) 
               leadId: upd.lead_id,
               opportunityId: upd.opportunity_id,
               accountId: upd.account_id,
+              nextActionDate: upd.next_action_date,
             }));
             setActivityLogs(transformedUpdates);
           }
@@ -269,6 +271,7 @@ export default function UpdateItem({ update, groupedUpdates }: UpdateItemProps) 
               leadId: upd.lead_id,
               opportunityId: upd.opportunity_id,
               accountId: upd.account_id,
+              nextActionDate: upd.next_action_date,
             }));
             setActivityLogs(transformedUpdates);
           }
@@ -312,6 +315,7 @@ export default function UpdateItem({ update, groupedUpdates }: UpdateItemProps) 
         content: updateData.content,
         updated_by_user_id: currentUserId,
         date: new Date().toISOString(),
+        next_action_date: updateData.nextActionDate ? updateData.nextActionDate.toISOString() : null,
         lead_id: updateData.leadId || null,
         opportunity_id: updateData.opportunityId || null,
         account_id: updateData.accountId || null,
@@ -331,6 +335,7 @@ export default function UpdateItem({ update, groupedUpdates }: UpdateItemProps) 
       leadId: data.lead_id,
       opportunityId: data.opportunity_id,
       accountId: data.account_id,
+      nextActionDate: data.next_action_date,
     };
   };
 
@@ -345,6 +350,7 @@ export default function UpdateItem({ update, groupedUpdates }: UpdateItemProps) 
       const newUpdateData = {
         type: newActivityType,
         content: newActivityDescription,
+        nextActionDate: nextActionDate,
         ...(update.opportunityId ? { opportunityId: update.opportunityId, accountId: update.accountId! } : { leadId: update.leadId! })
       };
 
@@ -369,6 +375,7 @@ export default function UpdateItem({ update, groupedUpdates }: UpdateItemProps) 
             leadId: upd.lead_id,
             opportunityId: upd.opportunity_id,
             accountId: upd.account_id,
+            nextActionDate: upd.next_action_date,
           }));
           setActivityLogs(transformedUpdates);
         }
@@ -410,44 +417,64 @@ export default function UpdateItem({ update, groupedUpdates }: UpdateItemProps) 
       return (
         <span className="font-semibold flex flex-col">
           <span>{opportunity.name}</span>
-          {totalUpdates > 1 && (
-            <Badge variant="secondary" className="mt-1 w-fit whitespace-nowrap" style={{ backgroundColor: '#916D5B', color: '#fff', border: 'none' }}>
-              {totalUpdates} updates
+          <div className="flex items-center gap-2 mt-1">
+            <Badge variant="outline" className="text-xs bg-gray-100 text-gray-800 border-gray-300">
+              Opportunities
             </Badge>
-          )}
+            {totalUpdates > 1 && (
+              <Badge variant="secondary" className="whitespace-nowrap" style={{ backgroundColor: '#916D5B', color: '#fff', border: 'none' }}>
+                {totalUpdates} updates
+              </Badge>
+            )}
+          </div>
         </span>
       );
     } else if (lead) {
       return (
         <span className="font-semibold flex flex-col">
           <span>{lead.personName} ({lead.companyName})</span>
-          {totalUpdates > 1 && (
-            <Badge variant="secondary" className="mt-1 w-fit whitespace-nowrap" style={{ backgroundColor: '#916D5B', color: '#fff', border: 'none' }}>
-              {totalUpdates} updates
+          <div className="flex items-center gap-2 mt-1">
+            <Badge variant="outline" className="text-xs bg-gray-100 text-gray-800 border-gray-300">
+              Leads
             </Badge>
-          )}
+            {totalUpdates > 1 && (
+              <Badge variant="secondary" className="whitespace-nowrap" style={{ backgroundColor: '#916D5B', color: '#fff', border: 'none' }}>
+                {totalUpdates} updates
+              </Badge>
+            )}
+          </div>
         </span>
       );
     } else if (account) {
       return (
         <span className="font-semibold flex flex-col">
           <span>{account.name}</span>
-          {totalUpdates > 1 && (
-            <Badge variant="secondary" className="mt-1 w-fit whitespace-nowrap" style={{ backgroundColor: '#916D5B', color: '#fff', border: 'none' }}>
-              {totalUpdates} updates
+          <div className="flex items-center gap-2 mt-1">
+            <Badge variant="outline" className="text-xs bg-gray-100 text-gray-800 border-gray-300">
+              Accounts
             </Badge>
-          )}
+            {totalUpdates > 1 && (
+              <Badge variant="secondary" className="whitespace-nowrap" style={{ backgroundColor: '#916D5B', color: '#fff', border: 'none' }}>
+                {totalUpdates} updates
+              </Badge>
+            )}
+          </div>
         </span>
       );
     }
     return (
       <span className="font-semibold flex flex-col">
         <span>Update</span>
-        {totalUpdates > 1 && (
-          <Badge variant="secondary" className="mt-1 w-fit whitespace-nowrap" style={{ backgroundColor: '#916D5B', color: '#fff', border: 'none' }}>
-            {totalUpdates} updates
+        <div className="flex items-center gap-2 mt-1">
+          <Badge variant="outline" className="text-xs bg-gray-100 text-gray-800 border-gray-300">
+            General
           </Badge>
-        )}
+          {totalUpdates > 1 && (
+            <Badge variant="secondary" className="whitespace-nowrap" style={{ backgroundColor: '#916D5B', color: '#fff', border: 'none' }}>
+              {totalUpdates} updates
+            </Badge>
+          )}
+        </div>
       </span>
     );
   };
@@ -501,6 +528,11 @@ export default function UpdateItem({ update, groupedUpdates }: UpdateItemProps) 
                 by {user?.name || 'Unknown'}
               </span>
             )}
+            {log.nextActionDate && (
+              <span className="text-xs text-blue-600 font-medium">
+                Next: {format(parseISO(log.nextActionDate), 'MMM dd, yyyy')}
+              </span>
+            )}
           </div>
         </div>
       </div>
@@ -536,7 +568,9 @@ export default function UpdateItem({ update, groupedUpdates }: UpdateItemProps) 
         <CardContent className="space-y-3 flex-grow">
           {/* Description */}
           <div className="bg-white/30 p-3 rounded-[4px]">
-            <p className="text-sm text-foreground line-clamp-3">{update.content}</p>
+            <p className="text-sm text-foreground line-clamp-3">
+              {opportunity?.description || lead?.companyName || lead?.personName || lead?.email || account?.description || 'No description available.'}
+            </p>
           </div>
 
           {/* Activity Log (max 2 items) */}
@@ -651,6 +685,11 @@ export default function UpdateItem({ update, groupedUpdates }: UpdateItemProps) 
                         </div>
                         <div className="flex items-center space-x-2">
                           <span className="text-xs text-muted-foreground">{log.type}</span>
+                          {log.nextActionDate && (
+                            <span className="text-xs text-blue-600 font-medium">
+                              Next: {format(parseISO(log.nextActionDate), 'MMM dd, yyyy')}
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>

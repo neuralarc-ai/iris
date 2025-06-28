@@ -64,6 +64,7 @@ export interface Update {
   type: UpdateType;
   createdAt: string;
   updatedByUserId?: string;
+  nextActionDate?: string; // Optional: next action date for follow-up
 }
 
 // For AI Generated Content
