@@ -18,7 +18,7 @@ import { Loader2 } from 'lucide-react';
 interface OpportunityData {
   id: string;
   name: string;
-  account_id: string;
+  account_id?: string;
   status: OpportunityStatus;
   value: number;
   description: string;

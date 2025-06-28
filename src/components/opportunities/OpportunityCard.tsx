@@ -20,6 +20,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { Calendar } from '@/components/ui/calendar';
 import { supabase } from '@/lib/supabaseClient';
 import { countries } from '@/lib/countryData';
+import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select';
 
 interface OpportunityCardProps {
   opportunity: Opportunity;
@@ -84,7 +85,7 @@ export default function OpportunityCard({ opportunity, accountName }: Opportunit
   const status = opportunity.status as OpportunityStatus;
 
   // Use the map for robust lookup
-  const currencySymbol = currencyMap[opportunity.currency] || opportunity.currency || '$';
+  const currencySymbol = currencyMap[(opportunity as any).currency || 'USD'] || (opportunity as any).currency || '$';
 
   useEffect(() => {
     if (opportunity.accountId) {

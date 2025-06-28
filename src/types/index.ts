@@ -50,6 +50,7 @@ export interface Opportunity {
   updatedAt: string;
   startDate: string;
   endDate: string;
+  currency?: string;
 }
 
 export interface Update {
