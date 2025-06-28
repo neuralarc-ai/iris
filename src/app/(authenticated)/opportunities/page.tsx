@@ -203,6 +203,20 @@ export default function OpportunitiesPage() {
                   )
                 );
               }}
+              onValueChange={newValue => {
+                setOpportunities(prev =>
+                  prev.map(op =>
+                    op.id === opportunity.id ? { ...op, value: newValue } : op
+                  )
+                );
+              }}
+              onTimelineChange={(newStartDate, newEndDate) => {
+                setOpportunities(prev =>
+                  prev.map(op =>
+                    op.id === opportunity.id ? { ...op, start_date: newStartDate, end_date: newEndDate } : op
+                  )
+                );
+              }}
             />
           ))}
         </div>
