@@ -855,8 +855,8 @@ export default function OpportunityCard({ opportunity, accountName, onStatusChan
                   return 'N/A';
                 })()
               }</div>
-              <div><span className="font-semibold">Created:</span> {formatDistanceToNow(new Date(opportunity.createdAt), { addSuffix: true })}</div>
-              <div><span className="font-semibold">Last Updated:</span> {formatDistanceToNow(new Date(opportunity.updatedAt), { addSuffix: true })}</div>
+              <div><span className="font-semibold">Created:</span> {opportunity.createdAt && !isNaN(new Date(opportunity.createdAt).getTime()) ? formatDistanceToNow(new Date(opportunity.createdAt), { addSuffix: true }) : 'N/A'}</div>
+              <div><span className="font-semibold">Last Updated:</span> {opportunity.updatedAt && !isNaN(new Date(opportunity.updatedAt).getTime()) ? formatDistanceToNow(new Date(opportunity.updatedAt), { addSuffix: true }) : 'N/A'}</div>
             </div>
             <div className="pt-2">
               <span className="font-semibold">Assigned To:</span>

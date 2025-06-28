@@ -129,3 +129,23 @@ ALTER TABLE opportunity
   DROP CONSTRAINT opportunity_status_check,
   ADD CONSTRAINT opportunity_status_check
     CHECK (status IN ('Scope Of Work', 'Proposal', 'Negotiation', 'Win', 'Loss', 'On Hold'));
+
+
+
+    ALTER TABLE opportunity ADD COLUMN currency text DEFAULT 'USD';
+
+
+
+    
+-- Drop the existing status check constraint on the lead table
+ALTER TABLE lead
+  DROP CONSTRAINT IF EXISTS lead_status_check,
+  ADD CONSTRAINT lead_status_check
+    CHECK (status IN (
+      'New',
+      'Qualified',
+      'Contacted',
+      'Proposal Sent',
+      'Converted to Account',
+      'Lost'
+    ));
