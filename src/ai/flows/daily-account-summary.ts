@@ -35,28 +35,29 @@ export async function generateDailyAccountSummary(
   return generateDailyAccountSummaryFlow(input);
 }
 
-const getRelationshipHealth = ai.defineTool({
-  name: 'getRelationshipHealth',
-  description: 'Determines the health of the relationship with the given account.',
-  inputSchema: z.object({
-    accountName: z.string().describe('The name of the account.'),
-    recentUpdates: z.string().describe('A summary of recent updates for the account.'),
-    keyMetrics: z.string().describe('Key metrics for the account.'),
-  }),
-  outputSchema: z.string().describe('A short description of the relationship health (e.g., healthy, at risk, needs attention).'),
-},
-async (input) => {
-    // Placeholder implementation for relationship health assessment
-    // In a real application, this would involve more sophisticated analysis
-    return `The relationship with ${input.accountName} is currently healthy based on recent updates and key metrics.`
-  }
-);
+// Commented out AI relationship health/analysis logic
+// const getRelationshipHealth = ai.defineTool({
+//   name: 'getRelationshipHealth',
+//   description: 'Determines the health of the relationship with the given account.',
+//   inputSchema: z.object({
+//     accountName: z.string().describe('The name of the account.'),
+//     recentUpdates: z.string().describe('A summary of recent updates for the account.'),
+//     keyMetrics: z.string().describe('Key metrics for the account.'),
+//   }),
+//   outputSchema: z.string().describe('A short description of the relationship health (e.g., healthy, at risk, needs attention).'),
+// },
+// async (input) => {
+//     // Placeholder implementation for relationship health assessment
+//     // In a real application, this would involve more sophisticated analysis
+//     return `The relationship with ${input.accountName} is currently healthy based on recent updates and key metrics.`
+//   }
+// );
 
 const prompt = ai.definePrompt({
   name: 'generateDailyAccountSummaryPrompt',
   input: {schema: GenerateDailyAccountSummaryInputSchema},
   output: {schema: GenerateDailyAccountSummaryOutputSchema},
-  tools: [getRelationshipHealth],
+  // tools: [getRelationshipHealth],
   prompt: `You are an AI assistant specializing in generating daily summary reports for key accounts.
 
   Generate a concise and informative daily summary report for the following account.

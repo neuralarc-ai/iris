@@ -246,9 +246,14 @@ export default function UpdatesPage() {
               <Label htmlFor="date-filter">Date</Label>
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" className="w-full mt-1 justify-start text-left font-normal">
-                    {dateFilter ? format(parseISO(dateFilter), 'MMM dd, yyyy') : 'Select date'}
-                  </Button>
+                  <Input
+                    id="date-filter"
+                    type="text"
+                    readOnly
+                    value={dateFilter ? format(parseISO(dateFilter), 'MMM dd, yyyy') : ''}
+                    placeholder="Select date"
+                    className="w-full mt-1 cursor-pointer bg-white"
+                  />
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
                   <Calendar

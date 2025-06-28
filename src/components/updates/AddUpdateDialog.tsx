@@ -18,6 +18,7 @@ import { useToast } from "@/hooks/use-toast";
 import type { Account, Opportunity, Update, UpdateType, Lead } from '@/types';
 import { Loader2, MessageSquarePlus, Briefcase, BarChartBig, User } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
+import { Input } from "@/components/ui/input";
 
 interface AddUpdateDialogProps {
   open: boolean;
@@ -26,10 +27,10 @@ interface AddUpdateDialogProps {
 }
 
 const updateTypeOptions: UpdateType[] = ["General", "Call", "Meeting", "Email"];
-type EntityType = "lead" | "accountOpportunity";
+type EntityType = "account" | "opportunity" | "lead";
 
 export default function AddUpdateDialog({ open, onOpenChange, onUpdateAdded }: AddUpdateDialogProps) {
-  const [entityType, setEntityType] = useState<EntityType>("accountOpportunity");
+  const [entityType, setEntityType] = useState<EntityType>("account");
   const [selectedLeadId, setSelectedLeadId] = useState<string>('');
   const [selectedAccountId, setSelectedAccountId] = useState<string>('');
   const [availableOpportunities, setAvailableOpportunities] = useState<Opportunity[]>([]);
@@ -41,6 +42,11 @@ export default function AddUpdateDialog({ open, onOpenChange, onUpdateAdded }: A
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(false);
   const { toast } = useToast();
+
+  // Search states for dropdowns
+  const [accountSearch, setAccountSearch] = useState('');
+  const [opportunitySearch, setOpportunitySearch] = useState('');
+  const [leadSearch, setLeadSearch] = useState('');
 
   // Fetch data from Supabase
   useEffect(() => {
@@ -106,6 +112,30 @@ export default function AddUpdateDialog({ open, onOpenChange, onUpdateAdded }: A
         setAccounts(transformedAccounts.filter(account => account.status === 'Active'));
       }
 
+      // Fetch opportunities
+      let opportunitiesQuery = supabase.from('opportunity').select('*').order('updated_at', { ascending: false });
+      if (userRole !== 'admin') {
+        opportunitiesQuery = opportunitiesQuery.eq('owner_id', localUserId);
+      }
+      const { data: opportunitiesData } = await opportunitiesQuery;
+      
+      if (opportunitiesData) {
+        const transformedOpportunities = opportunitiesData.map((opp: any) => ({
+          id: opp.id,
+          name: opp.name,
+          accountId: opp.account_id,
+          status: opp.status,
+          value: opp.value || 0,
+          description: opp.description || '',
+          startDate: opp.start_date || new Date().toISOString(),
+          endDate: opp.end_date || new Date().toISOString(),
+          updateIds: [],
+          createdAt: opp.created_at || new Date().toISOString(),
+          updatedAt: opp.updated_at || new Date().toISOString(),
+        }));
+        setAvailableOpportunities(transformedOpportunities);
+      }
+
       setIsLoadingData(false);
     };
 
@@ -114,51 +144,17 @@ export default function AddUpdateDialog({ open, onOpenChange, onUpdateAdded }: A
     }
   }, [open]);
 
-  useEffect(() => {
-    const fetchOpportunities = async () => {
-    if (entityType === "accountOpportunity" && selectedAccountId) {
-        const { data: opportunitiesData } = await supabase
-          .from('opportunity')
-          .select('*')
-          .eq('account_id', selectedAccountId)
-          .order('updated_at', { ascending: false });
-        
-        if (opportunitiesData) {
-          const transformedOpportunities = opportunitiesData.map((opp: any) => ({
-            id: opp.id,
-            name: opp.name,
-            accountId: opp.account_id,
-            status: opp.status,
-            value: opp.value || 0,
-            description: opp.description || '',
-            startDate: opp.start_date || new Date().toISOString(),
-            endDate: opp.end_date || new Date().toISOString(),
-            updateIds: [],
-            createdAt: opp.created_at || new Date().toISOString(),
-            updatedAt: opp.updated_at || new Date().toISOString(),
-          }));
-          setAvailableOpportunities(transformedOpportunities);
-    } else {
-      setAvailableOpportunities([]);
-        }
-      setSelectedOpportunityId('');
-      } else {
-        setAvailableOpportunities([]);
-        setSelectedOpportunityId('');
-    }
-    };
-
-    fetchOpportunities();
-  }, [selectedAccountId, entityType]);
-
   const resetForm = () => {
-    setEntityType("accountOpportunity");
+    setEntityType("account");
     setSelectedLeadId('');
     setSelectedAccountId('');
     setAvailableOpportunities([]);
     setSelectedOpportunityId('');
     setUpdateTypeState('');
     setContent('');
+    setAccountSearch('');
+    setOpportunitySearch('');
+    setLeadSearch('');
   };
 
   const addUpdateToSupabase = async (updateData: any): Promise<Update> => {
@@ -198,16 +194,24 @@ export default function AddUpdateDialog({ open, onOpenChange, onUpdateAdded }: A
     let isValid = false;
     if (entityType === "lead") {
         isValid = !!selectedLeadId && !!updateType && !!content.trim();
-    } else { // accountOpportunity
-        isValid = !!selectedAccountId && !!selectedOpportunityId && !!updateType && !!content.trim();
+    } else if (entityType === "opportunity") {
+        isValid = !!selectedOpportunityId && !!updateType && !!content.trim();
+    } else { // account
+        isValid = !!selectedAccountId && !!updateType && !!content.trim();
     }
 
     if (!isValid) {
+      let errorMessage = "";
+      if (entityType === "lead") {
+        errorMessage = "Lead, Update Type, and Content are required.";
+      } else if (entityType === "opportunity") {
+        errorMessage = "Opportunity, Update Type, and Content are required.";
+      } else {
+        errorMessage = "Account, Update Type, and Content are required.";
+      }
       toast({ 
         title: "Error", 
-        description: entityType === "lead" 
-          ? "Lead, Update Type, and Content are required." 
-          : "Account, Opportunity, Update Type, and Content are required.", 
+        description: errorMessage, 
         variant: "destructive" 
       });
       return;
@@ -225,15 +229,23 @@ export default function AddUpdateDialog({ open, onOpenChange, onUpdateAdded }: A
         };
         const lead = leads.find(l => l.id === selectedLeadId);
         successMessage = `Update for lead "${lead?.companyName}" has been logged.`
-      } else { // accountOpportunity
+      } else if (entityType === "opportunity") {
+        const selectedOpportunity = availableOpportunities.find(op => op.id === selectedOpportunityId);
         newUpdateData = {
           opportunityId: selectedOpportunityId,
+          accountId: selectedOpportunity?.accountId || null,
+          type: updateType as UpdateType,
+          content: content,
+        };
+        successMessage = `Update for opportunity "${selectedOpportunity?.name}" has been logged.`
+      } else { // account
+        newUpdateData = {
           accountId: selectedAccountId,
           type: updateType as UpdateType,
           content: content,
         };
-        const opp = availableOpportunities.find(op => op.id === selectedOpportunityId);
-        successMessage = `Update for opportunity "${opp?.name}" has been logged.`
+        const account = accounts.find(acc => acc.id === selectedAccountId);
+        successMessage = `Update for account "${account?.name}" has been logged.`
       }
       
       const newUpdateResult = await addUpdateToSupabase(newUpdateData);
@@ -287,10 +299,14 @@ export default function AddUpdateDialog({ open, onOpenChange, onUpdateAdded }: A
           
           <div>
             <Label className="mb-2 block">Log Update For:</Label>
-            <RadioGroup defaultValue="accountOpportunity" value={entityType} onValueChange={(value: EntityType) => setEntityType(value)} className="flex space-x-4">
+            <RadioGroup defaultValue="account" value={entityType} onValueChange={(value: EntityType) => setEntityType(value)} className="flex space-x-4">
               <div className="flex items-center space-x-2">
-                <RadioGroupItem value="accountOpportunity" id="rAccountOpp" />
-                <Label htmlFor="rAccountOpp" className="font-normal">Account & Opportunity</Label>
+                <RadioGroupItem value="account" id="rAccount" />
+                <Label htmlFor="rAccount" className="font-normal">Account</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="opportunity" id="rOpportunity" />
+                <Label htmlFor="rOpportunity" className="font-normal">Opportunity</Label>
               </div>
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="lead" id="rLead" />
@@ -307,29 +323,60 @@ export default function AddUpdateDialog({ open, onOpenChange, onUpdateAdded }: A
                   <SelectValue placeholder="Select a lead" />
                 </SelectTrigger>
                 <SelectContent>
-                  {leads.map(lead => (
-                    <SelectItem key={lead.id} value={lead.id}>
-                      <div className="flex items-center">
-                        <User className="mr-2 h-4 w-4 text-muted-foreground" />
-                        {lead.personName} ({lead.companyName})
-                      </div>
-                    </SelectItem>
-                  ))}
+                  <div className="p-2">
+                    <Input
+                      placeholder="Search leads..."
+                      value={leadSearch}
+                      onChange={(e) => setLeadSearch(e.target.value)}
+                      onKeyDown={(e) => e.stopPropagation()}
+                      onClick={(e) => e.stopPropagation()}
+                      className="mb-2"
+                    />
+                  </div>
+                  {leads
+                    .filter(lead => 
+                      lead.personName.toLowerCase().includes(leadSearch.toLowerCase()) ||
+                      lead.companyName.toLowerCase().includes(leadSearch.toLowerCase()) ||
+                      lead.email.toLowerCase().includes(leadSearch.toLowerCase())
+                    )
+                    .map(lead => (
+                      <SelectItem key={lead.id} value={lead.id}>
+                        <div className="flex items-center">
+                          <User className="mr-2 h-4 w-4 text-muted-foreground" />
+                          {lead.personName} ({lead.companyName})
+                        </div>
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             </div>
           )}
 
-          {entityType === 'accountOpportunity' && (
-            <>
-              <div>
-                <Label htmlFor="update-account">Account <span className="text-destructive">*</span></Label>
-                <Select value={selectedAccountId} onValueChange={setSelectedAccountId} disabled={isLoading}>
-                  <SelectTrigger id="update-account">
-                    <SelectValue placeholder="Select an account" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {accounts.map(account => (
+          {entityType === 'account' && (
+            <div>
+              <Label htmlFor="update-account">Account <span className="text-destructive">*</span></Label>
+              <Select value={selectedAccountId} onValueChange={setSelectedAccountId} disabled={isLoading}>
+                <SelectTrigger id="update-account">
+                  <SelectValue placeholder="Select an account" />
+                </SelectTrigger>
+                <SelectContent>
+                  <div className="p-2">
+                    <Input
+                      placeholder="Search accounts..."
+                      value={accountSearch}
+                      onChange={(e) => setAccountSearch(e.target.value)}
+                      onKeyDown={(e) => e.stopPropagation()}
+                      onClick={(e) => e.stopPropagation()}
+                      className="mb-2"
+                    />
+                  </div>
+                  {accounts
+                    .filter(account => 
+                      account.name.toLowerCase().includes(accountSearch.toLowerCase()) ||
+                      (account.contactEmail || '').toLowerCase().includes(accountSearch.toLowerCase()) ||
+                      (account.contactPersonName || '').toLowerCase().includes(accountSearch.toLowerCase())
+                    )
+                    .map(account => (
                       <SelectItem key={account.id} value={account.id}>
                         <div className="flex items-center">
                           <Briefcase className="mr-2 h-4 w-4 text-muted-foreground" />
@@ -337,40 +384,61 @@ export default function AddUpdateDialog({ open, onOpenChange, onUpdateAdded }: A
                         </div>
                       </SelectItem>
                     ))}
-                  </SelectContent>
-                </Select>
-              </div>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
-              {selectedAccountId && (
-                <div>
-                  <Label htmlFor="update-opportunity">Opportunity <span className="text-destructive">*</span></Label>
-                  <Select 
-                    value={selectedOpportunityId} 
-                    onValueChange={setSelectedOpportunityId} 
-                    disabled={isLoading || availableOpportunities.length === 0}
-                  >
-                    <SelectTrigger id="update-opportunity">
-                      <SelectValue placeholder={availableOpportunities.length === 0 ? "No opportunities for this account" : "Select an opportunity"} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {availableOpportunities.map(opportunity => (
+          {entityType === 'opportunity' && (
+            <div>
+              <Label htmlFor="update-opportunity">Opportunity <span className="text-destructive">*</span></Label>
+              <Select 
+                value={selectedOpportunityId} 
+                onValueChange={setSelectedOpportunityId} 
+                disabled={isLoading || availableOpportunities.length === 0}
+              >
+                <SelectTrigger id="update-opportunity">
+                  <SelectValue placeholder={availableOpportunities.length === 0 ? "No opportunities available" : "Select an opportunity"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <div className="p-2">
+                    <Input
+                      placeholder="Search opportunities..."
+                      value={opportunitySearch}
+                      onChange={(e) => setOpportunitySearch(e.target.value)}
+                      onKeyDown={(e) => e.stopPropagation()}
+                      onClick={(e) => e.stopPropagation()}
+                      className="mb-2"
+                    />
+                  </div>
+                  {availableOpportunities
+                    .filter(opportunity => {
+                      const account = accounts.find(acc => acc.id === opportunity.accountId);
+                      return (
+                        opportunity.name.toLowerCase().includes(opportunitySearch.toLowerCase()) ||
+                        (account?.name || '').toLowerCase().includes(opportunitySearch.toLowerCase()) ||
+                        opportunity.description.toLowerCase().includes(opportunitySearch.toLowerCase())
+                      );
+                    })
+                    .map(opportunity => {
+                      const account = accounts.find(acc => acc.id === opportunity.accountId);
+                      return (
                         <SelectItem key={opportunity.id} value={opportunity.id}>
                            <div className="flex items-center">
                             <BarChartBig className="mr-2 h-4 w-4 text-muted-foreground" />
-                            {opportunity.name}
+                            {opportunity.name} ({account?.name || 'Unknown Account'})
                            </div>
                         </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {availableOpportunities.length === 0 && selectedAccountId && !isLoading && (
-                    <p className="text-xs text-muted-foreground mt-1">
-                      This account has no active opportunities. Please create an opportunity for this account first.
-                    </p>
-                  )}
-                </div>
+                      );
+                    })}
+                </SelectContent>
+              </Select>
+              {availableOpportunities.length === 0 && !isLoading && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  No opportunities available. Please create an opportunity first.
+                </p>
               )}
-            </>
+            </div>
           )}
 
           <div>
@@ -406,8 +474,9 @@ export default function AddUpdateDialog({ open, onOpenChange, onUpdateAdded }: A
                 type="submit" 
                 disabled={
                     isLoading || 
-                    (entityType === 'accountOpportunity' && (!selectedOpportunityId || (availableOpportunities.length === 0 && !!selectedAccountId))) ||
-                    (entityType === 'lead' && !selectedLeadId)
+                    (entityType === 'opportunity' && !selectedOpportunityId) ||
+                    (entityType === 'lead' && !selectedLeadId) ||
+                    (entityType === 'account' && !selectedAccountId)
                 }
             >
               {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Log Update"}
