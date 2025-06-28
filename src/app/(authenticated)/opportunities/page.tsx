@@ -115,6 +115,7 @@ export default function OpportunitiesPage() {
       createdAt: opp.created_at,
       updatedAt: opp.updated_at,
       currency: opp.currency || 'USD',
+      ownerId: opp.owner_id,
     };
   }
 
@@ -191,7 +192,32 @@ export default function OpportunitiesPage() {
       {filteredOpportunities.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-8">
           {filteredOpportunities.map((opportunity) => (
-            <OpportunityCard key={opportunity.id} opportunity={mapOpportunityFromSupabase(opportunity)} accountName={accounts.find(a => a.id === opportunity.account_id)?.name || ''} />
+            <OpportunityCard
+              key={opportunity.id}
+              opportunity={mapOpportunityFromSupabase(opportunity)}
+              accountName={accounts.find(a => a.id === opportunity.account_id)?.name || ''}
+              onStatusChange={newStatus => {
+                setOpportunities(prev =>
+                  prev.map(op =>
+                    op.id === opportunity.id ? { ...op, status: newStatus } : op
+                  )
+                );
+              }}
+              onValueChange={newValue => {
+                setOpportunities(prev =>
+                  prev.map(op =>
+                    op.id === opportunity.id ? { ...op, value: newValue } : op
+                  )
+                );
+              }}
+              onTimelineChange={(newStartDate, newEndDate) => {
+                setOpportunities(prev =>
+                  prev.map(op =>
+                    op.id === opportunity.id ? { ...op, start_date: newStartDate, end_date: newEndDate } : op
+                  )
+                );
+              }}
+            />
           ))}
         </div>
       ) : (

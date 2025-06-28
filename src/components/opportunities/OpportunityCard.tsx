@@ -5,13 +5,13 @@ import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { BarChartBig, DollarSign, CalendarDays, Eye, AlertTriangle, CheckCircle2, Briefcase, Lightbulb, TrendingUp, Users, Clock, MessageSquarePlus, Calendar as CalendarIcon, Sparkles } from 'lucide-react';
+import { BarChartBig, DollarSign, CalendarDays, Eye, AlertTriangle, CheckCircle2, Briefcase, Lightbulb, TrendingUp, Users, Clock, MessageSquarePlus, Calendar as CalendarIcon, Sparkles, Pencil, Check, X } from 'lucide-react';
 import type { Opportunity, OpportunityForecast as AIOpportunityForecast, Account, OpportunityStatus, Update } from '@/types';
 import { Progress } from "@/components/ui/progress";
 import {format, differenceInDays, parseISO, isValid, formatDistanceToNowStrict, formatDistanceToNow} from 'date-fns';
 import { aiPoweredOpportunityForecasting } from '@/ai/flows/ai-powered-opportunity-forecasting';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
-import { getAccountById, mockUsers } from '@/lib/data';
+import { getAccountById } from '@/lib/data';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
@@ -25,6 +25,9 @@ import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@
 interface OpportunityCardProps {
   opportunity: Opportunity;
   accountName?: string;
+  onStatusChange?: (newStatus: OpportunityStatus) => void;
+  onValueChange?: (newValue: number) => void;
+  onTimelineChange?: (newStartDate: string, newEndDate: string) => void;
 }
 
 const getStatusBadgeColorClasses = (status: Opportunity['status']): string => {
@@ -66,7 +69,7 @@ const currencyMap = Object.fromEntries(
   countries.map(c => [c.currencyCode, c.currencySymbol || c.currencyCode])
 );
 
-export default function OpportunityCard({ opportunity, accountName }: OpportunityCardProps) {
+export default function OpportunityCard({ opportunity, accountName, onStatusChange, onValueChange, onTimelineChange }: OpportunityCardProps) {
   // const [forecast, setForecast] = useState<AIOpportunityForecast | null>(null);
   // const [isLoadingForecast, setIsLoadingForecast] = useState(false);
   const [associatedAccount, setAssociatedAccount] = useState<Account | undefined>(undefined);
@@ -75,12 +78,27 @@ export default function OpportunityCard({ opportunity, accountName }: Opportunit
   const [activityLogs, setActivityLogs] = useState<Update[]>([]);
   const [isLoadingLogs, setIsLoadingLogs] = useState(false);
   const [newActivityDescription, setNewActivityDescription] = useState('');
+  const [newActivityType, setNewActivityType] = useState<'General' | 'Call' | 'Meeting' | 'Email'>('General');
   const [isLoggingActivity, setIsLoggingActivity] = useState(false);
   const [nextActionDate, setNextActionDate] = useState<Date | undefined>(undefined);
   const [showAiInsights, setShowAiInsights] = useState(false);
-  const [assignedUser, setAssignedUser] = useState<{ name: string; email: string } | null>(null);
+  const [assignedUser, setAssignedUser] = useState<{ id: string; name: string; email: string } | null>(null);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
-  const [assignedUserId, setAssignedUserId] = useState('user_admin_000'); // Default to admin for now
+  const [assignedUserId, setAssignedUserId] = useState<string | null>(null);
+  const [allUsers, setAllUsers] = useState<{ id: string; name: string; email: string }[]>([]);
+  const [currentUserRole, setCurrentUserRole] = useState<string>('user');
+  const [editStatus, setEditStatus] = useState<OpportunityStatus>(opportunity.status as OpportunityStatus);
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  // Editable Value
+  const [isEditingValue, setIsEditingValue] = useState(false);
+  const [editValue, setEditValue] = useState(opportunity.value.toString());
+  const [isUpdatingValue, setIsUpdatingValue] = useState(false);
+
+  // Editable Timeline
+  const [isEditingTimeline, setIsEditingTimeline] = useState(false);
+  const [editStartDate, setEditStartDate] = useState(opportunity.startDate);
+  const [editEndDate, setEditEndDate] = useState(opportunity.endDate);
+  const [isUpdatingTimeline, setIsUpdatingTimeline] = useState(false);
 
   const status = opportunity.status as OpportunityStatus;
 
@@ -93,8 +111,51 @@ export default function OpportunityCard({ opportunity, accountName }: Opportunit
     }
   }, [opportunity.accountId]);
 
-  // Note: Opportunity interface doesn't have ownerId, so we'll skip this for now
-  // If owner assignment is needed, it should be added to the Opportunity interface
+  // Fetch current user role
+  useEffect(() => {
+    const fetchRole = async () => {
+      const userId = localStorage.getItem('user_id');
+      if (!userId) return;
+      const { data, error } = await supabase.from('users').select('role').eq('id', userId).single();
+      if (!error && data) setCurrentUserRole(data.role);
+    };
+    fetchRole();
+  }, []);
+
+  // Fetch assigned user from DB
+  useEffect(() => {
+    const fetchAssignedUser = async () => {
+      const ownerId = opportunity.ownerId || (opportunity as any).owner_id;
+      if (!ownerId) {
+        setAssignedUser(null);
+        setAssignedUserId(null);
+        return;
+      }
+      const { data, error } = await supabase
+        .from('users')
+        .select('id, name, email')
+        .eq('id', ownerId)
+        .single();
+      if (!error && data) {
+        setAssignedUser(data);
+        setAssignedUserId(data.id);
+      } else {
+        setAssignedUser(null);
+        setAssignedUserId(null);
+      }
+    };
+    fetchAssignedUser();
+  }, [opportunity.ownerId, (opportunity as any).owner_id]);
+
+  // Fetch all users for assignment dropdown (admin only)
+  useEffect(() => {
+    if (currentUserRole !== 'admin') return;
+    const fetchAllUsers = async () => {
+      const { data, error } = await supabase.from('users').select('id, name, email');
+      if (!error && data) setAllUsers(data);
+    };
+    fetchAllUsers();
+  }, [currentUserRole]);
 
   // Fetch existing logs from Supabase
   useEffect(() => {
@@ -270,7 +331,7 @@ export default function OpportunityCard({ opportunity, accountName }: Opportunit
   //     setForecast(forecastData);
   //   } catch (error) {
   //     console.error(`Failed to fetch forecast for ${opportunity.name}:`, error);
-  //     setForecast({ timelinePrediction: "N/A", completionDateEstimate: "N/A", revenueForecast: opportunity.value, bottleneckIdentification: "Error fetching forecast."});
+  //     setForecast({ timelinePrediction: "N/A", completionDateEstimate: "N/A", revenueForecast: opportunity.value,    bottleneckIdentification: "Error fetching forecast."});
   //   } finally {
   //     setIsLoadingForecast(false);
   //   }
@@ -313,6 +374,10 @@ export default function OpportunityCard({ opportunity, accountName }: Opportunit
       toast({ title: "Error", description: "Please enter a description for the activity.", variant: "destructive" });
       return;
     }
+    if (!newActivityType) {
+      toast({ title: "Error", description: "Please select an activity type.", variant: "destructive" });
+      return;
+    }
     
     // Prevent duplicate submissions
     if (isLoggingActivity) {
@@ -343,7 +408,7 @@ export default function OpportunityCard({ opportunity, accountName }: Opportunit
       // Save to Supabase
       const { data, error } = await supabase.from('update').insert([
         {
-          type: 'General',
+          type: newActivityType,
           content: newActivityDescription,
           updated_by_user_id: currentUserId,
           date: new Date().toISOString(),
@@ -373,6 +438,7 @@ export default function OpportunityCard({ opportunity, accountName }: Opportunit
       // Update local state and refresh logs
       setActivityLogs(prev => [newUpdate, ...prev]);
       setNewActivityDescription('');
+      setNewActivityType('General');
       
       // Also refresh from backend to ensure consistency
       await refreshActivityLogs();
@@ -405,15 +471,94 @@ export default function OpportunityCard({ opportunity, accountName }: Opportunit
 
   const toggleAiInsights = () => setShowAiInsights((prev) => !prev);
 
-  const handleAssignUser = (userId: string) => {
+  const handleAssignUser = async (userId: string) => {
     setAssignedUserId(userId);
-    const user = mockUsers.find(u => u.id === userId);
-    if (user) {
-      setAssignedUser({ name: user.name, email: user.email });
+    // Update the assignment in the backend
+    const { error } = await supabase
+      .from('opportunity')
+      .update({ owner_id: userId })
+      .eq('id', opportunity.id);
+    if (!error) {
+      // Fetch and update assigned user
+      const { data, error: userError } = await supabase
+        .from('users')
+        .select('id, name, email')
+        .eq('id', userId)
+        .single();
+      if (!userError && data) setAssignedUser(data);
     }
   };
 
-  const assignedUserObj = mockUsers.find(u => u.id === assignedUserId);
+  // Keep editStatus in sync if opportunity.status changes (e.g., after parent update)
+  useEffect(() => {
+    setEditStatus(opportunity.status as OpportunityStatus);
+  }, [opportunity.status]);
+
+  const handleStatusChange = async (newStatus: OpportunityStatus) => {
+    setIsUpdatingStatus(true);
+    const { error } = await supabase
+      .from('opportunity')
+      .update({ status: newStatus })
+      .eq('id', opportunity.id);
+    if (!error) {
+      setEditStatus(newStatus);
+      toast({ title: "Status Updated", description: `Status changed to ${newStatus}` });
+      if (onStatusChange) onStatusChange(newStatus);
+    } else {
+      toast({ title: "Error", description: "Failed to update status", variant: "destructive" });
+    }
+    setIsUpdatingStatus(false);
+  };
+
+  // Status options for editing
+  const statusOptions = [
+    'Scope Of Work',
+    'Proposal',
+    'Negotiation',
+    'On Hold',
+    'Win',
+    'Loss',
+  ];
+
+  // Keep edit fields in sync if opportunity changes
+  useEffect(() => {
+    setEditValue(opportunity.value.toString());
+    setEditStartDate(opportunity.startDate);
+    setEditEndDate(opportunity.endDate);
+  }, [opportunity.value, opportunity.startDate, opportunity.endDate]);
+
+  const handleValueSave = async () => {
+    setIsUpdatingValue(true);
+    const newValue = Number(editValue.replace(/,/g, ''));
+    const { error } = await supabase
+      .from('opportunity')
+      .update({ value: newValue })
+      .eq('id', opportunity.id);
+    if (!error) {
+      toast({ title: "Value Updated", description: `Value changed to ${newValue.toLocaleString()}` });
+      setIsEditingValue(false);
+      if (typeof onValueChange === 'function') onValueChange(newValue);
+    } else {
+      toast({ title: "Error", description: "Failed to update value", variant: "destructive" });
+    }
+    setIsUpdatingValue(false);
+  };
+
+  const handleTimelineSave = async () => {
+    setIsUpdatingTimeline(true);
+    const { error } = await supabase
+      .from('opportunity')
+      .update({ start_date: editStartDate, end_date: editEndDate })
+      .eq('id', opportunity.id);
+    if (!error) {
+      toast({ title: "Timeline Updated", description: `Timeline changed` });
+      setIsEditingTimeline(false);
+      if (typeof onTimelineChange === 'function') onTimelineChange(editStartDate, editEndDate);
+    } else {
+      toast({ title: "Error", description: "Failed to update timeline", variant: "destructive" });
+    }
+    setIsUpdatingTimeline(false);
+  };
 
   return (
     <>
@@ -467,12 +612,6 @@ export default function OpportunityCard({ opportunity, accountName }: Opportunit
               <Clock className="mr-1 h-3 w-3 shrink-0"/>{timeRemaining(opportunity.status as OpportunityStatus)}
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Progress value={progress} className="h-2 flex-1" gradient="linear-gradient(90deg, #3987BE 0%, #D48EA3 100%)" />
-            <div className="flex items-center gap-1 text-xs">
-              {opportunityHealthIcon} {opportunityHealthText}
-            </div>
-          </div>
           {/* {(forecast || isLoadingForecast) && opportunity.status !== 'Win' && opportunity.status !== 'Loss' && (
             <div className="pt-3 border-t mt-3">
               <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-1.5 flex items-center">
@@ -520,37 +659,95 @@ export default function OpportunityCard({ opportunity, accountName }: Opportunit
             {/* Details Section */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="bg-white/30 p-3 rounded-lg">
-                <div className="text-sm font-medium text-muted-foreground">Value</div>
-                <div className="text-lg font-bold text-[#97A487]">
-                  {currencySymbol} {opportunity.value.toLocaleString()}
+                <div className="flex items-center justify-between">
+                  <div className="text-sm font-medium text-muted-foreground">Value</div>
+                  {!isEditingValue && (
+                    <button onClick={() => { setIsEditingValue(true); setIsEditingTimeline(false); }} className="ml-2 p-1 hover:bg-muted rounded" title="Edit Value">
+                      <Pencil className="w-4 h-4 text-muted-foreground" />
+                    </button>
+                  )}
+                </div>
+                <div className="text-lg font-bold text-[#97A487] flex items-center gap-2">
+                  {isEditingValue ? (
+                    <>
+                      <input
+                        type="text"
+                        value={editValue}
+                        onChange={e => setEditValue(e.target.value.replace(/[^\d,]/g, ''))}
+                        className="border rounded px-2 py-1 w-28 text-right"
+                        disabled={isUpdatingValue}
+                      />
+                      <button onClick={handleValueSave} disabled={isUpdatingValue} className="ml-1 text-green-600 hover:text-green-800"><Check className="w-4 h-4" /></button>
+                      <button onClick={() => { setIsEditingValue(false); setEditValue(opportunity.value.toString()); }} disabled={isUpdatingValue} className="ml-1 text-red-600 hover:text-red-800"><X className="w-4 h-4" /></button>
+                    </>
+                  ) : (
+                    <>{currencySymbol} {opportunity.value.toLocaleString()}</>
+                  )}
                 </div>
               </div>
               <div className="bg-white/30 p-3 rounded-lg">
                 <div className="text-sm font-medium text-muted-foreground">Status</div>
-                <Badge variant="secondary" className={`capitalize whitespace-nowrap ml-2 ${getStatusBadgeColorClasses(opportunity.status)}`}>{opportunity.status}</Badge>
+                <Select
+                  value={editStatus}
+                  onValueChange={value => handleStatusChange(value as OpportunityStatus)}
+                  disabled={isUpdatingStatus}
+                >
+                  <SelectTrigger className="w-full mt-1">
+                    <SelectValue placeholder="Select status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {statusOptions.map(opt => (
+                      <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="bg-white/30 p-3 rounded-lg">
-                <div className="text-sm font-medium text-muted-foreground">Timeline</div>
-                <div className="text-xs text-muted-foreground">{
-                  (() => {
-                    const start = safeParseISO(opportunity.startDate);
-                    const end = safeParseISO(opportunity.endDate);
-                    if (start && end) {
-                      return `${format(start, 'MMM dd, yyyy')} - ${format(end, 'MMM dd, yyyy')}`;
-                    }
-                    return 'N/A';
-                  })()
-                }</div>
+                <div className="flex items-center justify-between">
+                  <div className="text-sm font-medium text-muted-foreground">Timeline</div>
+                  {!isEditingTimeline && (
+                    <button onClick={() => { setIsEditingTimeline(true); setIsEditingValue(false); }} className="ml-2 p-1 hover:bg-muted rounded" title="Edit Timeline">
+                      <Pencil className="w-4 h-4 text-muted-foreground" />
+                    </button>
+                  )}
+                </div>
+                <div className="text-xs text-muted-foreground flex items-center gap-2 flex-wrap">
+                  {isEditingTimeline ? (
+                    <>
+                      <input
+                        type="date"
+                        value={editStartDate.slice(0, 10)}
+                        onChange={e => setEditStartDate(e.target.value)}
+                        className="border rounded px-2 py-1 w-[120px] min-w-0"
+                        disabled={isUpdatingTimeline}
+                      />
+                      <span>-</span>
+                      <input
+                        type="date"
+                        value={editEndDate.slice(0, 10)}
+                        onChange={e => setEditEndDate(e.target.value)}
+                        className="border rounded px-2 py-1 w-[120px] min-w-0"
+                        disabled={isUpdatingTimeline}
+                      />
+                      <button onClick={handleTimelineSave} disabled={isUpdatingTimeline} className="ml-1 text-green-600 hover:text-green-800"><Check className="w-4 h-4" /></button>
+                      <button onClick={() => { setIsEditingTimeline(false); setEditStartDate(opportunity.startDate); setEditEndDate(opportunity.endDate); }} disabled={isUpdatingTimeline} className="ml-1 text-red-600 hover:text-red-800"><X className="w-4 h-4" /></button>
+                    </>
+                  ) : (
+                    (() => {
+                      const start = safeParseISO(opportunity.startDate);
+                      const end = safeParseISO(opportunity.endDate);
+                      if (start && end) {
+                        return `${format(start, 'MMM dd, yyyy')} - ${format(end, 'MMM dd, yyyy')}`;
+                      }
+                      return 'N/A';
+                    })()
+                  )}
+                </div>
               </div>
             </div>
-            {/* Progress & Health */}
-            <div className="flex items-center gap-2">
-              <Progress value={progress} className="h-2 flex-1" gradient="linear-gradient(90deg, #3987BE 0%, #D48EA3 100%)" />
-              <div className="flex items-center gap-1 text-xs">
-                {opportunityHealthIcon} {opportunityHealthText}
-              </div>
-            </div>
-            {/* Activity Log */}
+            {/* Health */}
+            {/* <div className="flex items-center gap-1 text-xs">{opportunityHealthIcon}</div> */}
+            {/* Activity Logs */}
             <div>
               <h4 className="text-sm font-semibold text-foreground mb-3">Activity Log</h4>
               {isLoadingLogs ? (
@@ -570,14 +767,27 @@ export default function OpportunityCard({ opportunity, accountName }: Opportunit
             </div>
             {/* Log New Activity Form */}
             <div>
-              <h4 className="text-sm font-semibold text-foreground mb-2">Log New Activity</h4>
+              <h4 className="text-sm font-semibold text-foreground mb-2">Add New Activity</h4>
               <div className="space-y-3">
-                <Textarea
-                  placeholder="Describe the activity..."
-                  value={newActivityDescription}
-                  onChange={(e) => setNewActivityDescription(e.target.value)}
-                  className="min-h-[80px] resize-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0"
-                />
+                <div className="flex flex-col md:flex-row gap-2">
+                  <Select value={newActivityType} onValueChange={value => setNewActivityType(value as 'General' | 'Call' | 'Meeting' | 'Email')}>
+                    <SelectTrigger className="w-fit min-w-[120px]">
+                      <SelectValue placeholder="Type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="General">General</SelectItem>
+                      <SelectItem value="Call">Call</SelectItem>
+                      <SelectItem value="Meeting">Meeting</SelectItem>
+                      <SelectItem value="Email">Email</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Textarea
+                    placeholder="Describe the activity..."
+                    value={newActivityDescription}
+                    onChange={(e) => setNewActivityDescription(e.target.value)}
+                    className="min-h-[80px] resize-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 flex-1"
+                  />
+                </div>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
                     <Button 
@@ -610,6 +820,7 @@ export default function OpportunityCard({ opportunity, accountName }: Opportunit
                       </PopoverContent>
                     </Popover>
                   </div>
+                  {/*
                   <Button 
                     variant="outline"
                     onClick={toggleAiInsights}
@@ -617,6 +828,7 @@ export default function OpportunityCard({ opportunity, accountName }: Opportunit
                     <Sparkles className="mr-2 h-4 w-4" />
                     AI Advice
                   </Button>
+                  */}
                 </div>
               </div>
             </div>
@@ -650,18 +862,19 @@ export default function OpportunityCard({ opportunity, accountName }: Opportunit
             </div>
             <div className="pt-2">
               <span className="font-semibold">Assigned To:</span>
-              <Select value={assignedUserId} onValueChange={handleAssignUser}>
-                <SelectTrigger className="w-full mt-1">
-                  <SelectValue placeholder="Assign to user" />
-                </SelectTrigger>
-                <SelectContent>
-                  {mockUsers.map(user => (
-                    <SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {assignedUserObj && (
-                <div className="mt-1 text-sm text-muted-foreground">Currently assigned to: <span className="font-medium">{assignedUserObj.name}</span></div>
+              {currentUserRole === 'admin' ? (
+                <Select value={assignedUserId || ''} onValueChange={handleAssignUser}>
+                  <SelectTrigger className="w-full mt-1">
+                    <SelectValue placeholder="Assign to user" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {allUsers.map(user => (
+                      <SelectItem key={user.id} value={user.id}>{user.name} ({user.email})</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <span className="ml-2">{assignedUser ? `${assignedUser.name} (${assignedUser.email})` : <span className="text-muted-foreground">Unassigned</span>}</span>
               )}
             </div>
           </div>
