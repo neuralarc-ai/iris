@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { BarChartBig, DollarSign, CalendarDays, Eye, AlertTriangle, CheckCircle2, Briefcase, Lightbulb, TrendingUp, Users, Clock, MessageSquarePlus, Calendar as CalendarIcon, Sparkles } from 'lucide-react';
+import { BarChartBig, DollarSign, CalendarDays, Eye, AlertTriangle, CheckCircle2, Briefcase, Lightbulb, TrendingUp, Users, Clock, MessageSquarePlus, Calendar as CalendarIcon, Sparkles, Pencil, Check, X } from 'lucide-react';
 import type { Opportunity, OpportunityForecast as AIOpportunityForecast, Account, OpportunityStatus, Update } from '@/types';
 import { Progress } from "@/components/ui/progress";
 import {format, differenceInDays, parseISO, isValid, formatDistanceToNowStrict, formatDistanceToNow} from 'date-fns';
@@ -26,6 +26,8 @@ interface OpportunityCardProps {
   opportunity: Opportunity;
   accountName?: string;
   onStatusChange?: (newStatus: OpportunityStatus) => void;
+  onValueChange?: (newValue: number) => void;
+  onTimelineChange?: (newStartDate: string, newEndDate: string) => void;
 }
 
 const getStatusBadgeColorClasses = (status: Opportunity['status']): string => {
@@ -67,7 +69,7 @@ const currencyMap = Object.fromEntries(
   countries.map(c => [c.currencyCode, c.currencySymbol || c.currencyCode])
 );
 
-export default function OpportunityCard({ opportunity, accountName, onStatusChange }: OpportunityCardProps) {
+export default function OpportunityCard({ opportunity, accountName, onStatusChange, onValueChange, onTimelineChange }: OpportunityCardProps) {
   // const [forecast, setForecast] = useState<AIOpportunityForecast | null>(null);
   // const [isLoadingForecast, setIsLoadingForecast] = useState(false);
   const [associatedAccount, setAssociatedAccount] = useState<Account | undefined>(undefined);
@@ -87,6 +89,16 @@ export default function OpportunityCard({ opportunity, accountName, onStatusChan
   const [currentUserRole, setCurrentUserRole] = useState<string>('user');
   const [editStatus, setEditStatus] = useState<OpportunityStatus>(opportunity.status as OpportunityStatus);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  // Editable Value
+  const [isEditingValue, setIsEditingValue] = useState(false);
+  const [editValue, setEditValue] = useState(opportunity.value.toString());
+  const [isUpdatingValue, setIsUpdatingValue] = useState(false);
+
+  // Editable Timeline
+  const [isEditingTimeline, setIsEditingTimeline] = useState(false);
+  const [editStartDate, setEditStartDate] = useState(opportunity.startDate);
+  const [editEndDate, setEditEndDate] = useState(opportunity.endDate);
+  const [isUpdatingTimeline, setIsUpdatingTimeline] = useState(false);
 
   const status = opportunity.status as OpportunityStatus;
 
@@ -508,6 +520,46 @@ export default function OpportunityCard({ opportunity, accountName, onStatusChan
     'Loss',
   ];
 
+  // Keep edit fields in sync if opportunity changes
+  useEffect(() => {
+    setEditValue(opportunity.value.toString());
+    setEditStartDate(opportunity.startDate);
+    setEditEndDate(opportunity.endDate);
+  }, [opportunity.value, opportunity.startDate, opportunity.endDate]);
+
+  const handleValueSave = async () => {
+    setIsUpdatingValue(true);
+    const newValue = Number(editValue.replace(/,/g, ''));
+    const { error } = await supabase
+      .from('opportunity')
+      .update({ value: newValue })
+      .eq('id', opportunity.id);
+    if (!error) {
+      toast({ title: "Value Updated", description: `Value changed to ${newValue.toLocaleString()}` });
+      setIsEditingValue(false);
+      if (typeof onValueChange === 'function') onValueChange(newValue);
+    } else {
+      toast({ title: "Error", description: "Failed to update value", variant: "destructive" });
+    }
+    setIsUpdatingValue(false);
+  };
+
+  const handleTimelineSave = async () => {
+    setIsUpdatingTimeline(true);
+    const { error } = await supabase
+      .from('opportunity')
+      .update({ start_date: editStartDate, end_date: editEndDate })
+      .eq('id', opportunity.id);
+    if (!error) {
+      toast({ title: "Timeline Updated", description: `Timeline changed` });
+      setIsEditingTimeline(false);
+      if (typeof onTimelineChange === 'function') onTimelineChange(editStartDate, editEndDate);
+    } else {
+      toast({ title: "Error", description: "Failed to update timeline", variant: "destructive" });
+    }
+    setIsUpdatingTimeline(false);
+  };
+
   return (
     <>
       <Card className="shadow-md hover:shadow-lg transition-shadow duration-300 bg-white flex flex-col h-full cursor-pointer" onClick={() => setIsDialogOpen(true)}>
@@ -560,12 +612,6 @@ export default function OpportunityCard({ opportunity, accountName, onStatusChan
               <Clock className="mr-1 h-3 w-3 shrink-0"/>{timeRemaining(opportunity.status as OpportunityStatus)}
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Progress value={progress} className="h-2 flex-1" gradient="linear-gradient(90deg, #3987BE 0%, #D48EA3 100%)" />
-            <div className="flex items-center gap-1 text-xs">
-              {opportunityHealthIcon} {opportunityHealthText}
-            </div>
-          </div>
           {/* {(forecast || isLoadingForecast) && opportunity.status !== 'Win' && opportunity.status !== 'Loss' && (
             <div className="pt-3 border-t mt-3">
               <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-1.5 flex items-center">
@@ -613,9 +659,30 @@ export default function OpportunityCard({ opportunity, accountName, onStatusChan
             {/* Details Section */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="bg-white/30 p-3 rounded-lg">
-                <div className="text-sm font-medium text-muted-foreground">Value</div>
-                <div className="text-lg font-bold text-[#97A487]">
-                  {currencySymbol} {opportunity.value.toLocaleString()}
+                <div className="flex items-center justify-between">
+                  <div className="text-sm font-medium text-muted-foreground">Value</div>
+                  {!isEditingValue && (
+                    <button onClick={() => { setIsEditingValue(true); setIsEditingTimeline(false); }} className="ml-2 p-1 hover:bg-muted rounded" title="Edit Value">
+                      <Pencil className="w-4 h-4 text-muted-foreground" />
+                    </button>
+                  )}
+                </div>
+                <div className="text-lg font-bold text-[#97A487] flex items-center gap-2">
+                  {isEditingValue ? (
+                    <>
+                      <input
+                        type="text"
+                        value={editValue}
+                        onChange={e => setEditValue(e.target.value.replace(/[^\d,]/g, ''))}
+                        className="border rounded px-2 py-1 w-28 text-right"
+                        disabled={isUpdatingValue}
+                      />
+                      <button onClick={handleValueSave} disabled={isUpdatingValue} className="ml-1 text-green-600 hover:text-green-800"><Check className="w-4 h-4" /></button>
+                      <button onClick={() => { setIsEditingValue(false); setEditValue(opportunity.value.toString()); }} disabled={isUpdatingValue} className="ml-1 text-red-600 hover:text-red-800"><X className="w-4 h-4" /></button>
+                    </>
+                  ) : (
+                    <>{currencySymbol} {opportunity.value.toLocaleString()}</>
+                  )}
                 </div>
               </div>
               <div className="bg-white/30 p-3 rounded-lg">
@@ -636,26 +703,50 @@ export default function OpportunityCard({ opportunity, accountName, onStatusChan
                 </Select>
               </div>
               <div className="bg-white/30 p-3 rounded-lg">
-                <div className="text-sm font-medium text-muted-foreground">Timeline</div>
-                <div className="text-xs text-muted-foreground">{
-                  (() => {
-                    const start = safeParseISO(opportunity.startDate);
-                    const end = safeParseISO(opportunity.endDate);
-                    if (start && end) {
-                      return `${format(start, 'MMM dd, yyyy')} - ${format(end, 'MMM dd, yyyy')}`;
-                    }
-                    return 'N/A';
-                  })()
-                }</div>
+                <div className="flex items-center justify-between">
+                  <div className="text-sm font-medium text-muted-foreground">Timeline</div>
+                  {!isEditingTimeline && (
+                    <button onClick={() => { setIsEditingTimeline(true); setIsEditingValue(false); }} className="ml-2 p-1 hover:bg-muted rounded" title="Edit Timeline">
+                      <Pencil className="w-4 h-4 text-muted-foreground" />
+                    </button>
+                  )}
+                </div>
+                <div className="text-xs text-muted-foreground flex items-center gap-2 flex-wrap">
+                  {isEditingTimeline ? (
+                    <>
+                      <input
+                        type="date"
+                        value={editStartDate.slice(0, 10)}
+                        onChange={e => setEditStartDate(e.target.value)}
+                        className="border rounded px-2 py-1 w-[120px] min-w-0"
+                        disabled={isUpdatingTimeline}
+                      />
+                      <span>-</span>
+                      <input
+                        type="date"
+                        value={editEndDate.slice(0, 10)}
+                        onChange={e => setEditEndDate(e.target.value)}
+                        className="border rounded px-2 py-1 w-[120px] min-w-0"
+                        disabled={isUpdatingTimeline}
+                      />
+                      <button onClick={handleTimelineSave} disabled={isUpdatingTimeline} className="ml-1 text-green-600 hover:text-green-800"><Check className="w-4 h-4" /></button>
+                      <button onClick={() => { setIsEditingTimeline(false); setEditStartDate(opportunity.startDate); setEditEndDate(opportunity.endDate); }} disabled={isUpdatingTimeline} className="ml-1 text-red-600 hover:text-red-800"><X className="w-4 h-4" /></button>
+                    </>
+                  ) : (
+                    (() => {
+                      const start = safeParseISO(opportunity.startDate);
+                      const end = safeParseISO(opportunity.endDate);
+                      if (start && end) {
+                        return `${format(start, 'MMM dd, yyyy')} - ${format(end, 'MMM dd, yyyy')}`;
+                      }
+                      return 'N/A';
+                    })()
+                  )}
+                </div>
               </div>
             </div>
-            {/* Progress & Health */}
-            <div className="flex items-center gap-2">
-              <Progress value={progress} className="h-2 flex-1" gradient="linear-gradient(90deg, #3987BE 0%, #D48EA3 100%)" />
-              <div className="flex items-center gap-1 text-xs">
-                {opportunityHealthIcon} {opportunityHealthText}
-              </div>
-            </div>
+            {/* Health */}
+            {/* <div className="flex items-center gap-1 text-xs">{opportunityHealthIcon}</div> */}
             {/* Activity Log */}
             <div>
               <h4 className="text-sm font-semibold text-foreground mb-3">Activity Log</h4>
@@ -729,6 +820,7 @@ export default function OpportunityCard({ opportunity, accountName, onStatusChan
                       </PopoverContent>
                     </Popover>
                   </div>
+                  {/*
                   <Button 
                     variant="outline"
                     onClick={toggleAiInsights}
@@ -736,6 +828,7 @@ export default function OpportunityCard({ opportunity, accountName, onStatusChan
                     <Sparkles className="mr-2 h-4 w-4" />
                     AI Advice
                   </Button>
+                  */}
                 </div>
               </div>
             </div>
