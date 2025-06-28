@@ -550,13 +550,13 @@ export default function OpportunityCard({ opportunity, accountName }: Opportunit
                 {opportunityHealthIcon} {opportunityHealthText}
               </div>
             </div>
-            {/* Activity Log */}
+            {/* Activity Updates */}
             <div>
-              <h4 className="text-sm font-semibold text-foreground mb-3">Activity Log</h4>
+              <h4 className="text-sm font-semibold text-foreground mb-3">Activity Updates</h4>
               {isLoadingLogs ? (
                 <div className="flex items-center justify-center h-32">
                   <LoadingSpinner size={24} />
-                  <span className="ml-2 text-muted-foreground">Loading activity logs...</span>
+                  <span className="ml-2 text-muted-foreground">Loading activity updates...</span>
                 </div>
               ) : activityLogs.length > 0 ? (
                 <div className="space-y-2 h-32 overflow-y-auto">
@@ -564,7 +564,7 @@ export default function OpportunityCard({ opportunity, accountName }: Opportunit
                 </div>
               ) : (
                 <div className="flex items-center justify-center h-32 text-muted-foreground">
-                  <span>No activity logs yet</span>
+                  <span>No activity updates yet</span>
                 </div>
               )}
             </div>
@@ -591,7 +591,7 @@ export default function OpportunityCard({ opportunity, accountName }: Opportunit
                       ) : (
                         <MessageSquarePlus className="mr-2 h-4 w-4" />
                       )}
-                      Log Activity
+                      Add Activity
                     </Button>
                     <Popover>
                       <PopoverTrigger asChild>

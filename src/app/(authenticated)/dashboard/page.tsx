@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/componen
 import Link from 'next/link';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
 import { format, parseISO } from 'date-fns';
-import UpdateItem from '@/components/updates/UpdateItem';
+import UpdateItem from '@/components/activity/UpdateItem';
 import OpportunityCard from '@/components/opportunities/OpportunityCard';
 import { supabase } from '@/lib/supabaseClient';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';

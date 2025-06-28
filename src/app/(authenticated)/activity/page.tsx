@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import PageTitle from '@/components/common/PageTitle';
-import UpdateItem from '@/components/updates/UpdateItem';
+import UpdateItem from '@/components/activity/UpdateItem';
 import type { Update, UpdateType, Opportunity } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Search, ListFilter, MessageSquare } from 'lucide-react';
@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {format, parseISO, isValid} from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
-import AddUpdateDialog from '@/components/updates/AddUpdateDialog';
+import AddUpdateDialog from '@/components/activity/AddUpdateDialog';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { supabase } from '@/lib/supabaseClient';
@@ -239,7 +239,7 @@ export default function UpdatesPage() {
     <div className="max-w-[1440px] px-4 mx-auto w-full space-y-6">
       <PageTitle title="Communication Updates" subtitle="Log and review all opportunity-related communications.">
         <Button onClick={() => setIsAddUpdateDialogOpen(true)} variant="add" className='w-fit'> 
-          <Image src="/images/add.svg" alt="Add" width={20} height={20} className="mr-2" /> Log New Update
+          <Image src="/images/add.svg" alt="Add" width={20} height={20} className="mr-2" /> Activity Update
         </Button>
       </PageTitle>
 

@@ -558,7 +558,7 @@ export default function UpdateItem({ update, groupedUpdates }: UpdateItemProps) 
                   <Plus className="h-4 w-4" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent side="top" align="center">Log New Activity</TooltipContent>
+              <TooltipContent side="top" align="center">Add Activity</TooltipContent>
             </Tooltip>
           </TooltipProvider>
         </CardFooter>
@@ -567,13 +567,17 @@ export default function UpdateItem({ update, groupedUpdates }: UpdateItemProps) 
       {/* Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="sm:max-w-xl bg-white" onClick={e => e.stopPropagation()}>
-          <DialogHeader>
-            <DialogTitle className="text-xl font-headline">
-              {getHeaderTitle()}
-            </DialogTitle>
-            <DialogDescription>
-              {opportunity?.description || lead?.email}
-            </DialogDescription>
+          <DialogHeader className="flex flex-row items-center justify-between w-full">
+            <div className="flex items-center gap-2">
+              <DialogTitle className="text-xl font-headline">
+                {opportunity?.name || lead?.personName || account?.name || 'Update'}
+              </DialogTitle>
+              {totalUpdates > 1 && (
+                <Badge variant="secondary" className="ml-2">
+                  {totalUpdates} updates
+                </Badge>
+              )}
+            </div>
           </DialogHeader>
 
           <div className="flex-1 overflow-y-auto space-y-6">
@@ -607,7 +611,7 @@ export default function UpdateItem({ update, groupedUpdates }: UpdateItemProps) 
 
             {/* All Activity Logs */}
             <div className="mt-4">
-              <div className="text-xs font-semibold text-muted-foreground uppercase mb-1">Activity Log</div>
+              <div className="text-xs font-semibold text-muted-foreground uppercase mb-1">Activity Updates</div>
               <div className="relative">
                 <div className="space-y-2 max-h-36 overflow-y-auto pr-1">
                   {activityLogs.map((log, idx) => (
@@ -640,7 +644,7 @@ export default function UpdateItem({ update, groupedUpdates }: UpdateItemProps) 
 
             {/* Log New Activity Form */}
             <div>
-              <h4 className="text-sm font-semibold text-foreground mb-2">Log New Activity</h4>
+              <h4 className="text-sm font-semibold text-foreground mb-2">Add New Activity</h4>
               <div className="space-y-3">
                 <Textarea
                   placeholder="Describe the activity..."
@@ -662,7 +666,7 @@ export default function UpdateItem({ update, groupedUpdates }: UpdateItemProps) 
                       ) : (
                         <MessageSquarePlus className="mr-2 h-4 w-4" />
                       )}
-                      Log Activity
+                      Add Activity
                     </Button>
                     <Popover>
                       <PopoverTrigger asChild>

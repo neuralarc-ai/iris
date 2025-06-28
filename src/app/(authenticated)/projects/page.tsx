@@ -21,10 +21,9 @@ export default function OpportunitiesPage() { // Renamed
   const [entityFilter, setEntityFilter] = useState<string | 'all'>('all'); 
   const [isAddOpportunityDialogOpen, setIsAddOpportunityDialogOpen] = useState(false); // Renamed
 
-  const opportunityStatusOptions: OpportunityStatus[] = ["Need Analysis", "Negotiation", "In Progress", "On Hold", "Completed", "Cancelled"]; // Renamed
+  const opportunityStatusOptions: OpportunityStatus[] = ["Scope Of Work", "Proposal", "Negotiation", "Win", "Loss", "On Hold"]; // Updated to match type definition
 
   const entityOptions = [
-    ...mockLeads.map(lead => ({ id: `lead_${lead.id}`, name: `${lead.companyName} (Lead)` })),
     ...mockAccounts.map(account => ({ id: `account_${account.id}`, name: `${account.name} (Account)` }))
   ];
 
@@ -35,9 +34,7 @@ export default function OpportunitiesPage() { // Renamed
     let matchesEntity = true;
     if (entityFilter !== 'all') {
       const [type, id] = entityFilter.split('_');
-      if (type === 'lead') {
-        matchesEntity = opportunity.leadId === id;
-      } else if (type === 'account') {
+      if (type === 'account') {
         matchesEntity = opportunity.accountId === id;
       }
     }

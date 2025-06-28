@@ -245,7 +245,7 @@ export default function LeadsPage() {
           className: "bg-yellow-100 dark:bg-yellow-900 border-yellow-500"
         });
         
-        setTimeout(() => {
+    setTimeout(() => {
           setIsImportDialogOpen(false);
           setUploadSuccess(false);
           setImportProgress({ current: 0, total: 0, message: '' });
@@ -839,117 +839,118 @@ export default function LeadsPage() {
       {rejectedLeads.length === 0 ? (
         /* No rejected leads - show leads directly */
         <div className="mt-6">
-          {filteredLeads.length > 0 ? (
-            view === 'list' ? (
+      {filteredLeads.length > 0 ? (
+        view === 'list' ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                {filteredLeads.map((lead) => (
-                  <LeadCard
-                    key={lead.id}
-                    lead={lead}
+          {filteredLeads.map((lead) => (
+            <LeadCard
+              key={lead.id}
+              lead={lead}
                     assignedUser={users.find(u => u.id === lead.assignedUserId)?.name || ''}
                     onLeadConverted={(convertedLeadId) => handleLeadConverted(convertedLeadId, 'newAccountId')}
                     onLeadDeleted={(leadId: string) => {
                       setLeads(prev => prev.filter(l => l.id !== leadId));
                     }}
-                  />
-                ))}
-              </div>
-            ) : (
+            />
+          ))}
+        </div>
+        ) : (
               <div className="rounded-lg border">
                 <Table>
-                  <TableHeader>
+              <TableHeader>
                     <TableRow>
                       {selectMode && <TableHead className="w-10"></TableHead>}
                       <TableHead className='text-[#282828]'>Company</TableHead>
                       <TableHead className='text-[#282828]'>Contact</TableHead>
-                      <TableHead className='text-[#282828]'>Email</TableHead>
-                      <TableHead className='text-[#282828]'>Phone</TableHead>
-                      <TableHead className='text-[#282828]'>Country</TableHead>
-                      <TableHead className='text-[#282828]'>Status</TableHead>
-                      <TableHead className='text-[#282828]'>Created</TableHead>
+                  <TableHead className='text-[#282828]'>Email</TableHead>
+                  <TableHead className='text-[#282828]'>Phone</TableHead>
+                  <TableHead className='text-[#282828]'>Country</TableHead>
+                  <TableHead className='text-[#282828]'>Status</TableHead>
+                  <TableHead className='text-[#282828]'>Created</TableHead>
                       <TableHead className='text-[#282828]'>Assigned To</TableHead>
-                      <TableHead className='text-[#282828] rounded-tr-[8px]'>Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredLeads.map((lead) => (
-                      <TableRow
-                        key={lead.id}
-                        className={`hover:bg-transparent`}
+                  <TableHead className='text-[#282828] rounded-tr-[8px]'>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredLeads.map((lead) => (
+                  <TableRow
+                    key={lead.id}
+                    className={`hover:bg-transparent`}
                         onClick={selectMode ? (e) => {
                           // Only trigger selection if clicking on the row but not on the checkbox or action buttons
-                          if (!e.target.closest('input[type="checkbox"]') && !e.target.closest('button')) {
+                          const target = e.target as HTMLElement;
+                          if (!target.closest('input[type="checkbox"]') && !target.closest('button')) {
                             handleSelectLead(lead.id);
                           }
                         } : undefined}
-                      >
-                        {selectMode && (
-                          <TableCell className="w-10 align-middle">
-                            <input
-                              type="checkbox"
-                              checked={selectedLeads.includes(lead.id)}
-                              onChange={e => { e.stopPropagation(); handleSelectLead(lead.id); }}
-                              onClick={e => e.stopPropagation()}
-                              className="accent-[#97A487] border-none h-4 w-4"
-                            />
-                          </TableCell>
-                        )}
-                        <TableCell className="font-semibold text-foreground">{lead.companyName}</TableCell>
-                        <TableCell>{lead.personName}</TableCell>
-                        <TableCell><a href={`mailto:${lead.email}`} className="text-primary hover:underline">{lead.email}</a></TableCell>
-                        <TableCell>{lead.phone || '-'}</TableCell>
-                        <TableCell>{lead.country}</TableCell>
-                        <TableCell><span className="inline-block rounded-full bg-muted px-3 py-1 text-xs font-semibold text-muted-foreground" style={{background:'#b0aca7',color:'#23201d'}}>{lead.status}</span></TableCell>
-                        <TableCell>{new Date(lead.createdAt).toLocaleDateString('en-GB')}</TableCell>
+                  >
+                    {selectMode && (
+                      <TableCell className="w-10 align-middle">
+                        <input
+                          type="checkbox"
+                          checked={selectedLeads.includes(lead.id)}
+                          onChange={e => { e.stopPropagation(); handleSelectLead(lead.id); }}
+                          onClick={e => e.stopPropagation()}
+                          className="accent-[#97A487] border-none h-4 w-4"
+                        />
+                      </TableCell>
+                    )}
+                    <TableCell className="font-semibold text-foreground">{lead.companyName}</TableCell>
+                    <TableCell>{lead.personName}</TableCell>
+                    <TableCell><a href={`mailto:${lead.email}`} className="text-primary hover:underline">{lead.email}</a></TableCell>
+                    <TableCell>{lead.phone || '-'}</TableCell>
+                    <TableCell>{lead.country}</TableCell>
+                    <TableCell><span className="inline-block rounded-full bg-muted px-3 py-1 text-xs font-semibold text-muted-foreground" style={{background:'#b0aca7',color:'#23201d'}}>{lead.status}</span></TableCell>
+                    <TableCell>{new Date(lead.createdAt).toLocaleDateString('en-GB')}</TableCell>
                         <TableCell>{users.find(u => u.id === lead.assignedUserId)?.name || ''}</TableCell>
-                        <TableCell className="flex gap-2">
-                          <TooltipProvider delayDuration={0}>
-                            {lead.status !== "Converted to Account" && lead.status !== "Lost" && (
-                              <Tooltip>
-                                <TooltipTrigger asChild>
+                    <TableCell className="flex gap-2">
+                      <TooltipProvider delayDuration={0}>
+                        {lead.status !== "Converted to Account" && lead.status !== "Lost" && (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
                                   <Button size="sm" onClick={(e) => { e.stopPropagation(); handleLeadConverted(lead.id, 'newAccountId'); }} variant="add" className="rounded-[4px] p-2"><CheckSquare className="h-4 w-4" /></Button>
-                                </TooltipTrigger>
-                                <TooltipContent>Convert</TooltipContent>
-                              </Tooltip>
-                            )}
-                            {lead.status !== "Converted to Account" && lead.status !== "Lost" && (
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <AlertDialog>
-                                    <AlertDialogTrigger asChild>
-                                      <Button size="sm" variant="delete" className="rounded-[4px] p-2"><Trash2 className="h-4 w-4" /></Button>
-                                    </AlertDialogTrigger>
-                                    <AlertDialogContent>
-                                      <AlertDialogHeader>
-                                        <AlertDialogTitle>Delete Lead?</AlertDialogTitle>
-                                        <AlertDialogDescription>
-                                          Are you sure you want to delete this lead? This action cannot be undone.
-                                        </AlertDialogDescription>
-                                      </AlertDialogHeader>
-                                      <AlertDialogFooter>
-                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            </TooltipTrigger>
+                            <TooltipContent>Convert</TooltipContent>
+                          </Tooltip>
+                        )}
+                        {lead.status !== "Converted to Account" && lead.status !== "Lost" && (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button size="sm" variant="delete" className="rounded-[4px] p-2"><Trash2 className="h-4 w-4" /></Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Delete Lead?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      Are you sure you want to delete this lead? This action cannot be undone.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
                                         <AlertDialogAction onClick={(e) => { e.stopPropagation(); setLeads(prev => prev.filter(l => l.id !== lead.id)); }} className="bg-[#916D5B] text-white rounded-[4px] border-0 hover:bg-[#a98a77]">Delete</AlertDialogAction>
-                                      </AlertDialogFooter>
-                                    </AlertDialogContent>
-                                  </AlertDialog>
-                                </TooltipTrigger>
-                                <TooltipContent>Delete</TooltipContent>
-                              </Tooltip>
-                            )}
-                          </TooltipProvider>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            )
-          ) : (
-            <div className="text-center py-16">
-              <Search className="mx-auto h-16 w-16 text-muted-foreground/50 mb-6" />
-              <p className="text-xl font-semibold text-foreground mb-2">No Leads Found</p>
-              <p className="text-muted-foreground">Try adjusting your search or filter criteria, or add a new lead.</p>
-            </div>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </TooltipTrigger>
+                            <TooltipContent>Delete</TooltipContent>
+                          </Tooltip>
+                        )}
+                      </TooltipProvider>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )
+      ) : (
+        <div className="text-center py-16">
+          <Search className="mx-auto h-16 w-16 text-muted-foreground/50 mb-6" />
+          <p className="text-xl font-semibold text-foreground mb-2">No Leads Found</p>
+          <p className="text-muted-foreground">Try adjusting your search or filter criteria, or add a new lead.</p>
+        </div>
           )}
         </div>
       ) : (
@@ -997,7 +998,8 @@ export default function LeadsPage() {
                             className={`hover:bg-transparent`}
                             onClick={selectMode ? (e) => {
                               // Only trigger selection if clicking on the row but not on the checkbox or action buttons
-                              if (!e.target.closest('input[type="checkbox"]') && !e.target.closest('button')) {
+                              const target = e.target as HTMLElement;
+                              if (!target.closest('input[type="checkbox"]') && !target.closest('button')) {
                                 handleSelectLead(lead.id);
                               }
                             } : undefined}
