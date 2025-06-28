@@ -331,7 +331,7 @@ export default function OpportunityCard({ opportunity, accountName, onStatusChan
   //     setForecast(forecastData);
   //   } catch (error) {
   //     console.error(`Failed to fetch forecast for ${opportunity.name}:`, error);
-  //     setForecast({ timelinePrediction: "N/A", completionDateEstimate: "N/A", revenueForecast: opportunity.value, bottleneckIdentification: "Error fetching forecast."});
+  //     setForecast({ timelinePrediction: "N/A", completionDateEstimate: "N/A", revenueForecast: opportunity.value,    bottleneckIdentification: "Error fetching forecast."});
   //   } finally {
   //     setIsLoadingForecast(false);
   //   }
@@ -747,7 +747,7 @@ export default function OpportunityCard({ opportunity, accountName, onStatusChan
             </div>
             {/* Health */}
             {/* <div className="flex items-center gap-1 text-xs">{opportunityHealthIcon}</div> */}
-            {/* Activity Log */}
+            {/* Activity Logs */}
             <div>
               <h4 className="text-sm font-semibold text-foreground mb-3">Activity Log</h4>
               {isLoadingLogs ? (
