@@ -99,20 +99,11 @@ export default function DashboardPage() {
         </div>
       </PageTitle>
 
-      <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
-        <CardHeader>
-          <CardTitle className="text-xl flex items-center">
-            <TrendingUp className="mr-3 h-6 w-6 text-primary" />
-            AI Sales Forecast Overview
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {isLoading && !overallSalesForecast ? (
-            <div className="h-10 bg-muted/50 rounded animate-pulse w-3/4"></div>
-          ) : (
-            <p className="text-foreground text-base leading-relaxed">{overallSalesForecast || "No forecast available."}</p>
-          )}
-        </CardContent>
+      <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300 h-40 relative overflow-hidden">
+        <img src="/images/ai-forecast.png" alt="AI Forecast" className="absolute inset-0 w-full h-full object-cover" />
+        <div className="relative z-10 flex items-center h-full pl-8">
+          <span className="text-3xl font-bold text-white tracking-wide drop-shadow-lg">AI Features Coming Soon !</span>
+        </div>
       </Card>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">

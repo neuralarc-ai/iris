@@ -92,24 +92,85 @@ export default function OpportunityCard({ opportunity, accountName }: Opportunit
       try {
         console.log('Fetching activity logs for opportunity:', opportunity.id);
         
+        // Check if opportunity.id exists and is valid
+        if (!opportunity.id) {
+          console.error('No opportunity ID provided');
+          setActivityLogs([]);
+          return;
+        }
+
+        // First, let's check if the opportunity exists in the database
+        const { data: opportunityCheck, error: opportunityError } = await supabase
+          .from('opportunity')
+          .select('id')
+          .eq('id', opportunity.id)
+          .single();
+
+        if (opportunityError) {
+          console.error('Opportunity not found:', opportunityError);
+          setActivityLogs([]);
+          return;
+        }
+
+        console.log('Opportunity found, fetching logs...');
+        
+        // Debug: Let's first check what columns exist in the update table
+        console.log('Checking update table structure...');
+        const { data: tableInfo, error: tableError } = await supabase
+          .from('update')
+          .select('*')
+          .limit(1);
+        
+        if (tableError) {
+          console.error('Error checking table structure:', tableError);
+        } else {
+          console.log('Update table structure sample:', tableInfo?.[0]);
+        }
+        
+        // Now fetch the logs with better error handling
+        console.log('Executing main query for opportunity_id:', opportunity.id);
         const { data: logsData, error } = await supabase
           .from('update')
           .select('*')
           .eq('opportunity_id', opportunity.id)
           .order('date', { ascending: false });
         
+        console.log('Query result:', { data: logsData, error });
+        
         if (error) {
           console.error('Supabase error fetching logs:', error);
+          console.error('Error details:', {
+            message: error.message,
+            details: error.details,
+            hint: error.hint,
+            code: error.code
+          });
+          
+          // Try a fallback query to see if the issue is with the opportunity_id column
+          console.log('Trying fallback query...');
+          const { data: fallbackData, error: fallbackError } = await supabase
+            .from('update')
+            .select('*')
+            .limit(5);
+          
+          if (fallbackError) {
+            console.error('Fallback query also failed:', fallbackError);
+          } else {
+            console.log('Fallback query successful, sample data:', fallbackData);
+          }
+          
           toast({ 
             title: "Error", 
-            description: "Failed to load activity logs. Please try again.", 
+            description: `Failed to load activity logs: ${error.message || 'Unknown error'}`, 
             variant: "destructive" 
           });
+          setActivityLogs([]);
           return;
         }
         
-        if (logsData) {
-          console.log('Activity logs fetched successfully:', logsData.length, 'logs');
+        console.log('Activity logs fetched successfully:', logsData?.length || 0, 'logs');
+        
+        if (logsData && logsData.length > 0) {
           const transformedLogs = logsData.map((log: any) => ({
             id: log.id,
             type: log.type,
@@ -128,11 +189,14 @@ export default function OpportunityCard({ opportunity, accountName }: Opportunit
         }
       } catch (error) {
         console.error('Failed to fetch logs:', error);
+        console.error('Error type:', typeof error);
+        console.error('Error details:', error);
         toast({ 
           title: "Error", 
           description: "Failed to load activity logs. Please try again.", 
           variant: "destructive" 
         });
+        setActivityLogs([]);
       } finally {
         setIsLoadingLogs(false);
       }
