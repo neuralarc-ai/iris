@@ -220,10 +220,14 @@ export default function AddOpportunityDialog({ open, onOpenChange, onOpportunity
               <Label htmlFor="opportunity-expected-close">Expected Close Date <span className="text-destructive">*</span></Label>
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" className="w-full justify-start text-left font-normal">
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {expectedCloseDate ? format(expectedCloseDate, 'MMM dd, yyyy') : 'Select expected close date'}
-                  </Button>
+                  <Input
+                    id="opportunity-expected-close"
+                    type="text"
+                    readOnly
+                    value={expectedCloseDate ? format(expectedCloseDate, 'MMM dd, yyyy') : ''}
+                    placeholder="Select expected close date"
+                    className="w-full mt-1 cursor-pointer bg-white"
+                  />
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
                   <Calendar
@@ -252,7 +256,7 @@ export default function AddOpportunityDialog({ open, onOpenChange, onOpportunity
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isLoading}>
               Cancel
             </Button>
-            <Button type="submit" disabled={isLoading}>
+            <Button type="submit" variant="add" disabled={isLoading}>
               {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Create Opportunity"}
             </Button>
           </DialogFooter>

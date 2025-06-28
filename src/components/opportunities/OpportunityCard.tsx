@@ -67,6 +67,7 @@ export default function OpportunityCard({ opportunity, accountName }: Opportunit
   const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [activityLogs, setActivityLogs] = useState<Update[]>([]);
+  const [isLoadingLogs, setIsLoadingLogs] = useState(false);
   const [newActivityDescription, setNewActivityDescription] = useState('');
   const [isLoggingActivity, setIsLoggingActivity] = useState(false);
   const [nextActionDate, setNextActionDate] = useState<Date | undefined>(undefined);
@@ -87,14 +88,28 @@ export default function OpportunityCard({ opportunity, accountName }: Opportunit
   // Fetch existing logs from Supabase
   useEffect(() => {
     const fetchLogs = async () => {
+      setIsLoadingLogs(true);
       try {
-        const { data: logsData } = await supabase
+        console.log('Fetching activity logs for opportunity:', opportunity.id);
+        
+        const { data: logsData, error } = await supabase
           .from('update')
           .select('*')
           .eq('opportunity_id', opportunity.id)
           .order('date', { ascending: false });
         
+        if (error) {
+          console.error('Supabase error fetching logs:', error);
+          toast({ 
+            title: "Error", 
+            description: "Failed to load activity logs. Please try again.", 
+            variant: "destructive" 
+          });
+          return;
+        }
+        
         if (logsData) {
+          console.log('Activity logs fetched successfully:', logsData.length, 'logs');
           const transformedLogs = logsData.map((log: any) => ({
             id: log.id,
             type: log.type,
@@ -107,14 +122,61 @@ export default function OpportunityCard({ opportunity, accountName }: Opportunit
             accountId: log.account_id,
           }));
           setActivityLogs(transformedLogs);
+        } else {
+          console.log('No activity logs found for opportunity:', opportunity.id);
+          setActivityLogs([]);
         }
       } catch (error) {
         console.error('Failed to fetch logs:', error);
+        toast({ 
+          title: "Error", 
+          description: "Failed to load activity logs. Please try again.", 
+          variant: "destructive" 
+        });
+      } finally {
+        setIsLoadingLogs(false);
       }
     };
 
-    fetchLogs();
-  }, [opportunity.id]);
+    if (opportunity.id) {
+      fetchLogs();
+    }
+  }, [opportunity.id, toast]);
+
+  // Function to refresh activity logs
+  const refreshActivityLogs = async () => {
+    try {
+      console.log('Refreshing activity logs for opportunity:', opportunity.id);
+      
+      const { data: logsData, error } = await supabase
+        .from('update')
+        .select('*')
+        .eq('opportunity_id', opportunity.id)
+        .order('date', { ascending: false });
+      
+      if (error) {
+        console.error('Supabase error refreshing logs:', error);
+        return;
+      }
+      
+      if (logsData) {
+        const transformedLogs = logsData.map((log: any) => ({
+          id: log.id,
+          type: log.type,
+          content: log.content || '',
+          updatedByUserId: log.updated_by_user_id,
+          date: log.date || log.created_at || new Date().toISOString(),
+          createdAt: log.created_at || new Date().toISOString(),
+          leadId: log.lead_id,
+          opportunityId: log.opportunity_id,
+          accountId: log.account_id,
+        }));
+        setActivityLogs(transformedLogs);
+      }
+    } catch (error) {
+      console.error('Failed to refresh logs:', error);
+    }
+  };
 
   const fetchForecast = async () => {
     setIsLoadingForecast(true);
@@ -233,9 +295,13 @@ export default function OpportunityCard({ opportunity, accountName }: Opportunit
         accountId: data.account_id,
       };
 
-      // Update local state
+      // Update local state and refresh logs
       setActivityLogs(prev => [newUpdate, ...prev]);
       setNewActivityDescription('');
+      
+      // Also refresh from backend to ensure consistency
+      await refreshActivityLogs();
+      
       toast({ title: "Success", description: "Activity logged successfully." });
     } catch (error) {
       console.error('Failed to log activity:', error);
@@ -398,9 +464,20 @@ export default function OpportunityCard({ opportunity, accountName }: Opportunit
             {/* Activity Log */}
             <div>
               <h4 className="text-sm font-semibold text-foreground mb-3">Activity Log</h4>
-              <div className="space-y-2 h-32 overflow-y-auto">
-                {activityLogs.map((log) => renderActivityLogItem(log))}
-              </div>
+              {isLoadingLogs ? (
+                <div className="flex items-center justify-center h-32">
+                  <LoadingSpinner size={24} />
+                  <span className="ml-2 text-muted-foreground">Loading activity logs...</span>
+                </div>
+              ) : activityLogs.length > 0 ? (
+                <div className="space-y-2 h-32 overflow-y-auto">
+                  {activityLogs.map((log) => renderActivityLogItem(log))}
+                </div>
+              ) : (
+                <div className="flex items-center justify-center h-32 text-muted-foreground">
+                  <span>No activity logs yet</span>
+                </div>
+              )}
             </div>
             {/* Log New Activity Form */}
             <div>
