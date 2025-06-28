@@ -22,6 +22,7 @@ import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { supabase } from '@/lib/supabaseClient';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface UpdateItemProps {
   update: Update;
@@ -60,6 +61,7 @@ export default function UpdateItem({ update, groupedUpdates }: UpdateItemProps) 
   const [newActivityDescription, setNewActivityDescription] = useState('');
   const [nextActionDate, setNextActionDate] = useState<Date | undefined>(undefined);
   const [isLoggingActivity, setIsLoggingActivity] = useState(false);
+  const [newActivityType, setNewActivityType] = useState<UpdateType>('General');
   
   // Get activity logs (updates for the same opportunity/lead)
   const [activityLogs, setActivityLogs] = useState<Update[]>([]);
@@ -328,7 +330,7 @@ export default function UpdateItem({ update, groupedUpdates }: UpdateItemProps) 
     setIsLoggingActivity(true);
     try {
       const newUpdateData = {
-        type: 'General' as UpdateType,
+        type: newActivityType,
         content: newActivityDescription,
         ...(update.opportunityId ? { opportunityId: update.opportunityId, accountId: update.accountId! } : { leadId: update.leadId! })
       };
@@ -558,7 +560,7 @@ export default function UpdateItem({ update, groupedUpdates }: UpdateItemProps) 
                   <Plus className="h-4 w-4" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent side="top" align="center">Log New Activity</TooltipContent>
+              <TooltipContent side="top" align="center">Add Activity</TooltipContent>
             </Tooltip>
           </TooltipProvider>
         </CardFooter>
@@ -567,13 +569,17 @@ export default function UpdateItem({ update, groupedUpdates }: UpdateItemProps) 
       {/* Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="sm:max-w-xl bg-white" onClick={e => e.stopPropagation()}>
-          <DialogHeader>
-            <DialogTitle className="text-xl font-headline">
-              {getHeaderTitle()}
-            </DialogTitle>
-            <DialogDescription>
-              {opportunity?.description || lead?.email}
-            </DialogDescription>
+          <DialogHeader className="flex flex-row items-center justify-between w-full">
+            <div className="flex items-center gap-2">
+              <DialogTitle className="text-xl font-headline">
+                {opportunity?.name || lead?.personName || account?.name || 'Update'}
+              </DialogTitle>
+              {totalUpdates > 1 && (
+                <Badge variant="secondary" className="ml-2">
+                  {totalUpdates} updates
+                </Badge>
+              )}
+            </div>
           </DialogHeader>
 
           <div className="flex-1 overflow-y-auto space-y-6">
@@ -601,13 +607,15 @@ export default function UpdateItem({ update, groupedUpdates }: UpdateItemProps) 
             <div>
               <h4 className="text-sm font-semibold text-foreground mb-2">Description</h4>
               <div className="bg-muted/30 p-4 rounded-lg">
-                <p className="text-sm text-foreground">{update.content}</p>
+                <p className="text-sm text-foreground">
+                  {opportunity?.description || lead?.companyName || lead?.personName || lead?.email || account?.description || 'No description available.'}
+                </p>
               </div>
             </div>
 
             {/* All Activity Logs */}
             <div className="mt-4">
-              <div className="text-xs font-semibold text-muted-foreground uppercase mb-1">Activity Log</div>
+              <div className="text-xs font-semibold text-muted-foreground uppercase mb-1">Activity Updates</div>
               <div className="relative">
                 <div className="space-y-2 max-h-36 overflow-y-auto pr-1">
                   {activityLogs.map((log, idx) => (
@@ -638,17 +646,29 @@ export default function UpdateItem({ update, groupedUpdates }: UpdateItemProps) 
               </div>
             </div>
 
-            {/* Log New Activity Form */}
+            {/* Add New Activity Form (copied and adapted from OpportunityCard) */}
             <div>
-              <h4 className="text-sm font-semibold text-foreground mb-2">Log New Activity</h4>
+              <h4 className="text-sm font-semibold text-foreground mb-2">Add New Activity</h4>
               <div className="space-y-3">
-                <Textarea
-                  placeholder="Describe the activity..."
-                  value={newActivityDescription}
-                  onChange={(e) => setNewActivityDescription(e.target.value)}
-                  className="min-h-[80px] resize-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0"
-                />
-                
+                <div className="flex flex-col md:flex-row gap-2">
+                  <Select value={newActivityType} onValueChange={value => setNewActivityType(value as 'General' | 'Call' | 'Meeting' | 'Email')}>
+                    <SelectTrigger className="w-fit min-w-[120px]">
+                      <SelectValue placeholder="Type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="General">General</SelectItem>
+                      <SelectItem value="Call">Call</SelectItem>
+                      <SelectItem value="Meeting">Meeting</SelectItem>
+                      <SelectItem value="Email">Email</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Textarea
+                    placeholder="Describe the activity..."
+                    value={newActivityDescription}
+                    onChange={(e) => setNewActivityDescription(e.target.value)}
+                    className="min-h-[80px] resize-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 flex-1"
+                  />
+                </div>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
                     <Button 
@@ -662,7 +682,7 @@ export default function UpdateItem({ update, groupedUpdates }: UpdateItemProps) 
                       ) : (
                         <MessageSquarePlus className="mr-2 h-4 w-4" />
                       )}
-                      Log Activity
+                      Add Activity
                     </Button>
                     <Popover>
                       <PopoverTrigger asChild>

@@ -206,7 +206,7 @@ export default function AddAccountDialog({ open, onOpenChange, onAccountAdded, o
             </div>
             <div>
               <Label htmlFor="account-type">Account Type <span className="text-destructive">*</span></Label>
-              <Select value={type || undefined} onValueChange={(value: AccountType | undefined) => setType(value || 'Client')}>
+              <Select value={type || undefined} onValueChange={(value: string) => setType(value as AccountType)}>
                 <SelectTrigger id="account-type">
                   <SelectValue placeholder="Select account type" />
                 </SelectTrigger>
