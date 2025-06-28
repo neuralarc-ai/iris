@@ -21,6 +21,9 @@ import { Loader2, BarChartBig, Briefcase } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { Calendar } from '@/components/ui/calendar';
 import { OpportunityStatus } from '@/types';
+import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
+import { Calendar as CalendarIcon } from 'lucide-react';
+import { format } from 'date-fns';
 
 interface AddOpportunityDialogProps {
   open: boolean;
@@ -41,7 +44,7 @@ export default function AddOpportunityDialog({ open, onOpenChange, onOpportunity
   const [users, setUsers] = useState<any[]>([]);
   const [role, setRole] = useState<string>('user');
   const [ownerId, setOwnerId] = useState<string>('');
-  const [status, setStatus] = useState<OpportunityStatus>('Need Analysis');
+  const [status, setStatus] = useState<OpportunityStatus>('Scope Of Work');
   const [expectedCloseDate, setExpectedCloseDate] = useState<Date | undefined>(undefined);
 
   const opportunityStatusOptions: OpportunityStatus[] = [
@@ -73,7 +76,11 @@ export default function AddOpportunityDialog({ open, onOpenChange, onOpportunity
   useEffect(() => {
     if (role === 'admin' && selectedAccountId) {
       const account = accounts.find(a => a.id === selectedAccountId);
-      if (account && account.owner_id) setOwnerId(account.owner_id);
+      if (account) {
+        // For now, use the current user as owner since Account doesn't have owner_id
+        const userId = localStorage.getItem('user_id');
+        if (userId) setOwnerId(userId);
+      }
     }
   }, [selectedAccountId, accounts, role]);
 
@@ -123,7 +130,7 @@ export default function AddOpportunityDialog({ open, onOpenChange, onOpportunity
     setValue('');
     setSelectedAccountId('');
     setOwnerId('');
-    setStatus('Need Analysis');
+    setStatus('Scope Of Work');
     setExpectedCloseDate(undefined);
   };
 
@@ -184,7 +191,7 @@ export default function AddOpportunityDialog({ open, onOpenChange, onOpportunity
 
           <div>
             <Label htmlFor="opportunity-status">Status <span className="text-destructive">*</span></Label>
-            <Select value={status} onValueChange={setStatus}>
+            <Select value={status} onValueChange={(value: OpportunityStatus) => setStatus(value)}>
               <SelectTrigger id="opportunity-status">
                 <SelectValue placeholder="Select status" />
               </SelectTrigger>
@@ -196,18 +203,37 @@ export default function AddOpportunityDialog({ open, onOpenChange, onOpportunity
             </Select>
           </div>
 
-          <div>
-            <Label htmlFor="opportunity-expected-close">Expected Close Date <span className="text-destructive">*</span></Label>
-            <div className="flex items-center gap-2">
-              <Calendar
-                mode="single"
-                selected={expectedCloseDate}
-                onSelect={setExpectedCloseDate}
-                initialFocus
+          <div className="flex gap-4">
+            <div className="flex-1">
+              <Label htmlFor="opportunity-value">Quoted Amount <span className="text-destructive">*</span></Label>
+              <Input
+                id="opportunity-value"
+                type="number"
+                value={value}
+                onChange={(e) => setValue(e.target.value)}
+                placeholder="e.g., 50000"
+                disabled={isLoading}
+                min="0"
               />
-              {expectedCloseDate && (
-                <span className="text-xs text-muted-foreground ml-2">{expectedCloseDate.toLocaleDateString()}</span>
-              )}
+            </div>
+            <div className="flex-1">
+              <Label htmlFor="opportunity-expected-close">Expected Close Date <span className="text-destructive">*</span></Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="w-full justify-start text-left font-normal">
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {expectedCloseDate ? format(expectedCloseDate, 'MMM dd, yyyy') : 'Select expected close date'}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={expectedCloseDate}
+                    onSelect={setExpectedCloseDate}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
           </div>
 
@@ -220,18 +246,6 @@ export default function AddOpportunityDialog({ open, onOpenChange, onOpportunity
               placeholder="Brief overview of the opportunity, client needs, etc."
               disabled={isLoading}
               rows={3}
-            />
-          </div>
-          <div>
-            <Label htmlFor="opportunity-value">Quoted Amount <span className="text-destructive">*</span></Label>
-            <Input
-              id="opportunity-value"
-              type="number"
-              value={value}
-              onChange={(e) => setValue(e.target.value)}
-              placeholder="e.g., 50000"
-              disabled={isLoading}
-              min="0"
             />
           </div>
           <DialogFooter className="pt-2">
