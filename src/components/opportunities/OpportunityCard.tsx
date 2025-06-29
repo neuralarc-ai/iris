@@ -367,8 +367,8 @@ export default function OpportunityCard({ opportunity, accountName, onStatusChan
   const progress = calculateProgress(opportunity.startDate, opportunity.endDate, opportunity.status as OpportunityStatus);
   // const isAtRisk = forecast?.bottleneckIdentification && forecast.bottleneckIdentification.toLowerCase() !== "none identified" && forecast.bottleneckIdentification.toLowerCase() !== "none" && forecast.bottleneckIdentification !== "Error fetching forecast." && forecast.bottleneckIdentification.length > 0;
   
-  let opportunityHealthIcon = <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />;
-  let opportunityHealthText = "On Track";
+  const opportunityHealthIcon = <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />;
+  const opportunityHealthText = "On Track";
   // if (forecast?.bottleneckIdentification === "Error fetching forecast.") {
   //   opportunityHealthIcon = <AlertTriangle className="h-4 w-4 text-orange-500 shrink-0" />;
   //   opportunityHealthText = "Forecast Error";
@@ -825,14 +825,14 @@ export default function OpportunityCard({ opportunity, accountName, onStatusChan
                     </Select>
                   </div>
                   <div className="flex-1">
-                    <Label htmlFor="next-action-date" className="text-muted-foreground font-semibold">Next Action Date</Label>
+                    <Label htmlFor="next-action-date" className="text-muted-foreground font-semibold">Next Action Date (Optional)</Label>
                     <Popover>
                       <PopoverTrigger asChild>
                         <Input
                           id="next-action-date"
                           type="text"
                           value={nextActionDate ? format(nextActionDate, 'dd/MM/yyyy') : ''}
-                          placeholder="dd/mm/yyyy"
+                          placeholder="dd/mm/yyyy (optional)"
                           readOnly
                           disabled={isLoggingActivity}
                           className="cursor-pointer bg-white"

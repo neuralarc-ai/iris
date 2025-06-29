@@ -48,6 +48,7 @@ export default function AccountCard({ account, view = 'grid', onNewOpportunity, 
   const [updateType, setUpdateType] = useState<UpdateType | ''>('');
   const [updateContent, setUpdateContent] = useState('');
   const [updateDate, setUpdateDate] = useState<Date | undefined>(undefined);
+  const [nextActionDate, setNextActionDate] = useState<Date | undefined>(undefined);
   const [isLogging, setIsLogging] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [editAccount, setEditAccount] = useState({
@@ -200,6 +201,7 @@ export default function AccountCard({ account, view = 'grid', onNewOpportunity, 
           content: updateContent,
           updated_by_user_id: currentUserId,
           date: updateDate.toISOString(),
+          next_action_date: nextActionDate?.toISOString() || null,
           lead_id: null,
           opportunity_id: null,
           account_id: account.id,
@@ -226,6 +228,7 @@ export default function AccountCard({ account, view = 'grid', onNewOpportunity, 
       setUpdateType('');
       setUpdateContent('');
       setUpdateDate(undefined);
+      setNextActionDate(undefined);
       toast({ title: 'Update logged', description: 'Your update has been logged.' });
     } catch (error) {
       console.error('Failed to log update:', error);
@@ -607,6 +610,31 @@ export default function AccountCard({ account, view = 'grid', onNewOpportunity, 
                           mode="single"
                           selected={updateDate}
                           onSelect={setUpdateDate}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                </div>
+                <div className="flex flex-col md:flex-row gap-2">
+                  <div className="flex-1 min-w-0">
+                    <Label htmlFor="next-action-date">Next Action Date (Optional)</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Input
+                          id="next-action-date"
+                          type="text"
+                          value={nextActionDate ? format(nextActionDate, 'dd/MM/yyyy') : ''}
+                          placeholder="dd/mm/yyyy (optional)"
+                          readOnly
+                          className="mt-1 cursor-pointer bg-white"
+                        />
+                      </PopoverTrigger>
+                      <PopoverContent align="start" className="p-0 w-auto border-none bg-[#CFD4C9] rounded-sm">
+                        <Calendar
+                          mode="single"
+                          selected={nextActionDate}
+                          onSelect={setNextActionDate}
                           initialFocus
                         />
                       </PopoverContent>

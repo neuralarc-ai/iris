@@ -195,7 +195,7 @@ export default function UserManagementPage() {
   const [isEditUserDialogOpen, setIsEditUserDialogOpen] = useState(false);
   const [deletingUser, setDeletingUser] = useState<User | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [pinVisibility, setPinVisibility] = useState<{ [userId: string]: boolean }>({});
+  const [visiblePinUserId, setVisiblePinUserId] = useState<string | null>(null);
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const PIN_LENGTH = 4;
@@ -318,14 +318,14 @@ export default function UserManagementPage() {
                       </span>
                     </TableCell>
                     <TableCell className="text-center font-mono tracking-widest flex items-center justify-center gap-2">
-                      {pinVisibility[user.id] ? user.pin : '••••••'}
+                      {visiblePinUserId === user.id ? user.pin : '••••'}
                       <button
                         type="button"
-                        aria-label={pinVisibility[user.id] ? 'Hide PIN' : 'Show PIN'}
+                        aria-label={visiblePinUserId === user.id ? 'Hide PIN' : 'Show PIN'}
                         className="ml-1 p-1 rounded hover:bg-[#E6E8E3] focus:bg-[#E6E8E3] transition-colors"
-                        onClick={() => setPinVisibility(v => ({ ...v, [user.id]: !v[user.id] }))}
+                        onClick={() => setVisiblePinUserId(visiblePinUserId === user.id ? null : user.id)}
                       >
-                        {pinVisibility[user.id] ? (
+                        {visiblePinUserId === user.id ? (
                           <EyeOffIcon className="h-4 w-4 text-muted-foreground" />
                         ) : (
                           <Eye className="h-4 w-4 text-muted-foreground" />

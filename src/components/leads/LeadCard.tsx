@@ -33,6 +33,7 @@ interface LeadCardProps {
   assignedUser?: string;
   onStatusChange?: (newStatus: LeadStatus) => void;
   users?: Array<{ id: string; name: string; email: string }>;
+  role?: string;
 }
 
 const getStatusBadgeVariant = (status: Lead['status']): "default" | "secondary" | "destructive" | "outline" => {
@@ -73,7 +74,7 @@ const getUpdateTypeIcon = (type: Update['type']) => {
   }
 };
 
-export default function LeadCard({ lead, onLeadConverted, onLeadDeleted, onActivityLogged, selectMode = false, selected = false, onSelect, assignedUser, onStatusChange, users = [] }: LeadCardProps) {
+export default function LeadCard({ lead, onLeadConverted, onLeadDeleted, onActivityLogged, selectMode = false, selected = false, onSelect, assignedUser, onStatusChange, users = [], role }: LeadCardProps) {
   const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = React.useState(false);
   const [updateType, setUpdateType] = React.useState('');
@@ -99,6 +100,7 @@ export default function LeadCard({ lead, onLeadConverted, onLeadDeleted, onActiv
   const [editStatus, setEditStatus] = React.useState<LeadStatus>(lead.status);
   const [isUpdatingStatus, setIsUpdatingStatus] = React.useState(false);
   const [isAddOpportunityOpen, setIsAddOpportunityOpen] = React.useState(false);
+  const [nextActionDate, setNextActionDate] = React.useState<Date | undefined>(undefined);
 
   // Fetch existing logs from Supabase
   useEffect(() => {
@@ -239,6 +241,7 @@ export default function LeadCard({ lead, onLeadConverted, onLeadDeleted, onActiv
           content: updateContent.trim(),
           updated_by_user_id: currentUserId,
           date: updateDate.toISOString(),
+          next_action_date: nextActionDate?.toISOString() || null,
           lead_id: lead.id,
         }
       ]).select().single();
@@ -261,6 +264,7 @@ export default function LeadCard({ lead, onLeadConverted, onLeadDeleted, onActiv
       setUpdateType('');
       setUpdateContent('');
       setUpdateDate(undefined);
+      setNextActionDate(undefined);
 
       toast({
         title: "Activity Logged",
@@ -390,7 +394,7 @@ export default function LeadCard({ lead, onLeadConverted, onLeadDeleted, onActiv
             </div>
           )}
           
-          {assignedUser && (
+          {role === 'admin' && assignedUser && (
             <div className="flex items-center text-[#5E6156]">
               <UserCheck className="mr-2 h-3.5 w-3.5 shrink-0 text-[#916D5B]" />
               <span className="text-sm">Assigned to: {assignedUser}</span>
@@ -695,6 +699,31 @@ export default function LeadCard({ lead, onLeadConverted, onLeadDeleted, onActiv
                           mode="single"
                           selected={updateDate}
                           onSelect={setUpdateDate}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                </div>
+                <div className="flex flex-col md:flex-row gap-3">
+                  <div className="flex-1 min-w-0">
+                    <Label htmlFor="next-action-date" className="text-sm font-medium text-[#5E6156] mb-2 block">Next Action Date (Optional)</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Input
+                          id="next-action-date"
+                          type="text"
+                          value={nextActionDate ? format(nextActionDate, 'dd/MM/yyyy') : ''}
+                          placeholder="dd/mm/yyyy (optional)"
+                          readOnly
+                          className="cursor-pointer bg-[#F8F7F3] border-[#CBCAC5] focus:ring-1 focus:ring-[#916D5B] focus:border-[#916D5B] rounded-md"
+                        />
+                      </PopoverTrigger>
+                      <PopoverContent align="start" className="p-0 w-auto border-[#CBCAC5] bg-white rounded-md shadow-lg">
+                        <Calendar
+                          mode="single"
+                          selected={nextActionDate}
+                          onSelect={setNextActionDate}
                           initialFocus
                         />
                       </PopoverContent>

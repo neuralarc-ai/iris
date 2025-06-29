@@ -12,7 +12,7 @@ import {
 
 const TERMS_CONTENT = (
   <div className="space-y-4 text-left">
-    <p>Welcome to NeuralLink. By accessing or using https://link.neuralarc.ai (the "Platform"), you agree to be bound by these Terms of Use. If you do not agree, please do not use the Platform.</p>
+    <p>Welcome to NeuralLink. By accessing or using https://iris.neuralarc.ai (the "Platform"), you agree to be bound by these Terms of Use. If you do not agree, please do not use the Platform.</p>
     <h3 className="font-semibold mt-4">Use of Platform</h3>
     <p>The Platform is provided for informational and experimental purposes only. You agree to use it in compliance with all applicable laws and regulations.</p>
     <h3 className="font-semibold mt-4">User Content</h3>
@@ -74,9 +74,8 @@ const PRIVACY_CONTENT = (
 
 const DISCLAIMER_CONTENT = (
   <div className="space-y-4 text-left">
-    <h2 className="text-xl font-bold mb-2">Disclaimer</h2>
     <p>Please read this Disclaimer carefully before using the Platform.</p>
-    <p>The tools and content available at https://link.neuralarc.ai are provided "as is" and are intended for informational and experimental purposes only. By using the Platform, you acknowledge and agree to the following:</p>
+    <p>The tools and content available at https://iris.neuralarc.ai are provided "as is" and are intended for informational and experimental purposes only. By using the Platform, you acknowledge and agree to the following:</p>
     <h3 className="font-semibold mt-4">No Professional Advice</h3>
     <p>The AI-generated outputs are not a substitute for professional advice in:</p>
     <ul className="list-disc ml-6">
@@ -106,9 +105,8 @@ const DISCLAIMER_CONTENT = (
 
 const RESPONSIBLE_CONTENT = (
   <div className="space-y-4 text-left">
-    <h2 className="text-xl font-bold mb-2">Responsible & Ethical AI</h2>
     <h3 className="font-semibold mt-4">Responsible AI & Disclaimer</h3>
-    <p>We are committed to developing and deploying AI responsibly. AI technologies hosted on https://link.neuralarc.ai are designed to augment human decision-making, not replace it.</p>
+    <p>We are committed to developing and deploying AI responsibly. AI technologies hosted on https://iris.neuralarc.ai are designed to augment human decision-making, not replace it.</p>
     <h3 className="font-semibold mt-4">Our Principles</h3>
     <ul className="list-disc ml-6">
       <li><b>Transparency</b><br/>Clear communication when users are interacting with AI. Explanation of how results are generated wherever feasible.</li>
@@ -136,8 +134,8 @@ export default function Footer() {
 
   return (
     <>
-      <footer className="w-full py-6 px-4 border-t border-muted-foreground/10 bg-[#202020] text-center text-sm text-[#798682] flex flex-col items-center">
-        <div className="flex flex-wrap items-center justify-center gap-2">
+    <footer className="w-full py-6 px-4 border-t border-muted-foreground/10 bg-[#202020] text-center text-sm text-[#798682] flex flex-col items-center">
+      <div className="flex flex-wrap items-center justify-center gap-2">
           <Dialog open={open === 'terms'} onOpenChange={v => setOpen(v ? 'terms' : null)}>
             <DialogTrigger asChild>
               <button className="hover:underline">Terms of use</button>
@@ -149,7 +147,7 @@ export default function Footer() {
               {TERMS_CONTENT}
             </DialogContent>
           </Dialog>
-          <span className="mx-1">&bull;</span>
+        <span className="mx-1">&bull;</span>
           <Dialog open={open === 'privacy'} onOpenChange={v => setOpen(v ? 'privacy' : null)}>
             <DialogTrigger asChild>
               <button className="hover:underline">Privacy Policy</button>
@@ -161,7 +159,7 @@ export default function Footer() {
               {PRIVACY_CONTENT}
             </DialogContent>
           </Dialog>
-          <span className="mx-1">&bull;</span>
+        <span className="mx-1">&bull;</span>
           <Dialog open={open === 'disclaimer'} onOpenChange={v => setOpen(v ? 'disclaimer' : null)}>
             <DialogTrigger asChild>
               <button className="hover:underline">Disclaimer</button>
@@ -173,7 +171,7 @@ export default function Footer() {
               {DISCLAIMER_CONTENT}
             </DialogContent>
           </Dialog>
-          <span className="mx-1">&bull;</span>
+        <span className="mx-1">&bull;</span>
           <Dialog open={open === 'responsible'} onOpenChange={v => setOpen(v ? 'responsible' : null)}>
             <DialogTrigger asChild>
               <button className="hover:underline">Responsible & Ethical AI</button>
@@ -185,20 +183,20 @@ export default function Footer() {
               {RESPONSIBLE_CONTENT}
             </DialogContent>
           </Dialog>
-          <span className="mx-1">&bull;</span>
-          <span>
-            All rights reserved. Iris, a thing by 
-            <a 
-              href="https://neuralarc.ai" 
-              target="_blank" 
-              rel="noopener noreferrer" 
-              className="font-extrabold hover:underline ml-1"
-            >
-              NeuralArc
-            </a>
-          </span>
-        </div>
-      </footer>
+        <span className="mx-1">&bull;</span>
+        <span>
+          All rights reserved. Iris, a thing by 
+          <a 
+            href="https://neuralarc.ai" 
+            target="_blank" 
+            rel="noopener noreferrer" 
+            className="font-extrabold hover:underline ml-1"
+          >
+            NeuralArc
+          </a>
+        </span>
+      </div>
+    </footer>
     </>
   );
 } 

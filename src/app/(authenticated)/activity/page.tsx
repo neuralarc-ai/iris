@@ -75,7 +75,7 @@ export default function UpdatesPage() {
         setOpportunities(transformedOpportunities);
       }
 
-      // Fetch updates
+      // Fetch updates - Admin sees all updates, users see only their own
       let updatesQuery = supabase.from('update').select('*').order('date', { ascending: false });
       if (userRole !== 'admin') {
         updatesQuery = updatesQuery.eq('updated_by_user_id', localUserId);
@@ -96,7 +96,16 @@ export default function UpdatesPage() {
           accountId: update.account_id,
           nextActionDate: update.next_action_date,
         }));
-        setUpdates(transformedUpdates.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+        
+        // Sort by date (most recent first) and then by creation time for tie-breaking
+        const sortedUpdates = transformedUpdates.sort((a, b) => {
+          const dateComparison = new Date(b.date).getTime() - new Date(a.date).getTime();
+          if (dateComparison !== 0) return dateComparison;
+          // If dates are equal, sort by creation time (most recent first)
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        });
+        
+        setUpdates(sortedUpdates);
       } else {
         setUpdates([]);
       }
@@ -114,14 +123,14 @@ export default function UpdatesPage() {
       // Fetch user role
       const { data: userData } = await supabase.from('users').select('role').eq('id', localUserId).single();
       const userRole = userData?.role || 'user';
-      // Fetch leads
+      // Fetch leads - Admin sees all leads, users see only their own
       let leadsQuery = supabase.from('lead').select('*').order('updated_at', { ascending: false });
       if (userRole !== 'admin') {
         leadsQuery = leadsQuery.eq('owner_id', localUserId);
       }
       const { data: leadsData } = await leadsQuery;
       if (leadsData) setLeads(leadsData);
-      // Fetch accounts
+      // Fetch accounts - Admin sees all accounts, users see only their own
       let accountsQuery = supabase.from('account').select('*').order('updated_at', { ascending: false });
       if (userRole !== 'admin') {
         accountsQuery = accountsQuery.eq('owner_id', localUserId);
@@ -140,7 +149,16 @@ export default function UpdatesPage() {
   }, [entityTypeFilter]);
 
   const handleUpdateAdded = (newUpdate: Update) => {
-    setUpdates(prevUpdates => [newUpdate, ...prevUpdates].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+    setUpdates(prevUpdates => {
+      const updatedList = [newUpdate, ...prevUpdates];
+      // Sort by date (most recent first) and then by creation time for tie-breaking
+      return updatedList.sort((a, b) => {
+        const dateComparison = new Date(b.date).getTime() - new Date(a.date).getTime();
+        if (dateComparison !== 0) return dateComparison;
+        // If dates are equal, sort by creation time (most recent first)
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      });
+    });
   };
 
   // Function to refresh data when needed
@@ -173,7 +191,16 @@ export default function UpdatesPage() {
         accountId: update.account_id,
         nextActionDate: update.next_action_date,
       }));
-      setUpdates(transformedUpdates.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+      
+      // Sort by date (most recent first) and then by creation time for tie-breaking
+      const sortedUpdates = transformedUpdates.sort((a, b) => {
+        const dateComparison = new Date(b.date).getTime() - new Date(a.date).getTime();
+        if (dateComparison !== 0) return dateComparison;
+        // If dates are equal, sort by creation time (most recent first)
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      });
+      
+      setUpdates(sortedUpdates);
     }
   };
 
@@ -225,7 +252,7 @@ export default function UpdatesPage() {
       }
     });
 
-    // Sort by latest update date
+    // Sort by latest update date (most recent first)
     return Object.values(grouped).sort((a, b) => 
       new Date(b.latestUpdate.date).getTime() - new Date(a.latestUpdate.date).getTime()
     );
@@ -276,8 +303,13 @@ export default function UpdatesPage() {
     return matchesSearch && matchesType && matchesOpportunity && matchesLead && matchesAccount && matchesDate && matchesEntity;
   });
 
-  // Group the filtered updates
-  const groupedUpdates = groupUpdatesByEntity(filteredUpdates);
+  // Sort filtered updates by date (most recent first) before grouping
+  const sortedFilteredUpdates = filteredUpdates.sort((a, b) => 
+    new Date(b.date).getTime() - new Date(a.date).getTime()
+  );
+
+  // Group the sorted filtered updates
+  const groupedUpdates = groupUpdatesByEntity(sortedFilteredUpdates);
 
   if (isLoading) {
     return (
@@ -296,7 +328,7 @@ export default function UpdatesPage() {
     <div className="max-w-[1440px] px-4 mx-auto w-full space-y-6">
       <PageTitle title="Activities" subtitle="Log and review all opportunity-related activities.">
         <Button onClick={() => setIsAddUpdateDialogOpen(true)} variant="add" className='w-fit'> 
-          <Image src="/images/add.svg" alt="Add" width={20} height={20} className="mr-2" /> Activity Update
+          <Image src="/images/add.svg" alt="Add" width={20} height={20} className="mr-2" /> Add Activity
         </Button>
       </PageTitle>
 

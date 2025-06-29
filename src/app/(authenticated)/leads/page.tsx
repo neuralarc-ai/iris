@@ -4,10 +4,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import PageTitle from '@/components/common/PageTitle';
 import LeadCard from '@/components/leads/LeadCard';
 import RejectedLeadCard from '@/components/leads/RejectedLeadCard';
-import { mockLeads as initialMockLeads } from '@/lib/data';
 import type { Lead, LeadStatus } from '@/types';
 import { Button } from '@/components/ui/button';
-import { Search, ListFilter, List, Grid, Trash2, CheckSquare, UploadCloud, X, Users, AlertTriangle, Loader2 } from 'lucide-react';
+import { Search, ListFilter, List, Grid, Trash2, CheckSquare, UploadCloud, X, Users, AlertTriangle, Loader2, PlusCircle } from 'lucide-react';
 import Image from 'next/image';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -21,6 +20,7 @@ import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogDescrip
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/supabaseClient';
+import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
 
 const leadStatusOptions: LeadStatus[] = ["New", "Contacted", "Qualified", "Proposal Sent", "Lost"];
 
@@ -49,6 +49,11 @@ export default function LeadsPage() {
   const [isBulkAssigning, setIsBulkAssigning] = useState(false);
   const [isBulkDeleteDialogOpen, setIsBulkDeleteDialogOpen] = useState(false);
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [currentRejectedPage, setCurrentRejectedPage] = useState(1);
+  const ITEMS_PER_PAGE = 12;
 
   useEffect(() => {
     const fetchLeadsAndUsers = async () => {
@@ -102,6 +107,68 @@ export default function LeadsPage() {
     const matchesStatus = statusFilter === 'all' || lead.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
+
+  // Pagination logic for leads
+  const totalLeadsPages = Math.ceil(filteredLeads.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const endIndex = startIndex + ITEMS_PER_PAGE;
+  const paginatedLeads = filteredLeads.slice(startIndex, endIndex);
+
+  // Filter rejected leads based on search term
+  const filteredRejectedLeads = rejectedLeads.filter(lead =>
+    lead.companyName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    lead.personName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    lead.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (lead.country && lead.country.toLowerCase().includes(searchTerm.toLowerCase()))
+  );
+
+  // Pagination logic for rejected leads
+  const totalRejectedPages = Math.ceil(filteredRejectedLeads.length / ITEMS_PER_PAGE);
+  const startRejectedIndex = (currentRejectedPage - 1) * ITEMS_PER_PAGE;
+  const endRejectedIndex = startRejectedIndex + ITEMS_PER_PAGE;
+  const paginatedRejectedLeads = filteredRejectedLeads.slice(startRejectedIndex, endRejectedIndex);
+
+  // Reset to first page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, statusFilter]);
+
+  useEffect(() => {
+    setCurrentRejectedPage(1);
+  }, [searchTerm]);
+
+  // Pagination functions
+  const goToPage = (page: number) => {
+    setCurrentPage(page);
+  };
+
+  const goToRejectedPage = (page: number) => {
+    setCurrentRejectedPage(page);
+  };
+
+  const goToNextPage = () => {
+    if (currentPage < totalLeadsPages) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
+
+  const goToPreviousPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
+
+  const goToNextRejectedPage = () => {
+    if (currentRejectedPage < totalRejectedPages) {
+      setCurrentRejectedPage(currentRejectedPage + 1);
+    }
+  };
+
+  const goToPreviousRejectedPage = () => {
+    if (currentRejectedPage > 1) {
+      setCurrentRejectedPage(currentRejectedPage - 1);
+    }
+  };
 
   const handleLeadAdded = (newLead: Lead) => {
     setLeads(prevLeads => [newLead, ...prevLeads].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()));
@@ -220,7 +287,7 @@ export default function LeadsPage() {
     
     try {
       console.log('🚀 Starting file import process...');
-      console.log('📁 File name:', file.name);
+      console.log(' File name:', file.name);
       console.log('📏 File size:', (file.size / 1024 / 1024).toFixed(2), 'MB');
       
       // Validate file type
@@ -757,16 +824,8 @@ export default function LeadsPage() {
     });
   };
 
-  // Filter rejected leads based on search term
-  const filteredRejectedLeads = rejectedLeads.filter(lead =>
-    lead.companyName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    lead.personName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    lead.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (lead.country && lead.country.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
-
   return (
-    <div className="max-w-[1440px] px-4 mx-auto w-full space-y-6">
+    <div className="max-w-[1440px] px-4 mx-auto w-full space-y-6 pb-6">
       <PageTitle title="Lead Management" subtitle="Track and manage potential clients.">
         <div className="flex items-center gap-2">
             <Button 
@@ -943,7 +1002,7 @@ export default function LeadsPage() {
       {filteredLeads.length > 0 ? (
         view === 'list' ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredLeads.map((lead) => (
+          {paginatedLeads.map((lead) => (
             <LeadCard
               key={lead.id}
               lead={lead}
@@ -959,6 +1018,7 @@ export default function LeadsPage() {
               selected={selectedLeads.includes(lead.id)}
               onSelect={() => handleSelectLead(lead.id)}
               users={users}
+              role={role}
             />
           ))}
         </div>
@@ -975,12 +1035,12 @@ export default function LeadsPage() {
                   <TableHead className='text-[#282828]'>Country</TableHead>
                   <TableHead className='text-[#282828]'>Status</TableHead>
                   <TableHead className='text-[#282828]'>Created</TableHead>
-                      <TableHead className='text-[#282828]'>Assigned To</TableHead>
+                      {role === 'admin' && <TableHead className='text-[#282828]'>Assigned To</TableHead>}
                   <TableHead className='text-[#282828] rounded-tr-[8px]'>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredLeads.map((lead) => (
+                {paginatedLeads.map((lead) => (
                   <TableRow
                     key={lead.id}
                     className={`hover:bg-transparent`}
@@ -1010,32 +1070,116 @@ export default function LeadsPage() {
                     <TableCell>{lead.country}</TableCell>
                     <TableCell><span className="inline-block rounded-full bg-muted px-3 py-1 text-xs font-semibold text-muted-foreground" style={{background:'#b0aca7',color:'#23201d'}}>{lead.status}</span></TableCell>
                     <TableCell>{new Date(lead.createdAt).toLocaleDateString('en-GB')}</TableCell>
-                        <TableCell>{users.find(u => u.id === lead.assignedUserId)?.name || ''}</TableCell>
+                        {role === 'admin' && <TableCell>{users.find(u => u.id === lead.assignedUserId)?.name || ''}</TableCell>}
                     <TableCell className="flex gap-2">
                       <TooltipProvider delayDuration={0}>
                         {lead.status !== "Converted to Account" && lead.status !== "Lost" && (
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                  <Button size="sm" variant="delete" className="rounded-[4px] p-2"><Trash2 className="h-4 w-4" /></Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                  <AlertDialogHeader>
-                                    <AlertDialogTitle>Delete Lead?</AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                      Are you sure you want to delete this lead? This action cannot be undone.
-                                    </AlertDialogDescription>
-                                  </AlertDialogHeader>
-                                  <AlertDialogFooter>
-                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                        <AlertDialogAction onClick={(e) => { e.stopPropagation(); setLeads(prev => prev.filter(l => l.id !== lead.id)); }} className="bg-[#916D5B] text-white rounded-[4px] border-0 hover:bg-[#a98a77]">Delete</AlertDialogAction>
-                                  </AlertDialogFooter>
-                                </AlertDialogContent>
-                              </AlertDialog>
-                            </TooltipTrigger>
-                            <TooltipContent>Delete</TooltipContent>
-                          </Tooltip>
+                          <>
+                            {/* Opportunity Button */}
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button 
+                                  size="sm" 
+                                  className="rounded-sm p-2 h-8 w-8 bg-[#97A487] text-white hover:bg-[#97A487]/80 border-0"
+                                  onClick={(e) => { 
+                                    e.stopPropagation(); 
+                                    // TODO: Open AddOpportunityDialog for this lead
+                                    toast({
+                                      title: "Coming Soon",
+                                      description: "Opportunity creation from leads will be available soon.",
+                                      className: "bg-blue-100 dark:bg-blue-900 border-blue-500"
+                                    });
+                                  }}
+                                >
+                                  <PlusCircle className="h-3.5 w-3.5" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent side="top" align="center">New Opportunity</TooltipContent>
+                            </Tooltip>
+                            
+                            {/* Convert Button */}
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button 
+                                      size="sm" 
+                                      variant="add" 
+                                      className="rounded-sm p-2 h-8 w-8"
+                                      onClick={(e) => e.stopPropagation()}
+                                    >
+                                      <CheckSquare className="h-3.5 w-3.5" />
+                                    </Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>Convert Lead to Account?</AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                        Are you sure you want to convert this lead to an account? This action cannot be undone and the lead will be moved to your accounts list.
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                      <AlertDialogAction 
+                                        onClick={(e) => { 
+                                          e.stopPropagation(); 
+                                          // TODO: Implement lead conversion using the same logic as LeadCard
+                                          toast({
+                                            title: "Coming Soon",
+                                            description: "Lead conversion will be available soon.",
+                                            className: "bg-blue-100 dark:bg-blue-900 border-blue-500"
+                                          });
+                                        }} 
+                                        className="bg-[#2B2521] text-white rounded-md border-0 hover:bg-[#3a322c]"
+                                      >
+                                        Convert
+                                      </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              </TooltipTrigger>
+                              <TooltipContent side="top" align="center">Convert Lead</TooltipContent>
+                            </Tooltip>
+                            
+                            {/* Delete Button */}
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button 
+                                      size="sm" 
+                                      variant="delete" 
+                                      className="rounded-sm p-2 h-8 w-8"
+                                      onClick={(e) => e.stopPropagation()}
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                    </Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>Delete Lead?</AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                        Are you sure you want to delete this lead? This action cannot be undone.
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                      <AlertDialogAction 
+                                        onClick={(e) => { 
+                                          e.stopPropagation(); 
+                                          setLeads(prev => prev.filter(l => l.id !== lead.id)); 
+                                        }} 
+                                        className="bg-[#916D5B] text-white rounded-md border-0 hover:bg-[#a98a77]"
+                                      >
+                                        Delete
+                                      </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              </TooltipTrigger>
+                              <TooltipContent side="top" align="center">Delete</TooltipContent>
+                            </Tooltip>
+                          </>
                         )}
                       </TooltipProvider>
                     </TableCell>
@@ -1052,6 +1196,75 @@ export default function LeadsPage() {
           <p className="text-muted-foreground">Try adjusting your search or filter criteria, or add a new lead.</p>
         </div>
           )}
+          
+          {/* Pagination for leads */}
+          {filteredLeads.length > ITEMS_PER_PAGE && (
+            <div className="mt-6 flex justify-center">
+              <Pagination>
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious 
+                      onClick={goToPreviousPage}
+                      className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                    />
+                  </PaginationItem>
+                  
+                  {/* First page */}
+                  {currentPage > 3 && (
+                    <>
+                      <PaginationItem>
+                        <PaginationLink onClick={() => goToPage(1)}>1</PaginationLink>
+                      </PaginationItem>
+                      {currentPage > 4 && (
+                        <PaginationItem>
+                          <PaginationEllipsis />
+                        </PaginationItem>
+                      )}
+                    </>
+                  )}
+                  
+                  {/* Page numbers around current page */}
+                  {Array.from({ length: Math.min(5, totalLeadsPages) }, (_, i) => {
+                    const pageNum = Math.max(1, Math.min(totalLeadsPages - 4, currentPage - 2)) + i;
+                    if (pageNum <= totalLeadsPages) {
+                      return (
+                        <PaginationItem key={pageNum}>
+                          <PaginationLink 
+                            onClick={() => goToPage(pageNum)}
+                            isActive={currentPage === pageNum}
+                          >
+                            {pageNum}
+                          </PaginationLink>
+                        </PaginationItem>
+                      );
+                    }
+                    return null;
+                  })}
+                  
+                  {/* Last page */}
+                  {currentPage < totalLeadsPages - 2 && (
+                    <>
+                      {currentPage < totalLeadsPages - 3 && (
+                        <PaginationItem>
+                          <PaginationEllipsis />
+                        </PaginationItem>
+                      )}
+                      <PaginationItem>
+                        <PaginationLink onClick={() => goToPage(totalLeadsPages)}>{totalLeadsPages}</PaginationLink>
+                      </PaginationItem>
+                    </>
+                  )}
+                  
+                  <PaginationItem>
+                    <PaginationNext 
+                      onClick={goToNextPage}
+                      className={currentPage === totalLeadsPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
+            </div>
+          )}
         </div>
       ) : (
         /* Has rejected leads - show tabbed content */
@@ -1061,8 +1274,8 @@ export default function LeadsPage() {
             <div className="mt-6">
               {filteredLeads.length > 0 ? (
                 view === 'list' ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                    {filteredLeads.map((lead) => (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {paginatedLeads.map((lead) => (
                       <LeadCard
                         key={lead.id}
                         lead={lead}
@@ -1078,6 +1291,7 @@ export default function LeadsPage() {
                         selected={selectedLeads.includes(lead.id)}
                         onSelect={() => handleSelectLead(lead.id)}
                         users={users}
+                        role={role}
                       />
                     ))}
                   </div>
@@ -1094,12 +1308,12 @@ export default function LeadsPage() {
                           <TableHead className='text-[#282828]'>Country</TableHead>
                           <TableHead className='text-[#282828]'>Status</TableHead>
                           <TableHead className='text-[#282828]'>Created</TableHead>
-                          <TableHead className='text-[#282828]'>Assigned To</TableHead>
+                          {role === 'admin' && <TableHead className='text-[#282828]'>Assigned To</TableHead>}
                           <TableHead className='text-[#282828] rounded-tr-[8px]'>Actions</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {filteredLeads.map((lead) => (
+                        {paginatedLeads.map((lead) => (
                           <TableRow
                             key={lead.id}
                             className={`hover:bg-transparent`}
@@ -1129,32 +1343,116 @@ export default function LeadsPage() {
                             <TableCell>{lead.country}</TableCell>
                             <TableCell><span className="inline-block rounded-full bg-muted px-3 py-1 text-xs font-semibold text-muted-foreground" style={{background:'#b0aca7',color:'#23201d'}}>{lead.status}</span></TableCell>
                             <TableCell>{new Date(lead.createdAt).toLocaleDateString('en-GB')}</TableCell>
-                            <TableCell>{users.find(u => u.id === lead.assignedUserId)?.name || ''}</TableCell>
+                            {role === 'admin' && <TableCell>{users.find(u => u.id === lead.assignedUserId)?.name || ''}</TableCell>}
                             <TableCell className="flex gap-2">
                               <TooltipProvider delayDuration={0}>
                                 {lead.status !== "Converted to Account" && lead.status !== "Lost" && (
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <AlertDialog>
-                                        <AlertDialogTrigger asChild>
-                                          <Button size="sm" variant="delete" className="rounded-[4px] p-2"><Trash2 className="h-4 w-4" /></Button>
-                                        </AlertDialogTrigger>
-                                        <AlertDialogContent>
-                                          <AlertDialogHeader>
-                                            <AlertDialogTitle>Delete Lead?</AlertDialogTitle>
-                                            <AlertDialogDescription>
-                                              Are you sure you want to delete this lead? This action cannot be undone.
-                                            </AlertDialogDescription>
-                                          </AlertDialogHeader>
-                                          <AlertDialogFooter>
-                                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                            <AlertDialogAction onClick={(e) => { e.stopPropagation(); setLeads(prev => prev.filter(l => l.id !== lead.id)); }} className="bg-[#916D5B] text-white rounded-[4px] border-0 hover:bg-[#a98a77]">Delete</AlertDialogAction>
-                                          </AlertDialogFooter>
-                                        </AlertDialogContent>
-                                      </AlertDialog>
-                                    </TooltipTrigger>
-                                    <TooltipContent>Delete</TooltipContent>
-                                  </Tooltip>
+                                  <>
+                                    {/* Opportunity Button */}
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Button 
+                                          size="sm" 
+                                          className="rounded-sm p-2 h-8 w-8 bg-[#97A487] text-white hover:bg-[#97A487]/80 border-0"
+                                          onClick={(e) => { 
+                                            e.stopPropagation(); 
+                                            // TODO: Open AddOpportunityDialog for this lead
+                                            toast({
+                                              title: "Coming Soon",
+                                              description: "Opportunity creation from leads will be available soon.",
+                                              className: "bg-blue-100 dark:bg-blue-900 border-blue-500"
+                                            });
+                                          }}
+                                        >
+                                          <PlusCircle className="h-3.5 w-3.5" />
+                                        </Button>
+                                      </TooltipTrigger>
+                                      <TooltipContent side="top" align="center">New Opportunity</TooltipContent>
+                                    </Tooltip>
+                                    
+                                    {/* Convert Button */}
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <AlertDialog>
+                                          <AlertDialogTrigger asChild>
+                                            <Button 
+                                              size="sm" 
+                                              variant="add" 
+                                              className="rounded-sm p-2 h-8 w-8"
+                                              onClick={(e) => e.stopPropagation()}
+                                            >
+                                              <CheckSquare className="h-3.5 w-3.5" />
+                                            </Button>
+                                          </AlertDialogTrigger>
+                                          <AlertDialogContent>
+                                            <AlertDialogHeader>
+                                              <AlertDialogTitle>Convert Lead to Account?</AlertDialogTitle>
+                                              <AlertDialogDescription>
+                                                Are you sure you want to convert this lead to an account? This action cannot be undone and the lead will be moved to your accounts list.
+                                              </AlertDialogDescription>
+                                            </AlertDialogHeader>
+                                            <AlertDialogFooter>
+                                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                              <AlertDialogAction 
+                                                onClick={(e) => { 
+                                                  e.stopPropagation(); 
+                                                  // TODO: Implement lead conversion using the same logic as LeadCard
+                                                  toast({
+                                                    title: "Coming Soon",
+                                                    description: "Lead conversion will be available soon.",
+                                                    className: "bg-blue-100 dark:bg-blue-900 border-blue-500"
+                                                  });
+                                                }} 
+                                                className="bg-[#2B2521] text-white rounded-md border-0 hover:bg-[#3a322c]"
+                                              >
+                                                Convert
+                                              </AlertDialogAction>
+                                            </AlertDialogFooter>
+                                          </AlertDialogContent>
+                                        </AlertDialog>
+                                      </TooltipTrigger>
+                                      <TooltipContent side="top" align="center">Convert Lead</TooltipContent>
+                                    </Tooltip>
+                                    
+                                    {/* Delete Button */}
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <AlertDialog>
+                                          <AlertDialogTrigger asChild>
+                                            <Button 
+                                              size="sm" 
+                                              variant="delete" 
+                                              className="rounded-sm p-2 h-8 w-8"
+                                              onClick={(e) => e.stopPropagation()}
+                                            >
+                                              <Trash2 className="h-3.5 w-3.5" />
+                                            </Button>
+                                          </AlertDialogTrigger>
+                                          <AlertDialogContent>
+                                            <AlertDialogHeader>
+                                              <AlertDialogTitle>Delete Lead?</AlertDialogTitle>
+                                              <AlertDialogDescription>
+                                                Are you sure you want to delete this lead? This action cannot be undone.
+                                              </AlertDialogDescription>
+                                            </AlertDialogHeader>
+                                            <AlertDialogFooter>
+                                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                              <AlertDialogAction 
+                                                onClick={(e) => { 
+                                                  e.stopPropagation(); 
+                                                  setLeads(prev => prev.filter(l => l.id !== lead.id)); 
+                                                }} 
+                                                className="bg-[#916D5B] text-white rounded-md border-0 hover:bg-[#a98a77]"
+                                              >
+                                                Delete
+                                              </AlertDialogAction>
+                                            </AlertDialogFooter>
+                                          </AlertDialogContent>
+                                        </AlertDialog>
+                                      </TooltipTrigger>
+                                      <TooltipContent side="top" align="center">Delete</TooltipContent>
+                                    </Tooltip>
+                                  </>
                                 )}
                               </TooltipProvider>
                             </TableCell>
@@ -1171,6 +1469,75 @@ export default function LeadsPage() {
                   <p className="text-muted-foreground">Try adjusting your search or filter criteria, or add a new lead.</p>
                 </div>
               )}
+              
+              {/* Pagination for accepted leads in tabbed view */}
+              {filteredLeads.length > ITEMS_PER_PAGE && (
+                <div className="mt-6 flex justify-center">
+                  <Pagination>
+                    <PaginationContent>
+                      <PaginationItem>
+                        <PaginationPrevious 
+                          onClick={goToPreviousPage}
+                          className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                        />
+                      </PaginationItem>
+                      
+                      {/* First page */}
+                      {currentPage > 3 && (
+                        <>
+                          <PaginationItem>
+                            <PaginationLink onClick={() => goToPage(1)}>1</PaginationLink>
+                          </PaginationItem>
+                          {currentPage > 4 && (
+                            <PaginationItem>
+                              <PaginationEllipsis />
+                            </PaginationItem>
+                          )}
+                        </>
+                      )}
+                      
+                      {/* Page numbers around current page */}
+                      {Array.from({ length: Math.min(5, totalLeadsPages) }, (_, i) => {
+                        const pageNum = Math.max(1, Math.min(totalLeadsPages - 4, currentPage - 2)) + i;
+                        if (pageNum <= totalLeadsPages) {
+                          return (
+                            <PaginationItem key={pageNum}>
+                              <PaginationLink 
+                                onClick={() => goToPage(pageNum)}
+                                isActive={currentPage === pageNum}
+                              >
+                                {pageNum}
+                              </PaginationLink>
+                            </PaginationItem>
+                          );
+                        }
+                        return null;
+                      })}
+                      
+                      {/* Last page */}
+                      {currentPage < totalLeadsPages - 2 && (
+                        <>
+                          {currentPage < totalLeadsPages - 3 && (
+                            <PaginationItem>
+                              <PaginationEllipsis />
+                            </PaginationItem>
+                          )}
+                          <PaginationItem>
+                            <PaginationLink onClick={() => goToPage(totalLeadsPages)}>{totalLeadsPages}</PaginationLink>
+                          </PaginationItem>
+                        </>
+                      )}
+                      
+                      <PaginationItem>
+                        <PaginationNext 
+                          onClick={goToNextPage}
+                          className={currentPage === totalLeadsPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                        />
+                      </PaginationItem>
+                    </PaginationContent>
+                  </Pagination>
+                </div>
+              )}
             </div>
           )}
 
@@ -1178,8 +1545,8 @@ export default function LeadsPage() {
           {activeTab === 'rejected' && (
             <div className="mt-6">
               {filteredRejectedLeads.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                  {filteredRejectedLeads.map((lead) => (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {paginatedRejectedLeads.map((lead) => (
                     <RejectedLeadCard
                       key={lead.id}
                       lead={lead}
@@ -1194,6 +1561,75 @@ export default function LeadsPage() {
                   <AlertTriangle className="mx-auto h-16 w-16 text-muted-foreground/50 mb-6" />
                   <p className="text-xl font-semibold text-foreground mb-2">No Rejected Leads</p>
                   <p className="text-muted-foreground">All imported leads have passed validation.</p>
+                </div>
+              )}
+              
+              {/* Pagination for rejected leads */}
+              {filteredRejectedLeads.length > ITEMS_PER_PAGE && (
+                <div className="mt-6 flex justify-center">
+                  <Pagination>
+                    <PaginationContent>
+                      <PaginationItem>
+                        <PaginationPrevious 
+                          onClick={goToPreviousRejectedPage}
+                          className={currentRejectedPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                        />
+                      </PaginationItem>
+                      
+                      {/* First page */}
+                      {currentRejectedPage > 3 && (
+                        <>
+                          <PaginationItem>
+                            <PaginationLink onClick={() => goToRejectedPage(1)}>1</PaginationLink>
+                          </PaginationItem>
+                          {currentRejectedPage > 4 && (
+                            <PaginationItem>
+                              <PaginationEllipsis />
+                            </PaginationItem>
+                          )}
+                        </>
+                      )}
+                      
+                      {/* Page numbers around current page */}
+                      {Array.from({ length: Math.min(5, totalRejectedPages) }, (_, i) => {
+                        const pageNum = Math.max(1, Math.min(totalRejectedPages - 4, currentRejectedPage - 2)) + i;
+                        if (pageNum <= totalRejectedPages) {
+                          return (
+                            <PaginationItem key={pageNum}>
+                              <PaginationLink 
+                                onClick={() => goToRejectedPage(pageNum)}
+                                isActive={currentRejectedPage === pageNum}
+                              >
+                                {pageNum}
+                              </PaginationLink>
+                            </PaginationItem>
+                          );
+                        }
+                        return null;
+                      })}
+                      
+                      {/* Last page */}
+                      {currentRejectedPage < totalRejectedPages - 2 && (
+                        <>
+                          {currentRejectedPage < totalRejectedPages - 3 && (
+                            <PaginationItem>
+                              <PaginationEllipsis />
+                            </PaginationItem>
+                          )}
+                          <PaginationItem>
+                            <PaginationLink onClick={() => goToRejectedPage(totalRejectedPages)}>{totalRejectedPages}</PaginationLink>
+                          </PaginationItem>
+                        </>
+                      )}
+                      
+                      <PaginationItem>
+                        <PaginationNext 
+                          onClick={goToNextRejectedPage}
+                          className={currentRejectedPage === totalRejectedPages ? "pointer-events-none opacity-50" : "cursor-pointer bg-[#E6D2C9]"}
+                        />
+                      </PaginationItem>
+                    </PaginationContent>
+                  </Pagination>
                 </div>
               )}
             </div>

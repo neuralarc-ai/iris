@@ -17,7 +17,7 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
 import AddOpportunityDialog from '@/components/opportunities/AddOpportunityDialog';
 import { supabase } from '@/lib/supabaseClient';
-import { useAuth } from '@/hooks/use-auth';
+import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
 
 
 export default function AccountsPage() {
@@ -31,17 +31,17 @@ export default function AccountsPage() {
   const [isAddOpportunityDialogOpen, setIsAddOpportunityDialogOpen] = useState(false);
   const [opportunityAccountId, setOpportunityAccountId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [role, setRole] = useState<string>('user');
-  const [userId, setUserId] = useState<string>('');
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 12;
 
   useEffect(() => {
     const fetchAccounts = async () => {
       setIsLoading(true);
       const localUserId = localStorage.getItem('user_id');
-      setUserId(localUserId || '');
       // Fetch user role
       const { data: userData } = await supabase.from('users').select('role').eq('id', localUserId).single();
-      setRole(userData?.role || 'user');
       // Fetch accounts
       let query = supabase.from('account').select('*').order('updated_at', { ascending: false });
       if (userData?.role !== 'admin') {
@@ -51,11 +51,11 @@ export default function AccountsPage() {
       if (!error && data) {
         setAccounts(data);
         // Fetch owners for all unique owner_ids
-        const ownerIds = Array.from(new Set(data.map((acc: any) => acc.owner_id).filter(Boolean)));
+        const ownerIds = Array.from(new Set(data.map((acc: Account) => (acc as any).owner_id).filter(Boolean)));
         if (ownerIds.length > 0) {
           const { data: usersData } = await supabase.from('users').select('id, name, email').in('id', ownerIds);
           const ownersMap: Record<string, { name: string; email: string }> = {};
-          usersData?.forEach((user: any) => {
+          usersData?.forEach((user: { id: string; name: string; email: string }) => {
             ownersMap[user.id] = { name: user.name, email: user.email };
           });
           setOwners(ownersMap);
@@ -78,6 +78,33 @@ export default function AccountsPage() {
     return matchesSearch && matchesStatus && matchesType;
   }).sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
 
+  // Pagination logic
+  const totalPages = Math.ceil(filteredAccounts.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const endIndex = startIndex + ITEMS_PER_PAGE;
+  const paginatedAccounts = filteredAccounts.slice(startIndex, endIndex);
+
+  // Reset to first page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, statusFilter, typeFilter]);
+
+  // Pagination functions
+  const goToPage = (page: number) => {
+    setCurrentPage(page);
+  };
+
+  const goToNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
+
+  const goToPreviousPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
 
   const handleAccountAddedOrUpdated = (updatedAccount: Account) => {
     setAccounts(prevAccounts => {
@@ -196,7 +223,7 @@ export default function AccountsPage() {
       {filteredAccounts.length > 0 ? (
         view === 'grid' ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-8">
-            {filteredAccounts.map((account) => (
+            {paginatedAccounts.map((account) => (
               <AccountCard
                 key={account.id}
                 account={account}
@@ -225,7 +252,7 @@ export default function AccountsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredAccounts.map((account) => (
+                {paginatedAccounts.map((account) => (
                   <TableRow key={account.id} className="hover:bg-transparent">
                     <TableCell className="font-semibold text-foreground">{account.name}</TableCell>
                     <TableCell>{account.contactPersonName || '-'}</TableCell>
@@ -263,6 +290,75 @@ export default function AccountsPage() {
           <Search className="mx-auto h-16 w-16 text-muted-foreground/50 mb-6" />
           <p className="text-xl font-semibold text-foreground mb-2">No Accounts Found</p>
           <p className="text-muted-foreground">Try adjusting your search or filter criteria, or add a new account.</p>
+        </div>
+      )}
+      
+      {/* Pagination */}
+      {filteredAccounts.length > ITEMS_PER_PAGE && (
+        <div className="mt-6 flex justify-center">
+          <Pagination>
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious 
+                  onClick={goToPreviousPage}
+                  className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                />
+              </PaginationItem>
+              
+              {/* First page */}
+              {currentPage > 3 && (
+                <>
+                  <PaginationItem>
+                    <PaginationLink onClick={() => goToPage(1)}>1</PaginationLink>
+                  </PaginationItem>
+                  {currentPage > 4 && (
+                    <PaginationItem>
+                      <PaginationEllipsis />
+                    </PaginationItem>
+                  )}
+                </>
+              )}
+              
+              {/* Page numbers around current page */}
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                const pageNum = Math.max(1, Math.min(totalPages - 4, currentPage - 2)) + i;
+                if (pageNum <= totalPages) {
+                  return (
+                    <PaginationItem key={pageNum}>
+                      <PaginationLink 
+                        onClick={() => goToPage(pageNum)}
+                        isActive={currentPage === pageNum}
+                      >
+                        {pageNum}
+                      </PaginationLink>
+                    </PaginationItem>
+                  );
+                }
+                return null;
+              })}
+              
+              {/* Last page */}
+              {currentPage < totalPages - 2 && (
+                <>
+                  {currentPage < totalPages - 3 && (
+                    <PaginationItem>
+                      <PaginationEllipsis />
+                    </PaginationItem>
+                  )}
+                  <PaginationItem>
+                    <PaginationLink onClick={() => goToPage(totalPages)}>{totalPages}</PaginationLink>
+                  </PaginationItem>
+                </>
+              )}
+              
+              <PaginationItem>
+                <PaginationNext 
+                  onClick={goToNextPage}
+                  className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
         </div>
       )}
       <AddAccountDialog

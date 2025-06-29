@@ -7,22 +7,21 @@ import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Separator } from '@/components/ui/separator';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { 
-  CheckSquare, Repeat, MessageSquare, Users, Mail, 
-  Activity, ThumbsUp, ThumbsDown, MessageCircleMore, 
-  Sparkles, Calendar as CalendarIcon,
-  Plus, MessageSquarePlus, Eye
+  MessageSquare, Users, Mail, 
+  MessageCircleMore, 
+  Plus, Eye
 } from 'lucide-react';
-import type { Update, UpdateInsights as AIUpdateInsights, Opportunity, Account, User, Lead, UpdateType } from '@/types';
+import type { Update, Opportunity, Account, User, Lead, UpdateType } from '@/types';
 import { format, parseISO } from 'date-fns';
-// import { generateInsights, RelationshipHealthOutput } from '@/ai/flows/intelligent-insights'; 
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { supabase } from '@/lib/supabaseClient';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 
 interface UpdateItemProps {
   update: Update;
@@ -37,15 +36,6 @@ const getUpdateTypeIcon = (type: Update['type']) => {
     default: return <MessageSquare className="h-4 w-4" style={{ color: '#2B2521' }} />; 
   }
 };
-
-const getSentimentIcon = (sentiment?: string) => {
-    if (!sentiment) return <Activity className="h-4 w-4"/>;
-    const lowerSentiment = sentiment.toLowerCase();
-    if (lowerSentiment.includes("positive")) return <ThumbsUp className="h-4 w-4 text-green-500"/>;
-    if (lowerSentiment.includes("negative")) return <ThumbsDown className="h-4 w-4 text-red-500"/>;
-    if (lowerSentiment.includes("neutral")) return <Activity className="h-4 w-4 text-yellow-500"/>;
-    return <Activity className="h-4 w-4"/>;
-}
 
 // Add status badge color classes for opportunity statuses
 const getOpportunityStatusBadgeClasses = (status: string) => {
@@ -78,6 +68,9 @@ export default function UpdateItem({ update, groupedUpdates }: UpdateItemProps) 
   
   // Get activity logs (updates for the same opportunity/lead)
   const [activityLogs, setActivityLogs] = useState<Update[]>([]);
+  
+  // State to store all users for activity log attribution
+  const [allUsers, setAllUsers] = useState<Record<string, User>>({});
   
   const { toast } = useToast();
 
@@ -292,6 +285,7 @@ export default function UpdateItem({ update, groupedUpdates }: UpdateItemProps) 
             name: userData.name,
             email: userData.email,
             pin: userData.pin,
+            role: userData.role,
             createdAt: userData.created_at || new Date().toISOString(),
           };
           setUser(transformedUser);
@@ -301,6 +295,44 @@ export default function UpdateItem({ update, groupedUpdates }: UpdateItemProps) 
 
     fetchRelatedData();
   }, [update.opportunityId, update.leadId, update.updatedByUserId, update.accountId, groupedUpdates]);
+
+  // Fetch all users when activity logs change
+  useEffect(() => {
+    const fetchAllUsers = async () => {
+      if (activityLogs.length > 0) {
+        // Get unique user IDs from activity logs
+        const userIds = Array.from(new Set(
+          activityLogs
+            .map(log => log.updatedByUserId)
+            .filter(Boolean)
+        ));
+
+        if (userIds.length > 0) {
+          const { data: usersData } = await supabase
+            .from('users')
+            .select('*')
+            .in('id', userIds);
+
+          if (usersData) {
+            const usersMap: Record<string, User> = {};
+            usersData.forEach((userData: any) => {
+              usersMap[userData.id] = {
+                id: userData.id,
+                name: userData.name,
+                email: userData.email,
+                pin: userData.pin,
+                role: userData.role,
+                createdAt: userData.created_at || new Date().toISOString(),
+              };
+            });
+            setAllUsers(usersMap);
+          }
+        }
+      }
+    };
+
+    fetchAllUsers();
+  }, [activityLogs]);
 
   // const fetchInsights = async () => { ... }
   // const toggleAiInsights = () => { ... }
@@ -502,7 +534,6 @@ export default function UpdateItem({ update, groupedUpdates }: UpdateItemProps) 
   };
 
   const renderActivityLogItem = (log: Update) => {
-    const isCurrentUpdate = log.id === update.id;
     return (
       <div key={log.id} className={
         'flex items-start space-x-3 p-3 rounded-r-lg bg-[#9A8A744c] border-l-4 border-muted'
@@ -525,7 +556,7 @@ export default function UpdateItem({ update, groupedUpdates }: UpdateItemProps) 
             </Badge>
             {log.updatedByUserId && (
               <span className="text-xs text-muted-foreground">
-                by {user?.name || 'Unknown'}
+                by {allUsers[log.updatedByUserId]?.name || user?.name || 'Unknown'}
               </span>
             )}
             {log.nextActionDate && (
@@ -567,10 +598,13 @@ export default function UpdateItem({ update, groupedUpdates }: UpdateItemProps) 
 
         <CardContent className="space-y-3 flex-grow">
           {/* Description */}
-          <div className="bg-white/30 p-3 rounded-[4px]">
-            <p className="text-sm text-foreground line-clamp-3">
-              {opportunity?.description || lead?.companyName || lead?.personName || lead?.email || account?.description || 'No description available.'}
-            </p>
+          <div className="space-y-2">
+            <h4 className="text-sm font-semibold text-foreground">Description</h4>
+            <div className="bg-[#F8F7F3] p-3 rounded-[4px] border border-[#E5E3DF] h-20">
+              <p className="text-sm text-[#282828] line-clamp-3">
+                {opportunity?.description || lead?.companyName || lead?.personName || lead?.email || account?.description || 'No description available.'}
+              </p>
+            </div>
           </div>
 
           {/* Activity Log (max 2 items) */}
@@ -619,14 +653,14 @@ export default function UpdateItem({ update, groupedUpdates }: UpdateItemProps) 
 
       {/* Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-xl bg-white" onClick={e => e.stopPropagation()}>
-          <DialogHeader className="flex flex-row items-center justify-between w-full">
+        <DialogContent className="sm:max-w-xl bg-white border border-[#CBCAC5] rounded-lg" onClick={e => e.stopPropagation()}>
+          <DialogHeader className="pb-3 border-b border-[#E5E3DF]">
             <div className="flex items-center gap-2">
-              <DialogTitle className="text-xl font-headline">
+              <DialogTitle className="text-xl font-semibold text-[#282828]">
                 {opportunity?.name || lead?.personName || account?.name || 'Update'}
               </DialogTitle>
               {totalUpdates > 1 && (
-                <Badge variant="secondary" className="ml-2">
+                <Badge variant="secondary" className="ml-2" style={{ backgroundColor: '#916D5B', color: '#fff', border: 'none' }}>
                   {totalUpdates} updates
                 </Badge>
               )}
@@ -656,9 +690,9 @@ export default function UpdateItem({ update, groupedUpdates }: UpdateItemProps) 
 
             {/* Full Description */}
             <div>
-              <h4 className="text-sm font-semibold text-foreground mb-2">Description</h4>
-              <div className="bg-muted/30 p-4 rounded-lg">
-                <p className="text-sm text-foreground">
+              <h4 className="text-sm font-semibold text-[#5E6156] mb-2">Description</h4>
+              <div className="bg-[#F8F7F3] p-4 rounded-lg border border-[#E5E3DF] h-24">
+                <p className="text-sm text-[#282828]">
                   {opportunity?.description || lead?.companyName || lead?.personName || lead?.email || account?.description || 'No description available.'}
                 </p>
               </div>
@@ -666,27 +700,32 @@ export default function UpdateItem({ update, groupedUpdates }: UpdateItemProps) 
 
             {/* All Activity Logs */}
             <div className="mt-4">
-              <div className="text-xs font-semibold text-muted-foreground uppercase mb-1">Activity Updates</div>
+              <div className="text-xs font-semibold text-[#5E6156] uppercase tracking-wide mb-3">Activity Updates</div>
               <div className="relative">
                 <div className="space-y-2 max-h-36 overflow-y-auto pr-1">
                   {activityLogs.map((log, idx) => (
-                    <div key={log.id} className="flex items-start space-x-3 p-3 rounded-r-lg bg-[#9A8A744c] border-l-4 border-muted">
+                    <div key={log.id} className="flex items-start space-x-3 p-3 rounded-lg bg-[#F8F7F3] border border-[#E5E3DF] hover:bg-[#EFEDE7] transition-colors">
                       <div className="flex-shrink-0 mt-1">
                         {getUpdateTypeIcon(log.type)}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between mb-1">
-                          <p className="text-sm font-medium text-foreground line-clamp-2">
+                          <p className="text-sm font-medium text-[#282828] line-clamp-2">
                             {log.content}
                           </p>
-                          <span className="text-xs text-muted-foreground ml-2">
+                          <span className="text-xs text-[#998876] ml-2 font-medium">
                             {format(new Date(log.date), 'MMM dd')}
                           </span>
                         </div>
                         <div className="flex items-center space-x-2">
-                          <span className="text-xs text-muted-foreground">{log.type}</span>
+                          <Badge variant="outline" className="text-xs bg-white border-[#CBCAC5] text-[#5E6156] font-medium">{log.type}</Badge>
+                          {log.updatedByUserId && (
+                            <span className="text-xs text-[#998876] font-medium">
+                              by {allUsers[log.updatedByUserId]?.name || user?.name || 'Unknown'}
+                            </span>
+                          )}
                           {log.nextActionDate && (
-                            <span className="text-xs text-blue-600 font-medium">
+                            <span className="text-xs text-[#4B7B9D] font-medium">
                               Next: {format(parseISO(log.nextActionDate), 'MMM dd, yyyy')}
                             </span>
                           )}
@@ -697,65 +736,84 @@ export default function UpdateItem({ update, groupedUpdates }: UpdateItemProps) 
                 </div>
                 {/* Gradient overlay at the bottom, only if more than one log */}
                 {activityLogs.length > 2 && (
-                  <div className="pointer-events-none absolute left-0 right-0 bottom-0 h-8" style={{background: 'linear-gradient(to bottom, transparent, #fff 90%)'}} />
+                  <div className="pointer-events-none absolute left-0 right-0 bottom-0 h-8 bg-gradient-to-b from-transparent to-white/50 to-70%" />
                 )}
               </div>
             </div>
 
-            {/* Add New Activity Form (copied and adapted from OpportunityCard) */}
-            <div>
-              <h4 className="text-sm font-semibold text-foreground mb-2">Add New Activity</h4>
-              <div className="space-y-3">
-                <div className="flex flex-col md:flex-row gap-2 items-center min-h-[44px]">
-                  <Select value={newActivityType} onValueChange={value => setNewActivityType(value as 'General' | 'Call' | 'Meeting' | 'Email')}>
-                    <SelectTrigger className="w-fit min-w-[120px]">
-                      <SelectValue placeholder="Type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="General">General</SelectItem>
-                      <SelectItem value="Call">Call</SelectItem>
-                      <SelectItem value="Meeting">Meeting</SelectItem>
-                      <SelectItem value="Email">Email</SelectItem>
-                    </SelectContent>
-                  </Select>
+            {/* Add New Activity Form */}
+            <div className="mt-6 pt-4 border-t border-[#E5E3DF]">
+              <h4 className="text-sm font-semibold text-[#5E6156] mb-3">Add New Activity</h4>
+              <div className="space-y-4">
+                <div className="flex flex-col md:flex-row gap-3">
+                  <div className="flex-1 min-w-0">
+                    <Label htmlFor="activity-type" className="text-sm font-medium text-[#5E6156] mb-2 block">Activity Type</Label>
+                    <Select value={newActivityType} onValueChange={value => setNewActivityType(value as 'General' | 'Call' | 'Meeting' | 'Email')}>
+                      <SelectTrigger id="activity-type" className="w-full border border-[#CBCAC5] bg-[#F8F7F3] focus:ring-1 focus:ring-[#916D5B] focus:border-[#916D5B] rounded-md">
+                        <SelectValue placeholder="Select activity type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="General">General</SelectItem>
+                        <SelectItem value="Call">Call</SelectItem>
+                        <SelectItem value="Meeting">Meeting</SelectItem>
+                        <SelectItem value="Email">Email</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <Label htmlFor="next-action-date" className="text-sm font-medium text-[#5E6156] mb-2 block">Next Action Date (Optional)</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Input
+                          id="next-action-date"
+                          type="text"
+                          value={nextActionDate ? format(nextActionDate, 'dd/MM/yyyy') : ''}
+                          placeholder="dd/mm/yyyy (optional)"
+                          readOnly
+                          className="cursor-pointer bg-[#F8F7F3] border-[#CBCAC5] focus:ring-1 focus:ring-[#916D5B] focus:border-[#916D5B] rounded-md"
+                        />
+                      </PopoverTrigger>
+                      <PopoverContent align="start" className="p-0 w-auto border-[#CBCAC5] bg-white rounded-md shadow-lg">
+                        <Calendar
+                          mode="single"
+                          selected={nextActionDate}
+                          onSelect={setNextActionDate}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                </div>
+                <div>
+                  <Label htmlFor="activity-content" className="text-sm font-medium text-[#5E6156] mb-2 block">Activity Details</Label>
                   <Textarea
-                    placeholder="Describe the activity..."
+                    id="activity-content"
+                    placeholder="Describe the call, meeting, email, or general update..."
                     value={newActivityDescription}
                     onChange={(e) => setNewActivityDescription(e.target.value)}
-                    className="min-h-[44px] resize-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 flex-1"
+                    className="min-h-[100px] resize-none border-[#CBCAC5] bg-[#F8F7F3] focus:ring-1 focus:ring-[#916D5B] focus:border-[#916D5B] rounded-md"
                   />
                 </div>
-                <div className="flex items-center justify-between gap-2 w-full">
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button variant="outline" className="w-fit">
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {nextActionDate ? format(nextActionDate, 'MMM dd, yyyy') : 'Select next action'}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={nextActionDate}
-                        onSelect={setNextActionDate}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
+                <DialogFooter className="pt-4">
                   <Button 
                     variant="add" 
-                    className="w-fit"
+                    className="w-full bg-[#2B2521] text-white hover:bg-[#3a322c] rounded-md"
                     onClick={handleLogActivity}
                     disabled={isLoggingActivity || !newActivityDescription.trim()}
                   >
                     {isLoggingActivity ? (
-                      <LoadingSpinner size={16} className="mr-2" />
+                      <>
+                        <LoadingSpinner size={16} className="mr-2" />
+                        Adding Activity...
+                      </>
                     ) : (
-                      <MessageSquarePlus className="mr-2 h-4 w-4" />
+                      <>
+                        <Plus className="mr-2 h-4 w-4" />
+                        Add Activity
+                      </>
                     )}
-                    Add Activity
                   </Button>
-                </div>
+                </DialogFooter>
               </div>
             </div>
           </div>

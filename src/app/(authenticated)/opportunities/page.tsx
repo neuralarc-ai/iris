@@ -16,6 +16,7 @@ import { supabase } from '@/lib/supabaseClient';
 import { Loader2 } from 'lucide-react';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
+import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
 
 interface OpportunityData {
   id: string;
@@ -43,6 +44,10 @@ export default function OpportunitiesPage() {
   const [view, setView] = useState<'grid' | 'table'>('grid');
   const [owners, setOwners] = useState<Record<string, { name: string; email: string }>>({});
   const [userRole, setUserRole] = useState<string>('user');
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 12;
 
   useEffect(() => {
     const fetchData = async () => {
@@ -100,6 +105,34 @@ export default function OpportunitiesPage() {
     const matchesAccount = accountFilter === 'all' || opportunity.account_id === accountFilter;
     return matchesSearch && matchesStatus && matchesAccount;
   }).sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
+
+  // Pagination logic
+  const totalPages = Math.ceil(filteredOpportunities.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const endIndex = startIndex + ITEMS_PER_PAGE;
+  const paginatedOpportunities = filteredOpportunities.slice(startIndex, endIndex);
+
+  // Reset to first page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, statusFilter, accountFilter]);
+
+  // Pagination functions
+  const goToPage = (page: number) => {
+    setCurrentPage(page);
+  };
+
+  const goToNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
+
+  const goToPreviousPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
 
   const handleOpportunityAdded = (newOpportunity: Opportunity) => {
     // Convert Opportunity to OpportunityData format for state
@@ -227,7 +260,7 @@ export default function OpportunitiesPage() {
       {filteredOpportunities.length > 0 ? (
         view === 'grid' ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-8">
-            {filteredOpportunities.map((opportunity) => (
+            {paginatedOpportunities.map((opportunity) => (
               <OpportunityCard
                 key={opportunity.id}
                 opportunity={mapOpportunityFromSupabase(opportunity)}
@@ -271,7 +304,7 @@ export default function OpportunitiesPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredOpportunities.map((opportunity) => (
+                {paginatedOpportunities.map((opportunity) => (
                   <TableRow key={opportunity.id} className="hover:bg-transparent">
                     <TableCell className="font-semibold text-foreground">{opportunity.name}</TableCell>
                     <TableCell>{accounts.find(a => a.id === opportunity.account_id)?.name || '-'}</TableCell>
@@ -332,6 +365,76 @@ export default function OpportunitiesPage() {
           <p className="text-muted-foreground">Try adjusting your search or filter criteria, or add a new opportunity.</p>
         </div>
       )}
+      
+      {/* Pagination */}
+      {filteredOpportunities.length > ITEMS_PER_PAGE && (
+        <div className="mt-6 flex justify-center">
+          <Pagination>
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious 
+                  onClick={goToPreviousPage}
+                  className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                />
+              </PaginationItem>
+              
+              {/* First page */}
+              {currentPage > 3 && (
+                <>
+                  <PaginationItem>
+                    <PaginationLink onClick={() => goToPage(1)}>1</PaginationLink>
+                  </PaginationItem>
+                  {currentPage > 4 && (
+                    <PaginationItem>
+                      <PaginationEllipsis />
+                    </PaginationItem>
+                  )}
+                </>
+              )}
+              
+              {/* Page numbers around current page */}
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                const pageNum = Math.max(1, Math.min(totalPages - 4, currentPage - 2)) + i;
+                if (pageNum <= totalPages) {
+                  return (
+                    <PaginationItem key={pageNum}>
+                      <PaginationLink 
+                        onClick={() => goToPage(pageNum)}
+                        isActive={currentPage === pageNum}
+                      >
+                        {pageNum}
+                      </PaginationLink>
+                    </PaginationItem>
+                  );
+                }
+                return null;
+              })}
+              
+              {/* Last page */}
+              {currentPage < totalPages - 2 && (
+                <>
+                  {currentPage < totalPages - 3 && (
+                    <PaginationItem>
+                      <PaginationEllipsis />
+                    </PaginationItem>
+                  )}
+                  <PaginationItem>
+                    <PaginationLink onClick={() => goToPage(totalPages)}>{totalPages}</PaginationLink>
+                  </PaginationItem>
+                </>
+              )}
+              
+              <PaginationItem>
+                <PaginationNext 
+                  onClick={goToNextPage}
+                  className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
+        </div>
+      )}
+      
       <AddOpportunityDialog 
         open={isAddOpportunityDialogOpen} 
         onOpenChange={setIsAddOpportunityDialogOpen}
