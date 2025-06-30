@@ -1,0 +1,291 @@
+import React, { useState, useEffect } from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
+import { supabase } from '@/lib/supabaseClient';
+import { useToast } from '@/hooks/use-toast';
+import { Building2, Box, Upload, ArrowLeft, ArrowRight } from 'lucide-react';
+
+const industryOptions = [
+  'SaaS', 'Consulting', 'Finance', 'Healthcare', 'Education', 'Manufacturing', 'Retail', 'Technology', 'Other'
+];
+
+export default function CompanyProfileDialog({ open, onOpenChange, isEditable = false }: { open: boolean; onOpenChange: (v: boolean) => void; isEditable?: boolean }) {
+  const { toast } = useToast();
+  const [step, setStep] = useState(1);
+  const [companyName, setCompanyName] = useState('');
+  const [website, setWebsite] = useState('');
+  const [industry, setIndustry] = useState('');
+  const [companyDescription, setCompanyDescription] = useState('');
+  const [services, setServices] = useState<{ name: string; category: string; description: string; targetMarket: string }[]>([]);
+  const [newService, setNewService] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+  const [companyId, setCompanyId] = useState<string | null>(null);
+  const [showAddService, setShowAddService] = useState(false);
+  const [serviceForm, setServiceForm] = useState({
+    name: '',
+    category: 'Service',
+    description: '',
+    targetMarket: ''
+  });
+
+  useEffect(() => {
+    if (open) {
+      fetchCompany();
+    }
+    // eslint-disable-next-line
+  }, [open]);
+
+  const fetchCompany = async () => {
+    const { data, error } = await supabase.from('company').select('*').single();
+    if (data) {
+      setCompanyId(data.id);
+      setCompanyName(data.name || '');
+      setWebsite(data.website || '');
+      setIndustry(data.industry || '');
+      setCompanyDescription(data.description || '');
+      fetchServices(data.id);
+    }
+  };
+
+  const fetchServices = async (companyId: string) => {
+    const { data } = await supabase.from('company_service').select('*').eq('company_id', companyId);
+    setServices(data ? data.map((s: any) => ({
+      name: s.name || '',
+      category: s.category || 'Service',
+      description: s.description || '',
+      targetMarket: s.target_market || ''
+    })) : []);
+  };
+
+  const handleAddService = () => {
+    if (newService.trim() && !services.some(s => s.name === newService.trim())) {
+      setServices([...services, { name: newService.trim(), category: 'Service', description: '', targetMarket: '' }]);
+      setNewService('');
+    }
+  };
+
+  const handleRemoveService = (name: string) => {
+    setServices(services.filter(s => s.name !== name));
+  };
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      let cid = companyId;
+      if (!cid) {
+        // Insert new company
+        const { data, error } = await supabase.from('company').insert({
+          name: companyName,
+          website,
+          industry,
+          description: companyDescription
+        }).select().single();
+        if (data) cid = data.id;
+        setCompanyId(cid!);
+      } else {
+        // Update existing company
+        await supabase.from('company').update({
+          name: companyName,
+          website,
+          industry,
+          description: companyDescription
+        }).eq('id', cid);
+      }
+      // Upsert services
+      if (cid) {
+        await supabase.from('company_service').delete().eq('company_id', cid);
+        if (services.length > 0) {
+          await supabase.from('company_service').insert(
+            services.map(s => ({
+              company_id: cid,
+              name: s.name,
+              category: s.category,
+              description: s.description,
+              target_market: s.targetMarket
+            }))
+          );
+        }
+      }
+      toast({ title: 'Success', description: 'Company profile saved.', className: 'bg-green-100 dark:bg-green-900 border-green-500' });
+      onOpenChange(false);
+    } catch (e) {
+      toast({ title: 'Error', description: 'Failed to save company profile.', variant: 'destructive' });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl w-full rounded-xl bg-white max-h-[850px] overflow-y-scroll h-full">
+        {/* Stepper */}
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <span className={`rounded-full w-8 h-8 flex items-center justify-center border-2 ${step>=1?'border-[#282828] bg-[#282828] text-white':'border-[#E0E0E0] bg-white text-[#B0B0B0]'}`}>✓</span>
+            <div className={`h-1 w-8 ${step>=2?'bg-[#282828]':'bg-[#E0E0E0]'}`}></div>
+            <span className={`rounded-full w-8 h-8 flex items-center justify-center border-2 ${step===2?'border-[#282828] bg-[#282828] text-white':'border-[#E0E0E0] bg-white text-[#B0B0B0]'}`}><Building2 className="w-5 h-5" /></span>
+          </div>
+          <span className="text-xs text-[#282828] font-medium">{step===1?'67% complete':'100% complete'}</span>
+        </div>
+        {step === 1 ? (
+          <form className="space-y-4" onSubmit={e => { e.preventDefault(); setStep(2); }}>
+            <DialogHeader>
+              <DialogTitle className="text-xl font-semibold">Company Profile</DialogTitle>
+              <DialogDescription className="text-sm text-[#5E6156]">Configure your company details for personalized insights</DialogDescription>
+            </DialogHeader>
+            <div className="bg-[#F8F7F3] border border-[#E0E0E0] rounded-xl p-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Company Name *</label>
+                  <Input value={companyName} onChange={e => setCompanyName(e.target.value)} placeholder="Enter your company name" required readOnly={!isEditable} />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Website URL *</label>
+                  <Input value={website} onChange={e => setWebsite(e.target.value)} placeholder="https://yourcompany.com" required readOnly={!isEditable} />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="block text-sm font-medium mb-1">Industry *</label>
+                  <Select value={industry} onValueChange={setIndustry} disabled={!isEditable}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select your industry" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {industryOptions.map(opt => (
+                        <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="block text-sm font-medium mb-1">Company Description *</label>
+                  <Textarea value={companyDescription} onChange={e => setCompanyDescription(e.target.value)} placeholder="Describe your company's products, services, and value proposition..." required className="resize-none min-h-[100px]" readOnly={!isEditable} />
+                </div>
+              </div>
+            </div>
+            {/* Services & Products Card (editable in step 1 if isEditable) */}
+            <div className="bg-[#F8F7F3] border border-[#E0E0E0] rounded-xl mt-6 p-4 shadow-sm">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <Box className="w-6 h-6 text-[#282828]" />
+                  <span className="text-lg font-semibold text-[#282828]">Services & Products</span>
+                </div>
+                <Button type="button" variant="outline" className="rounded-lg px-4 py-2 font-medium text-base border-[#E0E0E0] text-[#282828] max-h-12 max-w-fit" onClick={() => setShowAddService(true)} disabled={!isEditable}>
+                  + Add Service
+                </Button>
+              </div>
+              {showAddService && (
+                <div className="bg-white border border-[#E0E0E0] rounded-lg p-4 mb-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Service Name</label>
+                      <Input value={serviceForm.name} onChange={e => setServiceForm(f => ({ ...f, name: e.target.value }))} placeholder="Enter service name" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Category</label>
+                      <Select value={serviceForm.category} onValueChange={v => setServiceForm(f => ({ ...f, category: v }))}>
+                        <SelectTrigger className="w-full">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Service">Service</SelectItem>
+                          <SelectItem value="Product">Product</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium mb-1">Description</label>
+                    <Textarea value={serviceForm.description} onChange={e => setServiceForm(f => ({ ...f, description: e.target.value }))} placeholder="Describe this service or product" />
+                  </div>
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium mb-1">Target Market</label>
+                    <Input value={serviceForm.targetMarket} onChange={e => setServiceForm(f => ({ ...f, targetMarket: e.target.value }))} placeholder="Who is this for? (e.g., Small businesses, Enterprise clients)" />
+                  </div>
+                  <div className="flex gap-2 mt-2">
+                    <Button type="button" className="bg-black text-white px-4" onClick={() => {
+                      setServices([...services, { ...serviceForm }]);
+                      setShowAddService(false);
+                      setServiceForm({ name: '', category: 'Service', description: '', targetMarket: '' });
+                    }} disabled={!serviceForm.name.trim()}>Add Service</Button>
+                    <Button type="button" variant="outline" onClick={() => setShowAddService(false)}>Cancel</Button>
+                  </div>
+                </div>
+              )}
+              {services.length === 0 ? (
+                <div className="flex flex-col items-center justify-center text-[#B0B0B0] py-8">
+                  <Box className="w-12 h-12 mb-2" />
+                  <span className="text-lg font-medium">No services added yet</span>
+                  <span className="text-sm">Add your company's services and products</span>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-[320px] overflow-y-auto">
+                  {services.map((s, i) => (
+                    <div key={i} className="rounded-2xl border border-[#E0E0E0] bg-white p-4 min-w-[220px] max-w-xs h-40 flex flex-col gap-2 relative">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="font-bold text-lg text-[#282828]">{s.name}</span>
+                        <span className="bg-[#F8F7F3] text-[#282828] text-xs font-semibold rounded-full px-3 py-1 capitalize max-h-6 flex items-center">{s.category}</span>
+                        <button type="button" className="ml-auto text-xl text-[#282828] hover:text-red-500 max-h-6" onClick={() => handleRemoveService(s.name)} disabled={!isEditable}>
+                          ×
+                        </button>
+                      </div>
+                      <div className="text-[#5E6156] text-base mb-1">{s.description}</div>
+                      <div className="text-[#888] text-sm">Target: {s.targetMarket}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <DialogFooter className="flex flex-row gap-2 justify-between sm:w-full sm:justify-between mt-4 items-center mb-0">
+              <Button type="button" variant="outline" className="sm:max-w-fit sm:w-fit max-h-12 px-2 flex items-center gap-1" disabled={Number(step) === 1} onClick={() => setStep(Number(step) - 1)}>
+                <ArrowLeft className="w-4 h-4" /> Previous
+              </Button>
+              <div className="flex items-center gap-4 ml-auto">
+                <span className="self-center text-[#282828] text-sm font-medium cursor-pointer hover:underline" onClick={() => setStep(2)}>Skip for Now</span>
+                <Button type="submit" className="sm:max-w-fit sm:w-fit max-h-12 px-2 bg-[#282828] text-white hover:bg-[#3a322c] rounded-md flex items-center gap-1" disabled={Number(step) === 2 || !isEditable}>
+                  Next <ArrowRight className="w-4 h-4" />
+                </Button>
+              </div>
+            </DialogFooter>
+          </form>
+        ) : (
+          <form className="space-y-4" onSubmit={e => { e.preventDefault(); handleSave(); }}>
+            <DialogHeader>
+              <DialogTitle className="text-xl font-semibold">Import Leads</DialogTitle>
+              <DialogDescription className="text-sm text-[#5E6156]">Start by importing your first leads</DialogDescription>
+            </DialogHeader>
+            {/* Import Leads Section */}
+            <div className="bg-[#F8F7F3] p-6 rounded-xl">
+              <div className="mb-4">
+                <p className="font-semibold text-[#282828] text-base mb-1">Import Your Contacts</p>
+                <p className="text-sm text-[#5E6156]">Start building relationships by importing your existing contacts with AI-powered enhancement.</p>
+              </div>
+              <div className="flex flex-col gap-4">
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-[#282828] text-base">File Upload</span>
+                  <Button type="button" variant="outline" className="rounded-lg px-4 py-2 font-medium text-base border-[#E0E0E0] text-[#282828] max-h-12 max-w-fit">Download Template</Button>
+                </div>
+                <div className="bg-white border-2 border-dashed border-[#E0E0E0] rounded-xl flex flex-col items-center justify-center py-10 mb-2">
+                  <Upload className="w-10 h-10 text-[#B0B0B0] mb-2" />
+                  <span className="text-base font-medium text-[#282828]">Drop your files here</span>
+                  <span className="text-sm text-[#5E6156]">or click to browse</span>
+                  <span className="text-xs text-[#B0B0B0] mt-2">Supports CSV, Excel (.xlsx/.xls), and Google Sheets</span>
+                </div>
+              </div>
+            </div>
+            <DialogFooter className="flex flex-row gap-2 justify-between sm:w-full sm:justify-between mt-4 items-center mb-0">
+              <Button type="button" variant="outline" className="sm:max-w-fit sm:w-fit max-h-12 px-2 flex items-center gap-1" onClick={() => setStep(1)} disabled={!isEditable}>
+                <ArrowLeft className="w-4 h-4" /> Back
+              </Button>
+              <Button type="submit" className="sm:max-w-fit sm:w-fit max-h-12 px-2 bg-[#282828] text-white hover:bg-[#3a322c] rounded-md flex items-center gap-1" disabled={!isEditable || isSaving}>
+                Finish <ArrowRight className="w-4 h-4" />
+              </Button>
+            </DialogFooter>
+          </form>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+} 
