@@ -130,7 +130,12 @@ export default function LeadCard({ lead, onLeadConverted, onLeadDeleted, onActiv
   const [nextActionDate, setNextActionDate] = React.useState<Date | undefined>(undefined);
   const [showConvertDialog, setShowConvertDialog] = React.useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = React.useState(false);
-  const [enrichmentData, setEnrichmentData] = React.useState<{ recommendations: string[], pitchNotes: string, useCase: string } | null>(null);
+  const [enrichmentData, setEnrichmentData] = React.useState<{
+    recommendations: string[];
+    pitchNotes: string;
+    useCase: string;
+    leadScore?: number;
+  } | null>(null);
   const [isLoadingEnrichment, setIsLoadingEnrichment] = React.useState(false);
   const [isFutureActivity, setIsFutureActivity] = React.useState(false);
   const [activeTab, setActiveTab] = React.useState('overview');
@@ -179,30 +184,35 @@ export default function LeadCard({ lead, onLeadConverted, onLeadDeleted, onActiv
     setEditStatus(lead.status);
   }, [lead.status]);
 
-  useEffect(() => {
-    const fetchEnrichmentData = async () => {
-      if (isDialogOpen && !enrichmentData) {
-        setIsLoadingEnrichment(true);
-        try {
-          // This is a placeholder for the actual API call to the genkit flow
-          // You would replace this with a server action or API endpoint that invokes the flow
-          setTimeout(() => {
-            setEnrichmentData({
-              recommendations: ['AI-Powered CRM', 'Sales Forecasting', 'Automated Reporting'],
-              pitchNotes: 'Focus on how our AI can streamline their sales process and provide actionable insights. Mention the quick implementation time and dedicated support.',
-              useCase: 'E-commerce Pro Solutions can use our CRM to analyze customer behavior, predict sales trends, and automate personalized email campaigns, leading to a 25% increase in conversions.'
-            });
-            setIsLoadingEnrichment(false);
-          }, 2000);
-        } catch (error) {
-          console.error('Failed to fetch lead enrichment data:', error);
-          setIsLoadingEnrichment(false);
-          // Optionally, show a toast notification for the error
-        }
+  // Move fetchEnrichmentData outside useEffect so it can be called from the Refresh button
+  const fetchEnrichmentData = async () => {
+    if (isDialogOpen && !enrichmentData && currentUser) {
+      setIsLoadingEnrichment(true);
+      try {
+        const response = await fetch('/api/lead-enrichment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ lead, user: currentUser }),
+        });
+        const data = await response.json();
+        setEnrichmentData({
+          recommendations: data.recommendations,
+          pitchNotes: data.pitchNotes,
+          useCase: data.useCase,
+          leadScore: data.leadScore,
+        });
+      } catch (error) {
+        console.error('Failed to fetch lead enrichment data:', error);
+      } finally {
+        setIsLoadingEnrichment(false);
       }
-    };
+    }
+  };
+
+  useEffect(() => {
     fetchEnrichmentData();
-  }, [isDialogOpen, enrichmentData]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isDialogOpen, currentUser]);
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -807,16 +817,45 @@ Best regards,\n${currentUser?.name || '[Your Name]'}\n${userCompany.name}\n${cur
                       <div>
                         <div className="flex justify-between items-center mb-1">
                           <p className="text-sm text-[#5E6156]">Lead Score</p>
-                          <p className="text-sm font-semibold text-[#282828]">94/100</p>
+                          <p className="text-sm font-semibold text-[#282828]">{enrichmentData?.leadScore !== undefined ? `${enrichmentData.leadScore}/100` : '--/100'}</p>
                         </div>
                         <div className="w-full bg-[#E5E3DF] rounded-full h-2.5">
-                          <div className="h-2.5 rounded-full" style={{ width: '94%', backgroundImage: 'linear-gradient(to right, #3987BE, #D48EA3)' }}></div>
+                          <div
+                            className="h-2.5 rounded-full"
+                            style={{
+                              width: `${enrichmentData?.leadScore !== undefined ? enrichmentData.leadScore : 0}%`,
+                              backgroundImage: 'linear-gradient(to right, #3987BE, #D48EA3)',
+                            }}
+                          ></div>
                         </div>
                       </div>
                       <div className="mt-6 space-y-4">
-                        <h4 className="text-lg font-semibold text-[#282828] flex items-center gap-2">
-                          <BrainCircuit className="h-5 w-5 text-[#5E6156]" /> AI Recommendations
-                        </h4>
+                        <div className="flex items-center gap-2 mb-2">
+                          <p className="text-base font-semibold text-[#282828]">AI Recommendations</p>
+                          <button
+                            className="ml-auto px-2 py-1 text-xs rounded bg-[#E5E3DF] hover:bg-[#d4d2ce] text-[#3987BE] font-medium border border-[#C7C7C7]"
+                            onClick={async () => {
+                              setIsLoadingEnrichment(true);
+                              try {
+                                await fetch('/api/lead-enrichment?refresh=true', {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ lead, user: currentUser }),
+                                });
+                                // Wait a moment for the job to be picked up, then re-fetch
+                                setTimeout(fetchEnrichmentData, 2000);
+                              } catch (e) {
+                                // Optionally show error toast
+                              } finally {
+                                setIsLoadingEnrichment(false);
+                              }
+                            }}
+                            disabled={isLoadingEnrichment}
+                            title="Refresh AI analysis"
+                          >
+                            {isLoadingEnrichment ? 'Refreshing...' : 'Refresh'}
+                          </button>
+                        </div>
                         {isLoadingEnrichment ? (
                           <div className="space-y-2">
                             <Skeleton className="h-6 w-3/4 rounded-md" />
@@ -828,16 +867,17 @@ Best regards,\n${currentUser?.name || '[Your Name]'}\n${userCompany.name}\n${cur
                             <div>
                               <p className="text-sm text-[#5E6156] mb-2 font-medium">Recommended Services</p>
                               <div className="flex flex-wrap gap-2">
-                                {enrichmentData.recommendations.map((rec, i) => (
-                                  <Badge key={i} variant="outline" className="text-xs bg-[#F8F7F3] border-[#E5E3DF] text-[#282828] font-medium">{rec}</Badge>
-                                ))}
+                                {Array.isArray(enrichmentData.recommendations) &&
+                                  enrichmentData.recommendations.map((rec, i) => (
+                                    <Badge key={i} variant="outline" className="text-xs bg-[#F8F7F3] border-[#E5E3DF] text-[#282828] font-medium">{rec}</Badge>
+                                  ))}
                               </div>
                             </div>
-                            <div className="bg-[#F8F7F3] p-3 rounded-md mb-2 h-full min-h-[140px] max-h-[160px] flex flex-col justify-start">
+                            <div className="bg-[#F8F7F3] p-3 rounded-md mb-2 h-full min-h-[140px] max-h-[160px] flex flex-col justify-start overflow-y-auto" style={{ maxHeight: '120px' }}>
                               <p className="text-sm text-[#5E6156] mb-2 font-semibold flex items-center gap-1.5"><FileTextIcon className="h-5 w-5" /> Pitch Notes</p>
                               <p className="text-sm text-[#5E6156]">{enrichmentData.pitchNotes}</p>
                             </div>
-                            <div className="bg-[#F8F7F3] p-3 rounded-md h-full min-h-[140px] max-h-[160px] flex flex-col justify-start">
+                            <div className="bg-[#F8F7F3] p-3 rounded-md h-full min-h-[140px] max-h-[160px] flex flex-col justify-start overflow-y-auto" style={{ maxHeight: '120px' }}>
                               <p className="text-sm text-[#5E6156] mb-2 font-semibold flex items-center gap-1.5"><Lightbulb className="h-5 w-5" /> Use Case</p>
                               <p className="text-sm text-[#5E6156]">{enrichmentData.useCase}</p>
                             </div>

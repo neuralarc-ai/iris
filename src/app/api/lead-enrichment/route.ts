@@ -1,0 +1,128 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { leadEnrichmentFlow } from '@/ai/flows/lead-enrichment';
+import { createClient } from '@supabase/supabase-js';
+import { v4 as uuidv4 } from 'uuid';
+
+const supabase = createClient(
+  process.env.SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_KEY!
+);
+
+async function fetchTavilySummary(query: string) {
+  const response = await fetch('https://api.tavily.com/search', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${process.env.TAVILY_API_KEY}`,
+    },
+    body: JSON.stringify({ query, max_results: 3 }),
+  });
+  const data = await response.json();
+  return data.results?.map((r: any) => r.snippet).join(' ') || '';
+}
+
+async function fetchWebsiteSummary(url: string) {
+  if (!url) return '';
+  const response = await fetch('https://api.tavily.com/scrape', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${process.env.TAVILY_API_KEY}`,
+    },
+    body: JSON.stringify({ url }),
+  });
+  const data = await response.json();
+  return data.summary || '';
+}
+
+// Helper to enqueue a job
+async function enqueueLeadAnalysisJob(leadId: string) {
+  await supabase.from('lead_analysis_job').insert([
+    {
+      id: uuidv4(),
+      lead_id: leadId,
+      status: 'pending',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    },
+  ]);
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const url = new URL(req.url);
+    const refresh = url.searchParams.get('refresh') === 'true';
+    const body = await req.text();
+    let lead, user;
+    try {
+      const parsed = JSON.parse(body);
+      lead = parsed.lead;
+      user = parsed.user;
+    } catch (parseError) {
+      console.error('Failed to parse JSON body:', parseError, 'Body:', body);
+      return NextResponse.json({ error: 'Invalid JSON in request body.' }, { status: 400 });
+    }
+
+    if (!process.env.OPENROUTER_API_KEY) {
+      console.error('OPENROUTER_API_KEY is not set in environment variables!');
+      return NextResponse.json({ error: 'OPENROUTER_API_KEY is not set.' }, { status: 500 });
+    }
+
+    // Fetch company data
+    const { data: company } = await supabase.from('company').select('*, services:company_service(*)').single();
+
+    // If refresh is requested, enqueue a job and return
+    if (refresh) {
+      await enqueueLeadAnalysisJob(lead.id);
+      return NextResponse.json({ message: 'Refresh job enqueued.' });
+    }
+
+    // Check for existing analysis (within 24h)
+    const { data: existing } = await supabase
+      .from('aianalysis')
+      .select('*')
+      .eq('entity_type', 'Lead')
+      .eq('entity_id', lead.id)
+      .eq('analysis_type', 'enrichment')
+      .eq('status', 'success')
+      .order('last_refreshed_at', { ascending: false })
+      .limit(1)
+      .single();
+
+    if (existing && existing.last_refreshed_at && Date.now() - new Date(existing.last_refreshed_at).getTime() < 24 * 60 * 60 * 1000) {
+      return NextResponse.json(existing.ai_output);
+    }
+
+    // Fetch Tavily data
+    const tavilySummary = await fetchTavilySummary(lead.companyName || '');
+    const websiteSummary = await fetchWebsiteSummary(lead.website || company?.website || '');
+
+    // Generate AI analysis
+    const aiResult = await leadEnrichmentFlow({ lead, user, company, tavilySummary, websiteSummary });
+
+    // Store in aianalysis
+    await supabase.from('aianalysis').insert([
+      {
+        id: uuidv4(),
+        entity_type: 'Lead',
+        entity_id: lead.id,
+        analysis_type: 'enrichment',
+        content: aiResult.pitchNotes,
+        match_score: aiResult.leadScore,
+        recommended_services: aiResult.recommendations,
+        use_case: aiResult.useCase,
+        pitch_notes: aiResult.pitchNotes,
+        ai_output: aiResult,
+        status: 'success',
+        last_refreshed_at: new Date().toISOString(),
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+    ]);
+
+    return NextResponse.json(aiResult);
+  } catch (e: any) {
+    console.error('AI enrichment error:', e);
+    return NextResponse.json({ error: e.message }, { status: 500 });
+  }
+} 

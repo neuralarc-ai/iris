@@ -158,3 +158,39 @@ ALTER TABLE update ADD COLUMN next_action_date timestamptz;
 ALTER TABLE lead ADD COLUMN IF NOT EXISTS website text;
 ALTER TABLE lead ADD COLUMN IF NOT EXISTS industry text;
 ALTER TABLE lead ADD COLUMN IF NOT EXISTS job_title text;
+
+
+
+-- Add new columns to the aianalysis table for richer AI output
+ALTER TABLE aianalysis
+  ADD COLUMN IF NOT EXISTS match_score integer, -- 0-100 score for lead fit
+  ADD COLUMN IF NOT EXISTS recommended_services text[], -- Array of recommended services
+  ADD COLUMN IF NOT EXISTS use_case text, -- Context-specific use case
+  ADD COLUMN IF NOT EXISTS pitch_notes text, -- Personalized pitch notes
+  ADD COLUMN IF NOT EXISTS email_template text; -- AI-generated email template
+-- Optionally, you can add a JSONB column for flexible AI output if you want to store the entire AI response as JSON:
+ALTER TABLE aianalysis
+  ADD COLUMN IF NOT EXISTS ai_output jsonb;
+
+
+
+
+-- Add missing columns to company table
+ALTER TABLE company
+  ADD COLUMN IF NOT EXISTS website text,
+  ADD COLUMN IF NOT EXISTS description text;
+
+-- Create company_service table
+CREATE TABLE IF NOT EXISTS company_service (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    company_id uuid REFERENCES company(id) ON DELETE CASCADE,
+    name text NOT NULL,
+    category text NOT NULL CHECK (category IN ('Service', 'Product')),
+    description text,
+    target_market text,
+    created_at timestamptz DEFAULT now(),
+    updated_at timestamptz DEFAULT now()
+);
+
+-- (Optional) Add index for performance
+CREATE INDEX IF NOT EXISTS idx_company_service_company_id ON company_service(company_id);
