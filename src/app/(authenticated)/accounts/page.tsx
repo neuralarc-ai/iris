@@ -18,6 +18,7 @@ import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/comp
 import AddOpportunityDialog from '@/components/opportunities/AddOpportunityDialog';
 import { supabase } from '@/lib/supabaseClient';
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 
 
 export default function AccountsPage() {
@@ -35,6 +36,8 @@ export default function AccountsPage() {
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 12;
+
+  const [tab, setTab] = useState<'active' | 'archive'>('active');
 
   useEffect(() => {
     const fetchAccounts = async () => {
@@ -71,7 +74,10 @@ export default function AccountsPage() {
     fetchAccounts();
   }, [isAddAccountDialogOpen]);
 
-  const filteredAccounts = accounts.filter(account => {
+  const activeAccounts = accounts.filter(acc => !acc.archived);
+  const archivedAccounts = accounts.filter(acc => acc.archived);
+
+  const filteredAccounts = activeAccounts.filter(account => {
     const matchesSearch = account.name.toLowerCase().includes(searchTerm.toLowerCase()) || (account.contactEmail && account.contactEmail.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesStatus = statusFilter === 'all' || account.status === statusFilter;
     const matchesType = typeFilter === 'all' || account.type === typeFilter;
@@ -150,217 +156,228 @@ export default function AccountsPage() {
           <Image src="/images/add.svg" alt="Add" width={20} height={20} className="mr-2" /> Add New Account
         </Button>
       </PageTitle>
-
-      <Card className="shadow duration-300">
-        <CardHeader className="pb-4 flex flex-row items-center justify-between">
-            <CardTitle className="text-lg flex items-center">
-                <ListFilter className="mr-2 h-5 w-5 text-primary"/> Filter & Search Accounts
-            </CardTitle>
-            <div className="flex items-center gap-2">
-              <TooltipProvider delayDuration={0}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button variant={view === 'grid' ? 'default' : 'outline'} size="icon" className="rounded-[4px]" onClick={() => setView('grid')}><Grid className="h-5 w-5" /></Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Grid View</TooltipContent>
-                </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button variant={view === 'table' ? 'default' : 'outline'} size="icon" className="rounded-[4px]" onClick={() => setView('table')}><List className="h-5 w-5" /></Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Table View</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </div>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-            <div>
-              <Label htmlFor="search-accounts">Search Accounts</Label>
-              <div className="relative mt-1">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="search-accounts"
-                  type="text"
-                  placeholder="Search by name or email..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-9"
-                />
+      <Tabs value={tab} onValueChange={setTab} className="w-full">
+        <TabsList className="mb-4">
+          <TabsTrigger value="active">Active</TabsTrigger>
+          <TabsTrigger value="archive">Archive</TabsTrigger>
+        </TabsList>
+        <TabsContent value="active">
+          <Card className="shadow duration-300">
+            <CardHeader className="pb-4 flex flex-row items-center justify-between">
+                <CardTitle className="text-lg flex items-center">
+                    <ListFilter className="mr-2 h-5 w-5 text-primary"/> Filter & Search Accounts
+                </CardTitle>
+                <div className="flex items-center gap-2">
+                  <TooltipProvider delayDuration={0}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button variant={view === 'grid' ? 'default' : 'outline'} size="icon" className="rounded-[4px]" onClick={() => setView('grid')}><Grid className="h-5 w-5" /></Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Grid View</TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button variant={view === 'table' ? 'default' : 'outline'} size="icon" className="rounded-[4px]" onClick={() => setView('table')}><List className="h-5 w-5" /></Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Table View</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                <div>
+                  <Label htmlFor="search-accounts">Search Accounts</Label>
+                  <div className="relative mt-1">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="search-accounts"
+                      type="text"
+                      placeholder="Search by name or email..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-9"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <Label htmlFor="status-filter">Status</Label>
+                  <Select value={statusFilter} onValueChange={(value: AccountStatus | 'all') => setStatusFilter(value)}>
+                    <SelectTrigger id="status-filter" className="w-full mt-1">
+                      <SelectValue placeholder="Filter by status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Statuses</SelectItem>
+                      <SelectItem value="Active">Active</SelectItem>
+                      <SelectItem value="Inactive">Inactive</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="type-filter">Type</Label>
+                  <Select value={typeFilter} onValueChange={(value: AccountType | 'all') => setTypeFilter(value)}>
+                    <SelectTrigger id="type-filter" className="w-full mt-1">
+                      <SelectValue placeholder="Filter by type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Types</SelectItem>
+                      <SelectItem value="Client">Client</SelectItem>
+                      <SelectItem value="Channel Partner">Channel Partner</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-            </div>
-            <div>
-              <Label htmlFor="status-filter">Status</Label>
-              <Select value={statusFilter} onValueChange={(value: AccountStatus | 'all') => setStatusFilter(value)}>
-                <SelectTrigger id="status-filter" className="w-full mt-1">
-                  <SelectValue placeholder="Filter by status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Statuses</SelectItem>
-                  <SelectItem value="Active">Active</SelectItem>
-                  <SelectItem value="Inactive">Inactive</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label htmlFor="type-filter">Type</Label>
-              <Select value={typeFilter} onValueChange={(value: AccountType | 'all') => setTypeFilter(value)}>
-                <SelectTrigger id="type-filter" className="w-full mt-1">
-                  <SelectValue placeholder="Filter by type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Types</SelectItem>
-                  <SelectItem value="Client">Client</SelectItem>
-                  <SelectItem value="Channel Partner">Channel Partner</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+            </CardContent>
+          </Card>
 
 
-      {filteredAccounts.length > 0 ? (
-        view === 'grid' ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-8">
-            {paginatedAccounts.map((account) => (
-              <AccountCard
-                key={account.id}
-                account={account}
-                owner={owners[(account as any).owner_id]?.name || '-'}
-                onAccountDeleted={handleAccountDeleted}
-                onAccountUpdated={handleAccountUpdated}
-                onNewOpportunity={() => {
-                  setOpportunityAccountId(account.id);
-                  setIsAddOpportunityDialogOpen(true);
-                }}
-              />
-            ))}
-          </div>
-        ) : (
-          <div className="overflow-x-auto rounded-[8px] shadow">
-            <Table className='bg-white'>
-              <TableHeader>
-                <TableRow className='bg-[#CBCAC5] hover:bg-[#CBCAC5]'>
-                  <TableHead className='text-[#282828] rounded-tl-[8px]'>Name</TableHead>
-                  <TableHead className='text-[#282828]'>Contact</TableHead>
-                  <TableHead className='text-[#282828]'>Email</TableHead>
-                  <TableHead className='text-[#282828]'>Type</TableHead>
-                  <TableHead className='text-[#282828]'>Status</TableHead>
-                  <TableHead className='text-[#282828]'>Assigned To</TableHead>
-                  <TableHead className='text-[#282828] rounded-tr-[8px]'>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+          {filteredAccounts.length > 0 ? (
+            view === 'grid' ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-8">
                 {paginatedAccounts.map((account) => (
-                  <TableRow key={account.id} className="hover:bg-transparent">
-                    <TableCell className="font-semibold text-foreground">{account.name}</TableCell>
-                    <TableCell>{account.contactPersonName || '-'}</TableCell>
-                    <TableCell>{account.contactEmail}</TableCell>
-                    <TableCell>{account.type}</TableCell>
-                    <TableCell>{account.status}</TableCell>
-                    <TableCell>{owners[(account as any).owner_id]?.name || '-'}</TableCell>
-                    <TableCell className="flex gap-2">
-                      <TooltipProvider delayDuration={0}>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button variant="outline" size="sm" asChild className="rounded-[4px] p-2"><a href={`/accounts?id=${account.id}#details`}><Eye className="h-4 w-4" /></a></Button>
-                          </TooltipTrigger>
-                          <TooltipContent>View Details</TooltipContent>
-                        </Tooltip>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button size="sm" variant="add" className="rounded-[4px] p-2" onClick={() => {
-                              setOpportunityAccountId(account.id);
-                              setIsAddOpportunityDialogOpen(true);
-                            }}><PlusCircle className="h-4 w-4" /></Button>
-                          </TooltipTrigger>
-                          <TooltipContent>New Opportunity</TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    </TableCell>
-                  </TableRow>
+                  <AccountCard
+                    key={account.id}
+                    account={account}
+                    owner={owners[(account as any).owner_id]?.name || '-'}
+                    onAccountDeleted={handleAccountDeleted}
+                    onAccountUpdated={handleAccountUpdated}
+                    onNewOpportunity={() => {
+                      setOpportunityAccountId(account.id);
+                      setIsAddOpportunityDialogOpen(true);
+                    }}
+                  />
                 ))}
-              </TableBody>
-            </Table>
-          </div>
-        )
-      ) : (
-        <div className="text-center py-16">
-          <Search className="mx-auto h-16 w-16 text-muted-foreground/50 mb-6" />
-          <p className="text-xl font-semibold text-foreground mb-2">No Accounts Found</p>
-          <p className="text-muted-foreground">Try adjusting your search or filter criteria, or add a new account.</p>
-        </div>
-      )}
-      
-      {/* Pagination */}
-      {filteredAccounts.length > ITEMS_PER_PAGE && (
-        <div className="mt-6 flex justify-center">
-          <Pagination>
-            <PaginationContent>
-              <PaginationItem>
-                <PaginationPrevious 
-                  onClick={goToPreviousPage}
-                  className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
-                />
-              </PaginationItem>
-              
-              {/* First page */}
-              {currentPage > 3 && (
-                <>
+              </div>
+            ) : (
+              <div className="overflow-x-auto rounded-[8px] shadow">
+                <Table className='bg-white'>
+                  <TableHeader>
+                    <TableRow className='bg-[#CBCAC5] hover:bg-[#CBCAC5]'>
+                      <TableHead className='text-[#282828] rounded-tl-[8px]'>Name</TableHead>
+                      <TableHead className='text-[#282828]'>Contact</TableHead>
+                      <TableHead className='text-[#282828]'>Email</TableHead>
+                      <TableHead className='text-[#282828]'>Type</TableHead>
+                      <TableHead className='text-[#282828]'>Status</TableHead>
+                      <TableHead className='text-[#282828]'>Assigned To</TableHead>
+                      <TableHead className='text-[#282828] rounded-tr-[8px]'>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {paginatedAccounts.map((account) => (
+                      <TableRow key={account.id} className="hover:bg-transparent">
+                        <TableCell className="font-semibold text-foreground">{account.name}</TableCell>
+                        <TableCell>{account.contactPersonName || '-'}</TableCell>
+                        <TableCell>{account.contactEmail}</TableCell>
+                        <TableCell>{account.type}</TableCell>
+                        <TableCell>{account.status}</TableCell>
+                        <TableCell>{owners[(account as any).owner_id]?.name || '-'}</TableCell>
+                        <TableCell className="flex gap-2">
+                          <TooltipProvider delayDuration={0}>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button variant="outline" size="sm" asChild className="rounded-[4px] p-2"><a href={`/accounts?id=${account.id}#details`}><Eye className="h-4 w-4" /></a></Button>
+                              </TooltipTrigger>
+                              <TooltipContent>View Details</TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button size="sm" variant="add" className="rounded-[4px] p-2" onClick={() => {
+                                  setOpportunityAccountId(account.id);
+                                  setIsAddOpportunityDialogOpen(true);
+                                }}><PlusCircle className="h-4 w-4" /></Button>
+                              </TooltipTrigger>
+                              <TooltipContent>New Opportunity</TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )
+          ) : (
+            <div className="text-center py-16">
+              <Search className="mx-auto h-16 w-16 text-muted-foreground/50 mb-6" />
+              <p className="text-xl font-semibold text-foreground mb-2">No Accounts Found</p>
+              <p className="text-muted-foreground">Try adjusting your search or filter criteria, or add a new account.</p>
+            </div>
+          )}
+          
+          {/* Pagination */}
+          {filteredAccounts.length > ITEMS_PER_PAGE && (
+            <div className="mt-6 flex justify-center">
+              <Pagination>
+                <PaginationContent>
                   <PaginationItem>
-                    <PaginationLink onClick={() => goToPage(1)}>1</PaginationLink>
+                    <PaginationPrevious 
+                      onClick={goToPreviousPage}
+                      className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                    />
                   </PaginationItem>
-                  {currentPage > 4 && (
-                    <PaginationItem>
-                      <PaginationEllipsis />
-                    </PaginationItem>
+                  
+                  {/* First page */}
+                  {currentPage > 3 && (
+                    <>
+                      <PaginationItem>
+                        <PaginationLink onClick={() => goToPage(1)}>1</PaginationLink>
+                      </PaginationItem>
+                      {currentPage > 4 && (
+                        <PaginationItem>
+                          <PaginationEllipsis />
+                        </PaginationItem>
+                      )}
+                    </>
                   )}
-                </>
-              )}
-              
-              {/* Page numbers around current page */}
-              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                const pageNum = Math.max(1, Math.min(totalPages - 4, currentPage - 2)) + i;
-                if (pageNum <= totalPages) {
-                  return (
-                    <PaginationItem key={pageNum}>
-                      <PaginationLink 
-                        onClick={() => goToPage(pageNum)}
-                        isActive={currentPage === pageNum}
-                      >
-                        {pageNum}
-                      </PaginationLink>
-                    </PaginationItem>
-                  );
-                }
-                return null;
-              })}
-              
-              {/* Last page */}
-              {currentPage < totalPages - 2 && (
-                <>
-                  {currentPage < totalPages - 3 && (
-                    <PaginationItem>
-                      <PaginationEllipsis />
-                    </PaginationItem>
+                  
+                  {/* Page numbers around current page */}
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    const pageNum = Math.max(1, Math.min(totalPages - 4, currentPage - 2)) + i;
+                    if (pageNum <= totalPages) {
+                      return (
+                        <PaginationItem key={pageNum}>
+                          <PaginationLink 
+                            onClick={() => goToPage(pageNum)}
+                            isActive={currentPage === pageNum}
+                          >
+                            {pageNum}
+                          </PaginationLink>
+                        </PaginationItem>
+                      );
+                    }
+                    return null;
+                  })}
+                  
+                  {/* Last page */}
+                  {currentPage < totalPages - 2 && (
+                    <>
+                      {currentPage < totalPages - 3 && (
+                        <PaginationItem>
+                          <PaginationEllipsis />
+                        </PaginationItem>
+                      )}
+                      <PaginationItem>
+                        <PaginationLink onClick={() => goToPage(totalPages)}>{totalPages}</PaginationLink>
+                      </PaginationItem>
+                    </>
                   )}
+                  
                   <PaginationItem>
-                    <PaginationLink onClick={() => goToPage(totalPages)}>{totalPages}</PaginationLink>
+                    <PaginationNext 
+                      onClick={goToNextPage}
+                      className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                    />
                   </PaginationItem>
-                </>
-              )}
-              
-              <PaginationItem>
-                <PaginationNext 
-                  onClick={goToNextPage}
-                  className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
-                />
-              </PaginationItem>
-            </PaginationContent>
-          </Pagination>
-        </div>
-      )}
+                </PaginationContent>
+              </Pagination>
+            </div>
+          )}
+        </TabsContent>
+        <TabsContent value="archive">
+          {/* ...show archived accounts and their opportunities... */}
+          {/* ...reuse grid/table rendering logic, but use archivedAccounts... */}
+        </TabsContent>
+      </Tabs>
       <AddAccountDialog
         open={isAddAccountDialogOpen}
         onOpenChange={setIsAddAccountDialogOpen}

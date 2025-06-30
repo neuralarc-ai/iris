@@ -159,14 +159,11 @@ export default function AccountCard({ account, view = 'grid', onNewOpportunity, 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [account.id, account.name, account.status]);
 
-  const handleDeleteAccount = async () => {
-    // Use Supabase to delete the account
-    const { error } = await supabase.from('account').delete().eq('id', account.id);
-    if (!error) {
-      if (onAccountDeleted) onAccountDeleted(account.id);
-    } else {
-      alert('Failed to delete account: ' + error.message);
-    }
+  const handleArchiveOrDelete = async () => {
+    // Archive account and all associated opportunities
+    await supabase.from('opportunity').update({ archived: true }).eq('account_id', account.id);
+    await supabase.from('account').update({ archived: true }).eq('id', account.id);
+    if (onAccountDeleted) onAccountDeleted(account.id);
     setDeleteDialogOpen(false);
   };
 
@@ -403,14 +400,19 @@ export default function AccountCard({ account, view = 'grid', onNewOpportunity, 
                 </AlertDialogTrigger>
                 <AlertDialogContent>
                   <AlertDialogHeader>
-                    <AlertDialogTitle>Delete Account?</AlertDialogTitle>
+                    <AlertDialogTitle>Archive or Delete Account?</AlertDialogTitle>
                     <AlertDialogDescription>
-                      This will permanently remove the account and all its data. This action cannot be undone.
+                      This account has the following associated opportunities, which will also be archived:<br/>
+                      <ul className="list-disc ml-6 my-2">
+                        {opportunities.length === 0 ? <li>None</li> : opportunities.map(opp => <li key={opp.id}>{opp.name}</li>)}
+                      </ul>
+                      Do you want to delete or archive this account? (Data will not be permanently deleted and can be restored later.)
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter className="justify-center">
                     <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleDeleteAccount} className="bg-[#916D5B] text-white rounded-[4px] border-0 hover:bg-[#a98a77]">Delete</AlertDialogAction>
+                    <AlertDialogAction onClick={handleArchiveOrDelete} className="bg-[#916D5B] text-white rounded-[4px] border-0 hover:bg-[#a98a77]">Archive</AlertDialogAction>
+                    <AlertDialogAction onClick={handleArchiveOrDelete} className="bg-red-600 text-white rounded-[4px] border-0 hover:bg-red-700">Delete</AlertDialogAction>
                   </AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>
