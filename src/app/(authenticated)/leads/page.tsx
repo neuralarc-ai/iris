@@ -88,6 +88,9 @@ export default function LeadsPage() {
           updatedAt: lead.updated_at || new Date().toISOString(),
           assignedUserId: lead.owner_id || '',
           rejectionReasons: [], // Not implemented yet
+          website: lead.website || '',
+          industry: lead.industry || '',
+          jobTitle: lead.job_title || '',
         }));
         setLeads(transformedLeads.filter((lead: any) => lead.status !== 'Converted to Account'));
       } else {

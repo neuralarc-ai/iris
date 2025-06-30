@@ -46,6 +46,19 @@ interface LeadCardProps {
   role?: string;
 }
 
+// Add type for editLead state
+interface EditLeadState {
+  companyName: string;
+  personName: string;
+  email: string;
+  phone: string;
+  country: string;
+  website: string;
+  industry: string;
+  jobTitle: string;
+  status: LeadStatus;
+}
+
 const getStatusBadgeVariant = (status: Lead['status']): "default" | "secondary" | "destructive" | "outline" => {
   switch (status) {
     case 'New': return 'secondary';
@@ -93,12 +106,16 @@ export default function LeadCard({ lead, onLeadConverted, onLeadDeleted, onActiv
   const [isLogging, setIsLogging] = React.useState(false);
   const updateTypes = ['General', 'Call', 'Meeting', 'Email'];
   const [editMode, setEditMode] = React.useState(false);
-  const [editLead, setEditLead] = React.useState({
+  const [editLead, setEditLead] = React.useState<EditLeadState>({
     companyName: lead.companyName,
     personName: lead.personName,
     email: lead.email,
     phone: lead.phone || '',
     country: lead.country || '',
+    website: lead.website || '',
+    industry: lead.industry || '',
+    jobTitle: lead.jobTitle || '',
+    status: lead.status,
   });
   const [logs, setLogs] = React.useState<Update[]>([]);
   const [isViewDialogOpen, setIsViewDialogOpen] = React.useState(false);
@@ -354,9 +371,29 @@ export default function LeadCard({ lead, onLeadConverted, onLeadDeleted, onActiv
     setEditLead(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleSaveEdit = () => {
-    // TODO: Implement save to Supabase
-    setEditMode(false);
+  const handleSaveEdit = async () => {
+    try {
+      const { error } = await supabase
+        .from('lead')
+        .update({
+          company_name: editLead.companyName,
+          person_name: editLead.personName,
+          email: editLead.email,
+          phone: editLead.phone,
+          website: editLead.website,
+          industry: editLead.industry,
+          job_title: editLead.jobTitle,
+          status: editLead.status,
+        })
+        .eq('id', lead.id);
+      if (error) throw error;
+      toast({ title: 'Lead updated', description: 'Lead details have been updated.' });
+      setEditMode(false);
+      // Optionally, update the UI with new values (could refetch or update local state)
+      // For now, reload the page or refetch the lead if needed
+    } catch (error) {
+      toast({ title: 'Error', description: error instanceof Error ? error.message : 'Failed to update lead.', variant: 'destructive' });
+    }
   };
 
   const handleCancelEdit = () => {
@@ -366,6 +403,10 @@ export default function LeadCard({ lead, onLeadConverted, onLeadDeleted, onActiv
       email: lead.email,
       phone: lead.phone || '',
       country: lead.country || '',
+      website: lead.website || '',
+      industry: lead.industry || '',
+      jobTitle: lead.jobTitle || '',
+      status: lead.status,
     });
     setEditMode(false);
   };
@@ -557,16 +598,79 @@ Best regards,\n${currentUser?.name || '[Your Name]'}\n${userCompany.name}\n${cur
         <DialogContent className="sm:max-w-4xl bg-white border-0 rounded-lg p-0">
           <div className="p-6 pb-0">
             <DialogHeader className="">
-              <div className="flex items-center gap-4">
-                <Avatar className="h-16 w-16 bg-[#5E6156]">
-                  <AvatarFallback className="text-2xl bg-[#2B2521] font-bold text-white">
-                    {lead.personName?.split(' ').map(n => n[0]).join('')}
-                  </AvatarFallback>
-                </Avatar>
-                <div>
-                  <DialogTitle className="text-3xl font-bold text-[#282828]">{lead.personName}</DialogTitle>
-                  <p className="text-lg text-[#5E6156]">Founder & CEO</p>
-                  <p className="text-lg text-[#5E6156]">{lead.companyName}</p>
+              <div className="flex items-center gap-4 justify-between">
+                <div className="flex items-center gap-4">
+                  <Avatar className="h-16 w-16 bg-[#5E6156]">
+                    <AvatarFallback className="text-2xl bg-[#2B2521] font-bold text-white">
+                      {lead.personName?.split(' ').map(n => n[0]).join('')}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex flex-col gap-0.5">
+                    <div className="flex items-center gap-2">
+                      {editMode ? (
+                        <Input
+                          className="text-3xl font-bold text-[#282828] bg-white border border-[#E5E3DF] px-2 py-1 rounded-md"
+                          value={editLead.personName}
+                          onChange={e => handleEditChange('personName', e.target.value)}
+                        />
+                      ) : (
+                        <DialogTitle className="text-3xl font-bold text-[#282828]">{lead.personName}</DialogTitle>
+                      )}
+                      {editMode ? (
+                        <>
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button variant="ghost" size="icon" className="ml-1" onClick={handleSaveEdit} disabled={isUpdatingStatus}>
+                                  <CheckSquare className="h-5 w-5 text-green-600" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Save changes</TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button variant="ghost" size="icon" className="ml-1" onClick={handleCancelEdit}>
+                                  <X className="h-5 w-5 text-red-600" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Cancel editing</TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </>
+                      ) : (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button variant="ghost" size="icon" className="ml-1" onClick={() => setEditMode(true)} disabled={editMode}>
+                                <Pencil className="h-5 w-5 text-[#998876]" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Edit lead</TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
+                    </div>
+                    <p className="text-lg text-[#5E6156] leading-tight">{lead.jobTitle || editLead.jobTitle || 'Role/Title'}</p>
+                    <p className="text-lg text-[#5E6156] leading-tight">{lead.companyName || editLead.companyName || 'Company'}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  {editMode ? (
+                    <Select value={editLead.status} onValueChange={val => handleEditChange('status', val)}>
+                      <SelectTrigger className="w-[180px] sm:w-fit border-[#E5E3DF] mr-6">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="sm:w-fit">
+                        {["New", "Contacted", "Qualified", "Proposal Sent", "Converted to Account", "Lost", "Rejected"].map(status => (
+                          <SelectItem key={status} value={status} className="sm:w-fit">{status}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <Badge className={`text-xs mr-6 ${getStatusBadgeColorClasses(lead.status)}`}>{lead.status}</Badge>
+                  )}
                 </div>
               </div>
             </DialogHeader>
@@ -586,7 +690,7 @@ Best regards,\n${currentUser?.name || '[Your Name]'}\n${userCompany.name}\n${cur
             </TabsList>
 
             <div className="bg-white rounded-b-md p-6">
-              <TabsContent value="overview">
+              <TabsContent value="overview" className='max-h-[708px] overflow-y-scroll'>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-6">
                     {/* Contact Information */}
@@ -600,7 +704,11 @@ Best regards,\n${currentUser?.name || '[Your Name]'}\n${userCompany.name}\n${cur
                             <Mail className="h-5 w-5 text-[#C57E94] mt-1 flex-shrink-0" />
                             <div>
                               <p className="text-sm text-[#5E6156]">Email</p>
-                              <p className="text-base text-[#282828] font-medium break-all">{lead.email}</p>
+                              {editMode ? (
+                                <Input value={editLead.email} onChange={e => handleEditChange('email', e.target.value)} className="text-base font-medium text-[#282828] bg-white border border-[#E5E3DF] px-2 py-1 rounded-md" />
+                              ) : (
+                                <p className="text-base text-[#282828] font-medium break-all">{lead.email}</p>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -609,7 +717,24 @@ Best regards,\n${currentUser?.name || '[Your Name]'}\n${userCompany.name}\n${cur
                             <Phone className="h-5 w-5 text-[#4B7B9D] mt-1 flex-shrink-0" />
                             <div>
                               <p className="text-sm text-[#5E6156]">Phone</p>
-                              <p className="text-base text-[#282828] font-medium">{lead.phone || 'N/A'}</p>
+                              {editMode ? (
+                                <Input value={editLead.phone} onChange={e => handleEditChange('phone', e.target.value)} className="text-base font-medium text-[#282828] bg-white border border-[#E5E3DF] px-2 py-1 rounded-md" />
+                              ) : (
+                                <p className="text-base text-[#282828] font-medium">{lead.phone || 'N/A'}</p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="bg-[#F8F7F3] p-3 rounded-md">
+                          <div className="flex items-start gap-3">
+                            <UserCheck className="h-5 w-5 text-[#5E6156] mt-1 flex-shrink-0" />
+                            <div>
+                              <p className="text-sm text-[#5E6156]">Job Title</p>
+                              {editMode ? (
+                                <Input value={editLead.jobTitle || ''} onChange={e => handleEditChange('jobTitle', e.target.value)} className="text-base font-medium text-[#282828] bg-white border border-[#E5E3DF] px-2 py-1 rounded-md" />
+                              ) : (
+                                <p className="text-base text-[#282828] font-medium">{lead.jobTitle || 'N/A'}</p>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -626,35 +751,47 @@ Best regards,\n${currentUser?.name || '[Your Name]'}\n${userCompany.name}\n${cur
                               <Building2 className="h-5 w-5 text-[#998876] mt-1 flex-shrink-0" />
                               <div>
                                 <p className="text-sm text-[#5E6156]">Company</p>
-                                <p className="text-base text-[#282828] font-medium">{lead.companyName}</p>
+                                {editMode ? (
+                                  <Input value={editLead.companyName} onChange={e => handleEditChange('companyName', e.target.value)} className="text-base font-medium text-[#282828] bg-white border border-[#E5E3DF] px-2 py-1 rounded-md" />
+                                ) : (
+                                  <p className="text-base text-[#282828] font-medium">{lead.companyName}</p>
+                                )}
                               </div>
                             </div>
                         </div>
                         <div className="bg-[#F8F7F3] p-3 rounded-md">
                           <div className="flex items-start gap-3">
-                            <Link
-                              href={lead.website || ''}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex items-center gap-2"
-                              style={{ pointerEvents: lead.website ? 'auto' : 'none', color: lead.website ? '#3987BE' : '#998876', textDecoration: lead.website ? 'underline' : 'none' }}
-                            >
-                              <Globe className="w-5 h-5 mt-0.5 flex-shrink-0" />
-                              <span className="text-sm text-[#5E6156]">Website</span>
-                              <span className="text-base font-medium text-[#282828]">
-                                {lead.website ? lead.website : 'N/A'}
-                              </span>
-                            </Link>
+                            <Globe className="w-5 h-5 mt-0.5 flex-shrink-0 text-[#3987BE]" />
+                            <div>
+                              <p className="text-sm text-[#5E6156]">Website</p>
+                              {editMode ? (
+                                <Input value={editLead.website || ''} onChange={e => handleEditChange('website', e.target.value)} className="text-base font-medium text-[#282828] bg-white border border-[#E5E3DF] px-2 py-1 rounded-md" />
+                              ) : lead.website ? (
+                                <Link
+                                  href={lead.website}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-base font-medium text-[#282828] underline"
+                                >
+                                  {lead.website}
+                                </Link>
+                              ) : (
+                                <p className="text-base font-medium text-[#282828]">N/A</p>
+                              )}
+                            </div>
                           </div>
                         </div>
-                        <div className="grid grid-cols-2 gap-2">
-                           <div className="bg-[#F8F7F3] p-3 rounded-md text-center">
-                            <p className="text-sm text-[#5E6156] mb-1">Company Size</p>
-                            <p className="text-base font-semibold text-[#282828]">N/A</p>
-                          </div>
-                          <div className="bg-[#F8F7F3] p-3 rounded-md text-center">
-                            <p className="text-sm text-[#5E6156] mb-1">Industry</p>
-                            <p className="text-base font-semibold text-[#282828]">N/A</p>
+                        <div className="bg-[#F8F7F3] p-3 rounded-md">
+                          <div className="flex items-start gap-3">
+                            <Briefcase className="h-5 w-5 text-[#998876] mt-1 flex-shrink-0" />
+                            <div>
+                              <p className="text-sm text-[#5E6156]">Industry</p>
+                              {editMode ? (
+                                <Input value={editLead.industry || ''} onChange={e => handleEditChange('industry', e.target.value)} className="text-base font-medium text-[#282828] bg-white border border-[#E5E3DF] px-2 py-1 rounded-md" />
+                              ) : (
+                                <p className="text-base font-medium text-[#282828]">{lead.industry || 'N/A'}</p>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -696,24 +833,26 @@ Best regards,\n${currentUser?.name || '[Your Name]'}\n${userCompany.name}\n${cur
                                 ))}
                               </div>
                             </div>
-                            <div>
-                              <p className="text-sm text-[#5E6156] mb-1 font-semibold flex items-center gap-1.5"><FileTextIcon className="h-3 w-3" /> Pitch Notes</p>
+                            <div className="bg-[#F8F7F3] p-3 rounded-md mb-2 h-full min-h-[140px] max-h-[160px] flex flex-col justify-start">
+                              <p className="text-sm text-[#5E6156] mb-2 font-semibold flex items-center gap-1.5"><FileTextIcon className="h-5 w-5" /> Pitch Notes</p>
                               <p className="text-sm text-[#5E6156]">{enrichmentData.pitchNotes}</p>
                             </div>
-                            <div>
-                              <p className="text-sm text-[#5E6156] mb-1 font-semibold flex items-center gap-1.5"><Lightbulb className="h-3 w-3" /> Use Case</p>
+                            <div className="bg-[#F8F7F3] p-3 rounded-md h-full min-h-[140px] max-h-[160px] flex flex-col justify-start">
+                              <p className="text-sm text-[#5E6156] mb-2 font-semibold flex items-center gap-1.5"><Lightbulb className="h-5 w-5" /> Use Case</p>
                               <p className="text-sm text-[#5E6156]">{enrichmentData.useCase}</p>
                             </div>
-                            <Button
-                              variant="add"
-                              className="w-full bg-[#2B2521] text-white hover:bg-[#3a322c] rounded-md max-h-12"
-                              onClick={() => setActiveTab('email')}
-                            >
-                              <MailIcon className="h-4 w-4 mr-2" /> Generate Email
-                            </Button>
                           </>
                         ) : (
                           <p className="text-sm text-center text-[#998876]">Could not load AI recommendations.</p>
+                        )}
+                        {!editMode && (
+                          <Button
+                            variant="add"
+                            className="w-full bg-[#2B2521] text-white hover:bg-[#3a322c] rounded-md max-h-12"
+                            onClick={() => setActiveTab('email')}
+                          >
+                            <MailIcon className="h-4 w-4 mr-2" /> Generate Email
+                          </Button>
                         )}
                       </div>
                     </div>
