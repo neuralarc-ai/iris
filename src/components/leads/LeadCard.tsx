@@ -1,10 +1,10 @@
 "use client";
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Users, User, Mail, Phone, Eye, CheckSquare, FileWarning, CalendarPlus, History, Linkedin, MapPin, Trash2, Pencil, X, FileText, Building2, UserCheck, Clock, Calendar as CalendarIcon, Activity, PlusCircle, MoreHorizontal } from 'lucide-react';
+import { Users, User, Mail, Phone, Eye, CheckSquare, FileWarning, CalendarPlus, History, Linkedin, MapPin, Trash2, Pencil, X, FileText, Building2, UserCheck, Clock, Calendar as CalendarIcon, Activity, PlusCircle, MoreHorizontal, Briefcase, Target, User as UserIcon, BrainCircuit, FileText as FileTextIcon, Lightbulb, Mail as MailIcon, Globe, RefreshCw, Copy as CopyIcon, Send as SendIcon, Inbox, AtSign, Shield, Computer } from 'lucide-react';
 import type { Lead, Update, LeadStatus } from '@/types';
 import { add, formatDistanceToNow, format, parseISO } from 'date-fns';
 import { convertLeadToAccount, deleteLead } from '@/lib/data';
@@ -26,7 +26,11 @@ import {
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface LeadCardProps {
   lead: Lead;
@@ -109,6 +113,17 @@ export default function LeadCard({ lead, onLeadConverted, onLeadDeleted, onActiv
   const [nextActionDate, setNextActionDate] = React.useState<Date | undefined>(undefined);
   const [showConvertDialog, setShowConvertDialog] = React.useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = React.useState(false);
+  const [enrichmentData, setEnrichmentData] = React.useState<{ recommendations: string[], pitchNotes: string, useCase: string } | null>(null);
+  const [isLoadingEnrichment, setIsLoadingEnrichment] = React.useState(false);
+  const [isFutureActivity, setIsFutureActivity] = React.useState(false);
+  const [activeTab, setActiveTab] = React.useState('overview');
+  const [emailTabContent, setEmailTabContent] = React.useState<string | null>(null);
+  const [isGeneratingEmail, setIsGeneratingEmail] = React.useState(false);
+  const [currentUser, setCurrentUser] = React.useState<{ name: string; email: string } | null>(null);
+
+  const completenessFields = [lead.companyName, lead.personName, lead.email, lead.phone, lead.country];
+  const filledFields = completenessFields.filter(Boolean).length;
+  const dataCompleteness = Math.round((filledFields / completenessFields.length) * 100);
 
   // Fetch existing logs from Supabase
   useEffect(() => {
@@ -146,6 +161,47 @@ export default function LeadCard({ lead, onLeadConverted, onLeadDeleted, onActiv
   useEffect(() => {
     setEditStatus(lead.status);
   }, [lead.status]);
+
+  useEffect(() => {
+    const fetchEnrichmentData = async () => {
+      if (isDialogOpen && !enrichmentData) {
+        setIsLoadingEnrichment(true);
+        try {
+          // This is a placeholder for the actual API call to the genkit flow
+          // You would replace this with a server action or API endpoint that invokes the flow
+          setTimeout(() => {
+            setEnrichmentData({
+              recommendations: ['AI-Powered CRM', 'Sales Forecasting', 'Automated Reporting'],
+              pitchNotes: 'Focus on how our AI can streamline their sales process and provide actionable insights. Mention the quick implementation time and dedicated support.',
+              useCase: 'E-commerce Pro Solutions can use our CRM to analyze customer behavior, predict sales trends, and automate personalized email campaigns, leading to a 25% increase in conversions.'
+            });
+            setIsLoadingEnrichment(false);
+          }, 2000);
+        } catch (error) {
+          console.error('Failed to fetch lead enrichment data:', error);
+          setIsLoadingEnrichment(false);
+          // Optionally, show a toast notification for the error
+        }
+      }
+    };
+    fetchEnrichmentData();
+  }, [isDialogOpen, enrichmentData]);
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      const userId = localStorage.getItem('user_id');
+      if (!userId) return;
+      const { data, error } = await supabase
+        .from('users')
+        .select('name, email')
+        .eq('id', userId)
+        .single();
+      if (!error && data) {
+        setCurrentUser({ name: data.name, email: data.email });
+      }
+    };
+    fetchUser();
+  }, []);
 
   const handleConvertLead = async () => {
     if (lead.status === "Converted to Account" || lead.status === "Lost") {
@@ -266,6 +322,7 @@ export default function LeadCard({ lead, onLeadConverted, onLeadDeleted, onActiv
         leadId: data.lead_id,
         opportunityId: data.opportunity_id,
         accountId: data.account_id,
+        nextActionDate: data.next_action_date,
       };
 
       setLogs(prev => [newUpdate, ...prev]);
@@ -283,10 +340,10 @@ export default function LeadCard({ lead, onLeadConverted, onLeadDeleted, onActiv
       if (onActivityLogged) onActivityLogged(lead.id, newUpdate);
     } catch (error) {
       console.error('Failed to log update:', error);
-      toast({ 
-        title: "Logging Failed", 
-        description: error instanceof Error ? error.message : "Could not log update.", 
-        variant: "destructive" 
+      toast({
+        title: "Logging Failed",
+        description: error instanceof Error ? error.message : "Could not log update.",
+        variant: "destructive"
       });
     } finally {
       setIsLogging(false);
@@ -349,6 +406,101 @@ export default function LeadCard({ lead, onLeadConverted, onLeadDeleted, onActiv
     }
   };
 
+  const handleDateSelect = (date: Date | undefined) => {
+    if (!date) {
+      setUpdateDate(undefined);
+      setNextActionDate(undefined);
+      setIsFutureActivity(false);
+      return;
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const selectedDate = new Date(date);
+    selectedDate.setHours(0, 0, 0, 0);
+
+    const isFuture = selectedDate > today;
+    setIsFutureActivity(isFuture);
+
+    if (isFuture) {
+      setNextActionDate(date);
+      setUpdateDate(new Date()); // Set activity date to today for future actions
+    } else {
+      setUpdateDate(date);
+      setNextActionDate(undefined);
+    }
+  };
+
+  // Placeholder for user's company info
+  const userCompany = {
+    name: 'NeuralArc',
+    website: 'https://neuralarc.com',
+    contact: 'contact@neuralarc.com',
+  };
+
+  // Placeholder for Gemini email generation
+  const generateProfessionalEmail = async () => {
+    setIsGeneratingEmail(true);
+    // Compose recommended services string
+    const services = enrichmentData?.recommendations?.length
+      ? enrichmentData.recommendations.map(s => `- ${s}`).join('\n')
+      : '- AI-powered CRM\n- Sales Forecasting\n- Automated Reporting';
+    // Simulate API call delay
+    return new Promise<string>((resolve) => {
+      setTimeout(() => {
+        resolve(`Subject: Unlock Your Sales Potential at ${lead.companyName}
+
+Hi ${lead.personName},
+
+I hope this message finds you well. My name is ${currentUser?.name || '[Your Name]'} from ${userCompany.name}. I wanted to introduce you to our platform, designed to help companies like ${lead.companyName} streamline sales processes, gain actionable insights, and boost conversions.
+
+Our solution offers:\n${services}
+
+I'd love to schedule a quick call to discuss how we can help ${lead.companyName} achieve its sales goals. Please let me know your availability, or feel free to reply directly to this email.
+
+Best regards,\n${currentUser?.name || '[Your Name]'}\n${userCompany.name}\n${currentUser?.email || '[Your Email]'}\n${userCompany.website}`);
+        setIsGeneratingEmail(false);
+      }, 1200);
+    });
+  };
+
+  // Copy email content to clipboard
+  const handleCopyEmail = () => {
+    if (emailTabContent) {
+      navigator.clipboard.writeText(emailTabContent);
+      toast({ title: 'Copied!', description: 'Email content copied to clipboard.' });
+    }
+  };
+
+  // Email client URLs
+  const getMailClientUrl = (client: string) => {
+    const subject = encodeURIComponent(emailTabContent?.split('\n')[0].replace('Subject: ', '') || '');
+    const body = encodeURIComponent(emailTabContent?.replace(/^Subject:.*\n+/, '') || '');
+    const to = encodeURIComponent(lead.email);
+    switch (client) {
+      case 'gmail':
+        return `https://mail.google.com/mail/?view=cm&fs=1&to=${to}&su=${subject}&body=${body}`;
+      case 'outlook':
+        return `https://outlook.live.com/mail/0/deeplink/compose?to=${to}&subject=${subject}&body=${body}`;
+      case 'yahoo':
+        return `https://compose.mail.yahoo.com/?to=${to}&subject=${subject}&body=${body}`;
+      case 'protonmail':
+        return `https://mail.proton.me/u/0/inbox?compose&to=${to}&subject=${subject}&body=${body}`;
+      case 'zoho':
+        return `https://mail.zoho.com/zm/#compose?to=${to}&subject=${subject}&body=${body}`;
+      default:
+        return `mailto:${lead.email}?subject=${subject}&body=${body}`;
+    }
+  };
+
+  // Generate email only on first visit or on explicit regeneration
+  React.useEffect(() => {
+    if (activeTab === 'email' && emailTabContent === null && !isGeneratingEmail) {
+      generateProfessionalEmail().then(setEmailTabContent);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
+
   return (
     <>
       <Card
@@ -366,7 +518,7 @@ export default function LeadCard({ lead, onLeadConverted, onLeadDeleted, onActiv
           <div className="mt-3 text-sm font-medium text-[#5E6156]">Lead Score</div>
           <div className="flex items-center gap-2 mt-1">
             <div className="w-full bg-[#E5E3DF] rounded-full h-2 overflow-hidden">
-              <div className="h-2 rounded-full" style={{ width: '94%', backgroundImage: 'linear-gradient(to right, #DCCAC1, #B18D7B)' }} />
+              <div className="h-2 rounded-full" style={{ width: '94%', backgroundImage: 'linear-gradient(to right, #3987BE, #D48EA3)' }} />
             </div>
             <div className="text-sm font-semibold text-[#282828] ml-2">94%</div>
           </div>
@@ -379,21 +531,21 @@ export default function LeadCard({ lead, onLeadConverted, onLeadDeleted, onActiv
             </div>
           </div>
         </div>
-        <div className="mt-6 border-t border-[#E5E3DF] pt-3 flex justify-center">
+        <div className="mt-6 border-t border-[#E5E3DF] pt-3 flex justify-center" onClick={(e) => e.stopPropagation()}>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" className="w-full text-[#282828] font-semibold text-base py-2 rounded-md border-[#E5E3DF] bg-[#F8F7F3] hover:bg-[#EFEDE7] flex items-center justify-center gap-2 max-h-10">
                 <MoreHorizontal className="h-5 w-5 text-[#282828]" /> Actions
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent className="bg-[#fff] text-[#282828] p-1 rounded-xl border border-[#E5E3DF] shadow-xl min-w-[180px] sm:h-fit">
-              <DropdownMenuItem onClick={() => setIsAddOpportunityOpen(true)} className="min-h-[44px] text-[#282828] bg-[#fff] focus:bg-[#F8F7F3] focus:text-black flex items-center gap-2">
+            <DropdownMenuContent className="bg-[#fff] text-[#282828] p-1 rounded-md border border-[#E5E3DF] shadow-xl sm:max-w-[308px] sm:h-fit">
+              <DropdownMenuItem onClick={() => setIsAddOpportunityOpen(true)} className="min-h-[44px] text-[#282828] bg-[#fff] focus:bg-[#F8F7F3] focus:text-black flex items-center gap-2 cursor-pointer">
                 <PlusCircle className="h-5 w-5 text-[#282828]" /> Add Opportunity
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setShowConvertDialog(true)} disabled={lead.status === 'Converted to Account' || lead.status === 'Lost'} className="min-h-[44px] text-[#282828] bg-[#fff] focus:bg-[#F8F7F3] focus:text-black flex items-center gap-2">
+              <DropdownMenuItem onClick={() => setShowConvertDialog(true)} disabled={lead.status === 'Converted to Account' || lead.status === 'Lost'} className="min-h-[44px] text-[#282828] bg-[#fff] focus:bg-[#F8F7F3] focus:text-black flex items-center gap-2 cursor-pointer">
                 <CheckSquare className="h-5 w-5 text-[#282828]" /> Convert to Account
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setShowDeleteDialog(true)} className="min-h-[44px] bg-[#fff] flex items-center gap-2 text-[#916D5B] focus:bg-[#F8F7F3] focus:text-[#916D5B]">
+              <DropdownMenuItem onClick={() => setShowDeleteDialog(true)} className="min-h-[44px] bg-[#fff] flex items-center gap-2 text-[#916D5B] focus:bg-[#F8F7F3] focus:text-[#916D5B] cursor-pointer">
                 <Trash2 className="h-5 w-5 text-[#916D5B]" /> Delete Lead
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -402,256 +554,427 @@ export default function LeadCard({ lead, onLeadConverted, onLeadDeleted, onActiv
       </Card>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-xl bg-white border border-[#CBCAC5] rounded-lg">
-          <DialogHeader className="pb-4 border-b border-[#E5E3DF]">
-            <DialogTitle className="flex items-center gap-2">
-              {editMode ? (
-                <Input
-                  value={editLead.companyName}
-                  onChange={e => handleEditChange('companyName', e.target.value)}
-                  className="font-bold text-xl border-none bg-transparent px-0 focus:ring-0 focus:outline-none text-[#282828]"
-                  placeholder="Company Name"
-                />
-              ) : (
-                <span className="font-bold text-xl text-[#282828]">{editLead.companyName}</span>
-              )}
-              {!editMode && (
-                <Button variant="ghost" size="icon" className="hover:bg-[#F8F7F3]" onClick={() => setEditMode(true)}>
-                  <Pencil className="h-4 w-4 text-[#5E6156]" />
-                </Button>
-              )}
-            </DialogTitle>
-            <div className="flex flex-col gap-3 mt-4">
-              <div className="flex flex-row items-center gap-1">
-                <span className="text-sm font-medium text-[#5E6156]">Contact Person: </span>
-                {editMode ? (
-                  <Input
-                    value={editLead.personName}
-                    onChange={e => handleEditChange('personName', e.target.value)}
-                    className="border border-[#CBCAC5] bg-[#F8F7F3] px-3 py-2 rounded-md focus:ring-1 focus:ring-[#916D5B] focus:border-[#916D5B]"
-                    placeholder="Person Name"
-                  />
-                ) : (
-                  <span className="text-[#282828] font-medium">{editLead.personName}</span>
-                )}
+        <DialogContent className="sm:max-w-4xl bg-white border-0 rounded-lg p-0">
+          <div className="p-6 pb-0">
+            <DialogHeader className="">
+              <div className="flex items-center gap-4">
+                <Avatar className="h-16 w-16 bg-[#5E6156]">
+                  <AvatarFallback className="text-2xl bg-[#2B2521] font-bold text-white">
+                    {lead.personName?.split(' ').map(n => n[0]).join('')}
+                  </AvatarFallback>
+                </Avatar>
+                <div>
+                  <DialogTitle className="text-3xl font-bold text-[#282828]">{lead.personName}</DialogTitle>
+                  <p className="text-lg text-[#5E6156]">Founder & CEO</p>
+                  <p className="text-lg text-[#5E6156]">{lead.companyName}</p>
+                </div>
               </div>
-              <div>
-                <span className="text-sm font-medium text-[#5E6156]">Email Address: </span>
-                {editMode ? (
-                  <Input
-                    value={editLead.email}
-                    onChange={e => handleEditChange('email', e.target.value)}
-                    className="border border-[#CBCAC5] bg-[#F8F7F3] px-3 py-2 rounded-md focus:ring-1 focus:ring-[#916D5B] focus:border-[#916D5B]"
-                    placeholder="Email"
-                  />
-                ) : (
-                  <span className="text-[#282828] font-medium">{editLead.email}</span>
-                )}
-              </div>
-              <div>
-                <span className="text-sm font-medium text-[#5E6156]">Phone Number: </span>
-                {editMode ? (
-                  <Input
-                    value={editLead.phone}
-                    onChange={e => handleEditChange('phone', e.target.value)}
-                    className="border border-[#CBCAC5] bg-[#F8F7F3] px-3 py-2 rounded-md focus:ring-1 focus:ring-[#916D5B] focus:border-[#916D5B]"
-                    placeholder="Phone"
-                  />
-                ) : (
-                  <span className="text-[#282828] font-medium">{editLead.phone || 'N/A'}</span>
-                )}
-              </div>
-              <div>
-                <span className="text-sm font-medium text-[#5E6156]">Location: </span>
-                {editMode ? (
-                  <Select value={editLead.country} onValueChange={value => handleEditChange('country', value)}>
-                    <SelectTrigger className="border border-[#CBCAC5] bg-[#F8F7F3] px-3 py-2 rounded-md focus:ring-1 focus:ring-[#916D5B] focus:border-[#916D5B]">
-                      <SelectValue placeholder="Select country" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {countries.map(c => (
-                        <SelectItem key={c.code} value={c.name}>{c.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                ) : (
-                  <span className="text-[#282828] font-medium">{editLead.country || 'N/A'}</span>
-                )}
-              </div>
-              <div>
-                <span className="text-sm font-medium text-[#5E6156]">Status</span>
-                <Select
-                  value={editStatus}
-                  onValueChange={value => handleStatusChange(value as LeadStatus)}
-                  disabled={isUpdatingStatus || editStatus === 'Converted to Account' || editStatus === 'Lost'}
-                >
-                  <SelectTrigger className="border border-[#CBCAC5] bg-[#F8F7F3] px-3 py-2 rounded-md focus:ring-1 focus:ring-[#916D5B] focus:border-[#916D5B] mt-1">
-                    <SelectValue placeholder="Select status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {leadStatusOptions.map(opt => (
-                      <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {isUpdatingStatus && <span className="ml-2 text-xs text-[#998876]">Updating...</span>}
-              </div>
-            </div>
-          </DialogHeader>
-          <div className="mt-6">
-            {!editMode && logs.length > 0 && (
-              <>
-                <div className="text-xs font-semibold text-[#5E6156] uppercase tracking-wide mb-3">Recent Activity</div>
-                <div className="relative">
-                  <div className="space-y-2 max-h-48 overflow-y-auto pr-2">
-                    {logs.map((log, idx) => (
-                      <div key={log.id} className="flex items-start space-x-3 p-3 rounded-lg bg-[#F8F7F3] border border-[#E5E3DF] hover:bg-[#EFEDE7] transition-colors">
-                        <div className="flex-shrink-0 mt-1">
-                          {getUpdateTypeIcon(log.type)}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between mb-1">
-                            <p className="text-sm font-medium text-[#282828] line-clamp-2">
-                              {log.content}
-                            </p>
-                            <span className="text-xs text-[#998876] ml-2 font-medium">
-                              {format(new Date(log.date), 'MMM dd')}
-                            </span>
+            </DialogHeader>
+          </div>
+
+          <Tabs defaultValue="overview" className="w-full" value={activeTab} onValueChange={setActiveTab}>
+            <TabsList className="bg-[#EFEDE7] h-fit w-fit mx-auto grid grid-cols-3 items-center p-1 rounded-lg justify-center shadow-none">
+              <TabsTrigger value="overview" className="text-base px-4 py-1.5 rounded-md flex items-center gap-2 data-[state=active]:bg-[#2B2521] data-[state=active]:text-white data-[state=active]:shadow-sm">
+                <UserIcon className="h-4 w-4" /> Overview
+              </TabsTrigger>
+              <TabsTrigger value="activity" className="text-base px-4 py-1.5 rounded-md flex items-center gap-2 data-[state=active]:bg-[#2B2521] data-[state=active]:text-white data-[state=active]:shadow-sm">
+                <Activity className="h-4 w-4" /> Activity
+              </TabsTrigger>
+              <TabsTrigger value="email" className="text-base px-4 py-1.5 rounded-md flex items-center gap-2 data-[state=active]:bg-[#2B2521] data-[state=active]:text-white data-[state=active]:shadow-sm">
+                <MailIcon className="h-4 w-4" /> Email
+              </TabsTrigger>
+            </TabsList>
+
+            <div className="bg-white rounded-b-md p-6">
+              <TabsContent value="overview">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-6">
+                    {/* Contact Information */}
+                    <div className="bg-white border border-[#E5E3DF] rounded-lg p-6">
+                      <h3 className="text-lg font-semibold text-[#282828] flex items-center gap-2 mb-4">
+                        <UserIcon className="h-5 w-5 text-[#5E6156]" /> Contact Information
+                      </h3>
+                      <div className="space-y-2">
+                        <div className="bg-[#F8F7F3] p-3 rounded-md">
+                          <div className="flex items-start gap-3">
+                            <Mail className="h-5 w-5 text-[#C57E94] mt-1 flex-shrink-0" />
+                            <div>
+                              <p className="text-sm text-[#5E6156]">Email</p>
+                              <p className="text-base text-[#282828] font-medium break-all">{lead.email}</p>
+                            </div>
                           </div>
-                          <div className="flex items-center space-x-2">
-                            <Badge variant="outline" className="text-xs bg-white border-[#CBCAC5] text-[#5E6156] font-medium">{log.type}</Badge>
-                            {log.nextActionDate && (
-                              <span className="text-xs text-[#4B7B9D] font-medium">
-                                Next: {format(parseISO(log.nextActionDate), 'MMM dd, yyyy')}
-                              </span>
-                            )}
+                        </div>
+                        <div className="bg-[#F8F7F3] p-3 rounded-md">
+                          <div className="flex items-start gap-3">
+                            <Phone className="h-5 w-5 text-[#4B7B9D] mt-1 flex-shrink-0" />
+                            <div>
+                              <p className="text-sm text-[#5E6156]">Phone</p>
+                              <p className="text-base text-[#282828] font-medium">{lead.phone || 'N/A'}</p>
+                            </div>
                           </div>
                         </div>
                       </div>
-                    ))}
+                    </div>
+                    {/* Company Information */}
+                    <div className="bg-white border border-[#E5E3DF] rounded-lg p-6">
+                       <h3 className="text-lg font-semibold text-[#282828] flex items-center gap-2 mb-4">
+                        <Briefcase className="h-5 w-5 text-[#5E6156]" /> Company Information
+                      </h3>
+                      <div className="space-y-2">
+                        <div className="bg-[#F8F7F3] p-3 rounded-md">
+                           <div className="flex items-start gap-3">
+                              <Building2 className="h-5 w-5 text-[#998876] mt-1 flex-shrink-0" />
+                              <div>
+                                <p className="text-sm text-[#5E6156]">Company</p>
+                                <p className="text-base text-[#282828] font-medium">{lead.companyName}</p>
+                              </div>
+                            </div>
+                        </div>
+                        <div className="bg-[#F8F7F3] p-3 rounded-md">
+                          <div className="flex items-start gap-3">
+                            <Link
+                              href={lead.website || ''}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-2"
+                              style={{ pointerEvents: lead.website ? 'auto' : 'none', color: lead.website ? '#3987BE' : '#998876', textDecoration: lead.website ? 'underline' : 'none' }}
+                            >
+                              <Globe className="w-5 h-5 mt-0.5 flex-shrink-0" />
+                              <span className="text-sm text-[#5E6156]">Website</span>
+                              <span className="text-base font-medium text-[#282828]">
+                                {lead.website ? lead.website : 'N/A'}
+                              </span>
+                            </Link>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                           <div className="bg-[#F8F7F3] p-3 rounded-md text-center">
+                            <p className="text-sm text-[#5E6156] mb-1">Company Size</p>
+                            <p className="text-base font-semibold text-[#282828]">N/A</p>
+                          </div>
+                          <div className="bg-[#F8F7F3] p-3 rounded-md text-center">
+                            <p className="text-sm text-[#5E6156] mb-1">Industry</p>
+                            <p className="text-base font-semibold text-[#282828]">N/A</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  {logs.length > 3 && (
-                    <div className="pointer-events-none absolute left-0 right-0 bottom-0 h-8" style={{background: 'linear-gradient(to bottom, transparent, #fff 90%)'}} />
-                  )}
-                </div>
-              </>
-            )}
-            {editMode ? (
-              <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-[#E5E3DF]">
-                <Button 
-                  variant="outline" 
-                  onClick={handleCancelEdit} 
-                  className="border-[#CBCAC5] text-[#5E6156] hover:bg-[#F8F7F3] hover:text-[#282828] rounded-md"
-                >
-                  Cancel
-                </Button>
-                <Button 
-                  variant="add" 
-                  onClick={handleSaveEdit}
-                  className="bg-[#2B2521] text-white hover:bg-[#3a322c] rounded-md"
-                >
-                  Save Changes
-                </Button>
-              </div>
-            ) : (
-              <form className="space-y-4 mt-4" onSubmit={(e) => e.preventDefault()}>
-                <div className="flex flex-col md:flex-row gap-3">
-                  <div className="flex-1 min-w-0">
-                    <Label htmlFor="update-type" className="text-sm font-medium text-[#5E6156] mb-2 block">Activity Type</Label>
-                    <Select value={updateType} onValueChange={setUpdateType}>
-                      <SelectTrigger id="update-type" className="w-full border border-[#CBCAC5] bg-[#F8F7F3] focus:ring-1 focus:ring-[#916D5B] focus:border-[#916D5B] rounded-md">
-                        <SelectValue placeholder="Select activity type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {updateTypes.map(type => (
-                          <SelectItem key={type} value={type}>{type}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <Label htmlFor="update-date" className="text-sm font-medium text-[#5E6156] mb-2 block">Date</Label>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Input
-                          id="update-date"
-                          type="text"
-                          value={updateDate ? format(updateDate, 'dd/MM/yyyy') : ''}
-                          placeholder="dd/mm/yyyy"
-                          readOnly
-                          className="cursor-pointer bg-[#F8F7F3] border-[#CBCAC5] focus:ring-1 focus:ring-[#916D5B] focus:border-[#916D5B] rounded-md"
-                        />
-                      </PopoverTrigger>
-                      <PopoverContent align="start" className="p-0 w-auto border-[#CBCAC5] bg-white rounded-md shadow-lg">
-                        <Calendar
-                          mode="single"
-                          selected={updateDate}
-                          onSelect={setUpdateDate}
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
+
+                  {/* Lead Metrics */}
+                  <div className="bg-white border border-[#E5E3DF] rounded-lg p-6">
+                    <h3 className="text-lg font-semibold text-[#282828] flex items-center gap-2 mb-4">
+                      <Target className="h-5 w-5 text-[#5E6156]" /> Lead Metrics
+                    </h3>
+                    <div className="space-y-6">
+                      <div>
+                        <div className="flex justify-between items-center mb-1">
+                          <p className="text-sm text-[#5E6156]">Lead Score</p>
+                          <p className="text-sm font-semibold text-[#282828]">94/100</p>
+                        </div>
+                        <div className="w-full bg-[#E5E3DF] rounded-full h-2.5">
+                          <div className="h-2.5 rounded-full" style={{ width: '94%', backgroundImage: 'linear-gradient(to right, #3987BE, #D48EA3)' }}></div>
+                        </div>
+                      </div>
+                      <div className="mt-6 space-y-4">
+                        <h4 className="text-lg font-semibold text-[#282828] flex items-center gap-2">
+                          <BrainCircuit className="h-5 w-5 text-[#5E6156]" /> AI Recommendations
+                        </h4>
+                        {isLoadingEnrichment ? (
+                          <div className="space-y-2">
+                            <Skeleton className="h-6 w-3/4 rounded-md" />
+                            <Skeleton className="h-10 w-full rounded-md" />
+                            <Skeleton className="h-10 w-full rounded-md" />
+                          </div>
+                        ) : enrichmentData ? (
+                          <>
+                            <div>
+                              <p className="text-sm text-[#5E6156] mb-2 font-medium">Recommended Services</p>
+                              <div className="flex flex-wrap gap-2">
+                                {enrichmentData.recommendations.map((rec, i) => (
+                                  <Badge key={i} variant="outline" className="text-xs bg-[#F8F7F3] border-[#E5E3DF] text-[#282828] font-medium">{rec}</Badge>
+                                ))}
+                              </div>
+                            </div>
+                            <div>
+                              <p className="text-sm text-[#5E6156] mb-1 font-semibold flex items-center gap-1.5"><FileTextIcon className="h-3 w-3" /> Pitch Notes</p>
+                              <p className="text-sm text-[#5E6156]">{enrichmentData.pitchNotes}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm text-[#5E6156] mb-1 font-semibold flex items-center gap-1.5"><Lightbulb className="h-3 w-3" /> Use Case</p>
+                              <p className="text-sm text-[#5E6156]">{enrichmentData.useCase}</p>
+                            </div>
+                            <Button
+                              variant="add"
+                              className="w-full bg-[#2B2521] text-white hover:bg-[#3a322c] rounded-md max-h-12"
+                              onClick={() => setActiveTab('email')}
+                            >
+                              <MailIcon className="h-4 w-4 mr-2" /> Generate Email
+                            </Button>
+                          </>
+                        ) : (
+                          <p className="text-sm text-center text-[#998876]">Could not load AI recommendations.</p>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </div>
-                <div className="flex flex-col md:flex-row gap-3">
-                  <div className="flex-1 min-w-0">
-                    <Label htmlFor="next-action-date" className="text-sm font-medium text-[#5E6156] mb-2 block">Next Action Date (Optional)</Label>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Input
-                          id="next-action-date"
-                          type="text"
-                          value={nextActionDate ? format(nextActionDate, 'dd/MM/yyyy') : ''}
-                          placeholder="dd/mm/yyyy (optional)"
-                          readOnly
-                          className="cursor-pointer bg-[#F8F7F3] border-[#CBCAC5] focus:ring-1 focus:ring-[#916D5B] focus:border-[#916D5B] rounded-md"
+              </TabsContent>
+
+              <TabsContent value="activity">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="md:col-span-1 bg-white border border-[#E5E3DF] rounded-lg p-6">
+                     <div className="text-sm font-semibold text-[#5E6156] uppercase tracking-wide mb-3">Add New Activity</div>
+                     <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
+                      <div className="flex flex-col md:flex-row gap-3">
+                        <div className="flex-1 min-w-0">
+                          <Label htmlFor="update-type" className="text-sm font-medium text-[#5E6156] mb-2 block">Activity Type</Label>
+                          <Select value={updateType} onValueChange={setUpdateType}>
+                            <SelectTrigger id="update-type" className="w-full border border-[#CBCAC5] bg-[#F8F7F3] focus:ring-1 focus:ring-[#916D5B] focus:border-[#916D5B] rounded-md">
+                              <SelectValue placeholder="Select activity type" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {updateTypes.map(type => (
+                                <SelectItem key={type} value={type}>{type}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <Label htmlFor="update-date" className="text-sm font-medium text-[#5E6156] mb-2 block">Date</Label>
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild className="w-full">
+                                <Popover>
+                                  <PopoverTrigger asChild disabled={!!nextActionDate}>
+                                    <Input
+                                      id="update-date"
+                                      type="text"
+                                      value={updateDate ? format(updateDate, 'dd/MM/yyyy') : ''}
+                                      placeholder="dd/mm/yyyy"
+                                      readOnly
+                                      className="cursor-pointer bg-[#F8F7F3] border-[#CBCAC5] focus:ring-1 focus:ring-[#916D5B] focus:border-[#916D5B] rounded-md disabled:cursor-not-allowed disabled:opacity-50"
+                                    />
+                                  </PopoverTrigger>
+                                  <PopoverContent align="start" className="p-0 w-auto border-[#CBCAC5] bg-white rounded-md shadow-lg">
+                                    <Calendar
+                                      mode="single"
+                                      selected={updateDate}
+                                      onSelect={setUpdateDate}
+                                      initialFocus
+                                    />
+                                  </PopoverContent>
+                                </Popover>
+                              </TooltipTrigger>
+                              {!!nextActionDate && (
+                                <TooltipContent>
+                                  <p>Clear 'Next Action Date' to select an 'Activity Date'.</p>
+                                </TooltipContent>
+                              )}
+                            </Tooltip>
+                          </TooltipProvider>
+                        </div>
+                      </div>
+                      <div className="flex flex-col md:flex-row gap-3">
+                        <div className="flex-1 min-w-0">
+                           <Label htmlFor="next-action-date" className="text-sm font-medium text-[#5E6156] mb-2 block">Next Action Date (Optional)</Label>
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild className="w-full">
+                                <Popover>
+                                  <PopoverTrigger asChild disabled={!!updateDate}>
+                                    <Input
+                                      id="next-action-date"
+                                      type="text"
+                                      value={nextActionDate ? format(nextActionDate, 'dd/MM/yyyy') : ''}
+                                      placeholder="dd/mm/yyyy (optional)"
+                                      readOnly
+                                      className="cursor-pointer bg-[#F8F7F3] border-[#CBCAC5] focus:ring-1 focus:ring-[#916D5B] focus:border-[#916D5B] rounded-md disabled:cursor-not-allowed disabled:opacity-50"
+                                    />
+                                  </PopoverTrigger>
+                                  <PopoverContent align="start" className="p-0 w-auto border-[#CBCAC5] bg-white rounded-md shadow-lg">
+                                    <Calendar
+                                      mode="single"
+                                      selected={nextActionDate}
+                                      onSelect={setNextActionDate}
+                                      initialFocus
+                                    />
+                                  </PopoverContent>
+                                </Popover>
+                              </TooltipTrigger>
+                              {!!updateDate && (
+                                <TooltipContent>
+                                  <p>Clear 'Activity Date' to set a 'Next Action Date'.</p>
+                                </TooltipContent>
+                              )}
+                            </Tooltip>
+                          </TooltipProvider>
+                        </div>
+                      </div>
+                      <div>
+                        <Label htmlFor="update-content" className="text-sm font-medium text-[#5E6156] mb-2 block">Activity Details</Label>
+                        <Textarea
+                          id="update-content"
+                          value={updateContent}
+                          onChange={e => setUpdateContent(e.target.value)}
+                          placeholder="Describe the call, meeting, email, or general update..."
+                          className="min-h-[100px] resize-none border-[#CBCAC5] bg-[#F8F7F3] focus:ring-1 focus:ring-[#916D5B] focus:border-[#916D5B] rounded-md"
                         />
-                      </PopoverTrigger>
-                      <PopoverContent align="start" className="p-0 w-auto border-[#CBCAC5] bg-white rounded-md shadow-lg">
-                        <Calendar
-                          mode="single"
-                          selected={nextActionDate}
-                          onSelect={setNextActionDate}
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-                </div>
-                <div>
-                  <Label htmlFor="update-content" className="text-sm font-medium text-[#5E6156] mb-2 block">Activity Details</Label>
-                  <Textarea
-                    id="update-content"
-                    value={updateContent}
-                    onChange={e => setUpdateContent(e.target.value)}
-                    placeholder="Describe the call, meeting, email, or general update..."
-                    className="min-h-[100px] resize-none border-[#CBCAC5] bg-[#F8F7F3] focus:ring-1 focus:ring-[#916D5B] focus:border-[#916D5B] rounded-md"
-                  />
-                </div>
-                <DialogFooter className="pt-4">
-                  <Button 
-                    type="button" 
-                    variant="add" 
-                    className="w-full bg-[#2B2521] text-white hover:bg-[#3a322c] rounded-md" 
-                    onClick={handleLogUpdate} 
-                    disabled={isLogging || !updateType || !updateContent.trim() || !updateDate}
-                  >
-                    {isLogging ? (
+                      </div>
+                      <DialogFooter className="pt-4">
+                        <Button
+                          type="button"
+                          variant="add"
+                          className="w-full bg-[#2B2521] text-white hover:bg-[#3a322c] rounded-md"
+                          onClick={handleLogUpdate}
+                          disabled={isLogging || !updateType || !updateContent.trim() || !updateDate}
+                        >
+                          {isLogging ? (
+                            <>
+                              <Activity className="mr-2 h-4 w-4 animate-spin" />
+                              Adding Activity...
+                            </>
+                          ) : (
+                            <>
+                              <Activity className="mr-2 h-4 w-4" />
+                              Add Activity
+                            </>
+                          )}
+                        </Button>
+                      </DialogFooter>
+                    </form>
+                   </div>
+                  <div className="md:col-span-1 bg-white border border-[#E5E3DF] rounded-lg p-6">
+                    {!editMode && logs.length > 0 && (
                       <>
-                        <Activity className="mr-2 h-4 w-4 animate-spin" />
-                        Adding Activity...
-                      </>
-                    ) : (
-                      <>
-                        <Activity className="mr-2 h-4 w-4" />
-                        Add Activity
+                        <div className="text-sm font-semibold text-[#5E6156] uppercase tracking-wide mb-3">Recent Activity</div>
+                        <div className="relative">
+                          <div className="space-y-2 max-h-[calc(100vh-400px)] overflow-y-auto pr-2">
+                            {logs.map((log, idx) => (
+                              <div key={log.id} className="flex items-start space-x-3 p-3 rounded-lg bg-[#F8F7F3] border border-[#E5E3DF] hover:bg-[#EFEDE7] transition-colors">
+                                <div className="flex-shrink-0 mt-1">
+                                  {getUpdateTypeIcon(log.type)}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center justify-between mb-1">
+                                    <p className="text-sm font-medium text-[#282828] line-clamp-2">
+                                      {log.content}
+                                    </p>
+                                    <span className="text-xs text-[#998876] ml-2 font-medium">
+                                      {format(new Date(log.date), 'MMM dd')}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center space-x-2">
+                                    <Badge variant="outline" className="text-xs bg-white border-[#CBCAC5] text-[#5E6156] font-medium">{log.type}</Badge>
+                                    {log.nextActionDate && (
+                                      <span className="text-xs text-[#4B7B9D] font-medium">
+                                        Next: {format(parseISO(log.nextActionDate), 'MMM dd, yyyy')}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                          {logs.length > 5 && (
+                            <div className="pointer-events-none absolute left-0 right-0 bottom-0 h-8" style={{background: 'linear-gradient(to bottom, transparent, #fff 90%)'}} />
+                          )}
+                        </div>
                       </>
                     )}
-                  </Button>
-                </DialogFooter>
-              </form>
-            )}
-          </div>
+                  </div>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="email">
+                <div className="flex flex-col h-full min-h-[300px]">
+                  <div className="bg-white rounded-lg shadow-sm border border-[#E5E3DF] relative min-h-[200px] flex flex-col">
+                    <div className="flex items-center justify-between px-0 pt-2 pb-3 border-b border-[#EFEDE7]">
+                      <h4 className="text-lg font-semibold text-[#282828] flex items-center gap-2 pl-6">
+                        <MailIcon className="h-5 w-5 text-[#5E6156]" /> Email to Lead
+                      </h4>
+                      <div className="flex gap-2 pr-6">
+                        <Button
+                          variant="outline"
+                          className="max-h-12 flex items-center gap-1 border-[#E5E3DF] text-[#282828] bg-white hover:bg-[#F8F7F3]"
+                          onClick={async () => {
+                            setIsGeneratingEmail(true);
+                            setEmailTabContent(null);
+                            const email = await generateProfessionalEmail();
+                            setEmailTabContent(email);
+                          }}
+                          disabled={isGeneratingEmail}
+                        >
+                          <RefreshCw className="h-4 w-4 mr-1" />
+                          {isGeneratingEmail ? 'Regenerating...' : 'Regenerate'}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          className="max-h-12 flex items-center gap-1 border-[#E5E3DF] text-[#282828] bg-white hover:bg-[#F8F7F3]"
+                          onClick={handleCopyEmail}
+                          disabled={!emailTabContent}
+                        >
+                          <CopyIcon className="h-4 w-4 mr-1" /> Copy
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="flex-1 overflow-y-auto px-6 py-6 whitespace-pre-line text-[#282828] text-[16px] leading-relaxed font-normal">
+                      {isGeneratingEmail && !emailTabContent ? (
+                        <span className="text-[#998876]">Generating email...</span>
+                      ) : emailTabContent ? (
+                        <>
+                          {/* Subject line bold and larger */}
+                          {(() => {
+                            const lines = emailTabContent.split('\n');
+                            const subject = lines[0];
+                            const body = lines.slice(1).join('\n').replace(/^\n+/, '');
+                            return (
+                              <>
+                                <div className="font-semibold text-lg text-[#282828] mb-3">{subject.replace('Subject: ', '')}</div>
+                                <div className="text-[16px] text-[#282828] leading-relaxed">{body}</div>
+                              </>
+                            );
+                          })()}
+                        </>
+                      ) : null}
+                    </div>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="add"
+                          className="max-h-12 flex items-center gap-1 absolute bottom-4 right-6 z-10"
+                          disabled={!emailTabContent}
+                        >
+                          <SendIcon className="h-4 w-4 mr-1" /> Send
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent className="bg-white text-[#282828] p-1 rounded-md border border-[#E5E3DF] shadow-xl max-w-[220px] sm:h-fit">
+                        <DropdownMenuItem onClick={() => window.open(getMailClientUrl('gmail'), '_blank')} className="flex items-center gap-2 cursor-pointer focus:bg-[#F8F7F3] focus:text-black">
+                          <MailIcon className="h-4 w-4" /> Gmail
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => window.open(getMailClientUrl('outlook'), '_blank')} className="flex items-center gap-2 cursor-pointer focus:bg-[#F8F7F3] focus:text-black">
+                          <Inbox className="h-4 w-4" /> Outlook
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => window.open(getMailClientUrl('yahoo'), '_blank')} className="flex items-center gap-2 cursor-pointer focus:bg-[#F8F7F3] focus:text-black">
+                          <AtSign className="h-4 w-4" /> Yahoo
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => window.open(getMailClientUrl('protonmail'), '_blank')} className="flex items-center gap-2 cursor-pointer focus:bg-[#F8F7F3] focus:text-black">
+                          <Shield className="h-4 w-4" /> ProtonMail
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => window.open(getMailClientUrl('zoho'), '_blank')} className="flex items-center gap-2 cursor-pointer focus:bg-[#F8F7F3] focus:text-black">
+                          <Briefcase className="h-4 w-4" /> Zoho Mail
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={() => window.open(getMailClientUrl('default'), '_blank')} className="flex items-center gap-2 cursor-pointer focus:bg-[#F8F7F3] focus:text-black">
+                          <Computer className="h-4 w-4" /> Other (Choose on device)
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                </div>
+              </TabsContent>
+            </div>
+          </Tabs>
         </DialogContent>
       </Dialog>
 
