@@ -81,6 +81,7 @@ export default function LeadsPage() {
           email: lead.email || '',
           linkedinProfileUrl: lead.linkedin_profile_url || '',
           country: lead.country || '',
+          website: lead.website || '',
           status: lead.status || 'New',
           opportunityIds: [], // Not implemented yet
           updateIds: [], // Not implemented yet
@@ -265,9 +266,6 @@ export default function LeadsPage() {
       email: data.email || '',
       linkedinProfileUrl: data.linkedin_profile_url || '',
       country: data.country || '',
-      website: data.website || '',
-      industry: data.industry || '',
-      jobTitle: data.job_title || '',
       status: data.status || 'New',
       opportunityIds: [],
       updateIds: [],
@@ -493,6 +491,8 @@ export default function LeadsPage() {
     const columnMappings: Record<string, string> = {
       // Company
       'company': 'companyName', 'companyname': 'companyName', 'company name': 'companyName', 'organization': 'companyName', 'business': 'companyName', 'firm': 'companyName', 'corp': 'companyName', 'corporation': 'companyName', 'inc': 'companyName', 'llc': 'companyName',
+      // Website
+      'website': 'website', 'web': 'website', 'company website': 'website', 'site': 'website', 'url': 'website',
       // Person
       'name': 'personName', 'personname': 'personName', 'person name': 'personName', 'contact': 'personName', 'contactname': 'personName', 'contact person': 'personName', 'contactperson': 'personName', 'fullname': 'personName', 'full name': 'personName', 'ceo': 'personName', 'owner': 'personName', 'manager': 'personName', 'director': 'personName', 'rep': 'personName', 'representative': 'personName', 'key decision maker': 'personName', 'decision maker': 'personName', 'decisionmaker': 'personName', 'contact name': 'personName', 'primary contact': 'personName', 'primarycontact': 'personName',
       // Email
@@ -513,7 +513,7 @@ export default function LeadsPage() {
     // Map headers to fields
     const fieldMappings: Record<string, number> = {};
     const requiredFields = ['companyName', 'personName', 'email'];
-    const optionalFields = ['phone', 'linkedinProfileUrl', 'country', 'website', 'industry', 'jobTitle'];
+    const optionalFields = ['phone', 'linkedinProfileUrl', 'country'];
     // Exact/normalized mapping
     headers.forEach((header, idx) => {
       if (columnMappings[header]) {
@@ -576,13 +576,8 @@ export default function LeadsPage() {
       const values = lines[i].split(',');
       const leadData: any = {};
       Object.entries(fieldMappings).forEach(([field, idx]) => {
-        let value = values[idx]?.replace(/^"|"$/g, '').split(':')[0] || '';
-        
-        // Clean email format by removing mailto: prefix
-        if (field === 'email' && value.includes(':')) {
-          value = value.split(':')[0];
-        }
-        
+        // Only strip quotes, do not split on colon
+        let value = values[idx]?.replace(/^"|"$/g, '') || '';
         leadData[field] = value;
       });
       leads.push(leadData);
@@ -942,11 +937,11 @@ export default function LeadsPage() {
                   <X className="mr-2 h-4 w-4" />
                   Cancel
                 </Button>
-                <Button
-                  variant="add"
+              <Button
+                variant="add"
                   className="text-white text-sm"
                   onClick={() => setIsBulkAssignDialogOpen(true)}
-                  disabled={selectedLeads.length === 0}
+                disabled={selectedLeads.length === 0}
                 >
                   Assign {selectedLeads.length} Lead{selectedLeads.length === 1 ? '' : 's'}
                 </Button>
@@ -955,10 +950,10 @@ export default function LeadsPage() {
                   className="bg-[#916D5B] text-white hover:bg-[#916D5B]/80 text-sm"
                   onClick={() => setIsBulkDeleteDialogOpen(true)}
                   disabled={selectedLeads.length === 0}
-                >
+              >
                   <Trash2 className="mr-2 h-4 w-4" />
                   Delete {selectedLeads.length} Lead{selectedLeads.length === 1 ? '' : 's'}
-                </Button>
+              </Button>
               </div>
             </div>
           )}
@@ -1091,8 +1086,8 @@ export default function LeadsPage() {
                         {lead.status !== "Converted to Account" && lead.status !== "Lost" && (
                           <>
                             {/* Opportunity Button */}
-                            <Tooltip>
-                              <TooltipTrigger asChild>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
                                 <Button 
                                   size="sm" 
                                   className="rounded-sm p-2 h-8 w-8 bg-[#97A487] text-white hover:bg-[#97A487]/80 border-0"
@@ -1108,9 +1103,9 @@ export default function LeadsPage() {
                                 >
                                   <PlusCircle className="h-3.5 w-3.5" />
                                 </Button>
-                              </TooltipTrigger>
+                            </TooltipTrigger>
                               <TooltipContent side="top" align="center">New Opportunity</TooltipContent>
-                            </Tooltip>
+                          </Tooltip>
                             
                             {/* Convert Button */}
                             <Tooltip>
@@ -1361,7 +1356,7 @@ export default function LeadsPage() {
                             {role === 'admin' && <TableCell>{users.find(u => u.id === lead.assignedUserId)?.name || ''}</TableCell>}
                             <TableCell className="flex gap-2">
                               <TooltipProvider delayDuration={0}>
-                                {lead.status !== "Converted to Account" && lead.status !== "Lost" && (
+                        {lead.status !== "Converted to Account" && lead.status !== "Lost" && (
                                   <>
                                     {/* Opportunity Button */}
                                     <Tooltip>
@@ -1386,10 +1381,10 @@ export default function LeadsPage() {
                                     </Tooltip>
                                     
                                     {/* Convert Button */}
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <AlertDialog>
-                                          <AlertDialogTrigger asChild>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
                                             <Button 
                                               size="sm" 
                                               variant="add" 
@@ -1442,47 +1437,47 @@ export default function LeadsPage() {
                                             >
                                               <Trash2 className="h-3.5 w-3.5" />
                                             </Button>
-                                          </AlertDialogTrigger>
-                                          <AlertDialogContent>
-                                            <AlertDialogHeader>
-                                              <AlertDialogTitle>Delete Lead?</AlertDialogTitle>
-                                              <AlertDialogDescription>
-                                                Are you sure you want to delete this lead? This action cannot be undone.
-                                              </AlertDialogDescription>
-                                            </AlertDialogHeader>
-                                            <AlertDialogFooter>
-                                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Delete Lead?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      Are you sure you want to delete this lead? This action cannot be undone.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
                                               <AlertDialogAction 
                                                 onClick={(e) => { 
                                                   e.stopPropagation(); 
-                                                  setLeads(prev => prev.filter(l => l.id !== lead.id)); 
+                                      setLeads(prev => prev.filter(l => l.id !== lead.id));
                                                 }} 
                                                 className="bg-[#916D5B] text-white rounded-md border-0 hover:bg-[#a98a77]"
                                               >
                                                 Delete
                                               </AlertDialogAction>
-                                            </AlertDialogFooter>
-                                          </AlertDialogContent>
-                                        </AlertDialog>
-                                      </TooltipTrigger>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </TooltipTrigger>
                                       <TooltipContent side="top" align="center">Delete</TooltipContent>
-                                    </Tooltip>
+                          </Tooltip>
                                   </>
-                                )}
-                              </TooltipProvider>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                )
-              ) : (
-                <div className="text-center py-16">
-                  <Search className="mx-auto h-16 w-16 text-muted-foreground/50 mb-6" />
-                  <p className="text-xl font-semibold text-foreground mb-2">No Leads Found</p>
-                  <p className="text-muted-foreground">Try adjusting your search or filter criteria, or add a new lead.</p>
-                </div>
+                        )}
+                      </TooltipProvider>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )
+      ) : (
+        <div className="text-center py-16">
+          <Search className="mx-auto h-16 w-16 text-muted-foreground/50 mb-6" />
+          <p className="text-xl font-semibold text-foreground mb-2">No Leads Found</p>
+          <p className="text-muted-foreground">Try adjusting your search or filter criteria, or add a new lead.</p>
+        </div>
               )}
               
               {/* Pagination for accepted leads in tabbed view */}
