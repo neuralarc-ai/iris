@@ -243,6 +243,9 @@ export default function LeadsPage() {
         phone: leadData.phone || '',
         linkedin_profile_url: leadData.linkedinProfileUrl || '',
         country: leadData.country || '',
+        website: leadData.website || '',
+        industry: leadData.industry || '',
+        job_title: leadData.jobTitle || '',
         status: 'New',
         owner_id: currentUserId,
       }
@@ -259,6 +262,9 @@ export default function LeadsPage() {
       email: data.email || '',
       linkedinProfileUrl: data.linkedin_profile_url || '',
       country: data.country || '',
+      website: data.website || '',
+      industry: data.industry || '',
+      jobTitle: data.job_title || '',
       status: data.status || 'New',
       opportunityIds: [],
       updateIds: [],
@@ -494,11 +500,17 @@ export default function LeadsPage() {
       'linkedin': 'linkedinProfileUrl', 'linkedinprofile': 'linkedinProfileUrl', 'linkedin profile': 'linkedinProfileUrl', 'linkedinurl': 'linkedinProfileUrl', 'linkedin url': 'linkedinProfileUrl', 'linkedinprofileurl': 'linkedinProfileUrl', 'linkedin profile url': 'linkedinProfileUrl',
       // Country
       'country': 'country', 'location': 'country', 'region': 'country', 'nation': 'country', 'state': 'country', 'province': 'country', 'territory': 'country', 'countryregion': 'country', 'country region': 'country', 'country/region': 'country',
+      // Website
+      'website': 'website', 'web': 'website', 'company website': 'website', 'site': 'website',
+      // Industry
+      'industry': 'industry', 'sector': 'industry', 'business type': 'industry',
+      // Job Title
+      'jobtitle': 'jobTitle', 'job title': 'jobTitle', 'title': 'jobTitle', 'position': 'jobTitle', 'role': 'jobTitle',
     };
     // Map headers to fields
     const fieldMappings: Record<string, number> = {};
     const requiredFields = ['companyName', 'personName', 'email'];
-    const optionalFields = ['phone', 'linkedinProfileUrl', 'country'];
+    const optionalFields = ['phone', 'linkedinProfileUrl', 'country', 'website', 'industry', 'jobTitle'];
     // Exact/normalized mapping
     headers.forEach((header, idx) => {
       if (columnMappings[header]) {

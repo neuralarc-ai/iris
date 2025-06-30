@@ -36,6 +36,9 @@ export default function AddLeadDialog({ open, onOpenChange, onLeadAdded }: AddLe
   const [users, setUsers] = useState<any[]>([]);
   const [role, setRole] = useState<string>('user');
   const [ownerId, setOwnerId] = useState<string>('');
+  const [website, setWebsite] = useState('');
+  const [industry, setIndustry] = useState('');
+  const [jobTitle, setJobTitle] = useState('');
 
   const { toast } = useToast();
 
@@ -94,6 +97,9 @@ export default function AddLeadDialog({ open, onOpenChange, onLeadAdded }: AddLe
         phone,
         linkedin_profile_url: linkedinProfileUrl,
         country,
+        website,
+        industry,
+        job_title: jobTitle,
         status: 'New',
         owner_id: finalOwnerId,
       });
@@ -111,6 +117,9 @@ export default function AddLeadDialog({ open, onOpenChange, onLeadAdded }: AddLe
           phone,
           linkedin_profile_url: linkedinProfileUrl,
           country,
+          website,
+          industry,
+          job_title: jobTitle,
           status: 'New',
           owner_id: finalOwnerId,
         }
@@ -138,6 +147,9 @@ export default function AddLeadDialog({ open, onOpenChange, onLeadAdded }: AddLe
         email: data.email || '',
         linkedinProfileUrl: data.linkedin_profile_url || '',
         country: data.country || '',
+        website: data.website || '',
+        industry: data.industry || '',
+        jobTitle: data.job_title || '',
         status: data.status || 'New',
         opportunityIds: [], // Not implemented yet
         updateIds: [], // Not implemented yet
@@ -176,6 +188,9 @@ export default function AddLeadDialog({ open, onOpenChange, onLeadAdded }: AddLe
     setPhone('');
     setLinkedinProfileUrl('');
     setCountry('');
+    setWebsite('');
+    setIndustry('');
+    setJobTitle('');
     setOwnerId('');
   };
 
@@ -264,6 +279,18 @@ export default function AddLeadDialog({ open, onOpenChange, onLeadAdded }: AddLe
                   </SelectGroup>
                 </SelectContent>
               </Select>
+            </div>
+            <div>
+              <Label htmlFor="lead-website">Website</Label>
+              <Input id="lead-website" type="url" value={website} onChange={(e) => setWebsite(e.target.value)} placeholder="e.g., https://acme.com" disabled={isLoading} />
+            </div>
+            <div>
+              <Label htmlFor="lead-industry">Industry</Label>
+              <Input id="lead-industry" value={industry} onChange={(e) => setIndustry(e.target.value)} placeholder="e.g., Technology" disabled={isLoading} />
+            </div>
+            <div>
+              <Label htmlFor="lead-job-title">Job Title</Label>
+              <Input id="lead-job-title" value={jobTitle} onChange={(e) => setJobTitle(e.target.value)} placeholder="e.g., CEO" disabled={isLoading} />
             </div>
 
             {role === 'admin' && (
