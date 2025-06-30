@@ -35,7 +35,7 @@ export interface Lead {
   updatedAt: string;
   assignedUserId?: string; // NEW: user assignment
   rejectionReasons?: string[]; // Reasons why the lead was rejected
-  website?: string;
+  website?: string; // Optional website property for leads
 }
 
 export interface Opportunity {
