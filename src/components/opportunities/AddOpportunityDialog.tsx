@@ -187,7 +187,7 @@ export default function AddOpportunityDialog({ open, onOpenChange, onOpportunity
           </div>
           <div>
             <Label>Associate With <span className="text-destructive">*</span></Label>
-            <RadioGroup className="flex flex-row gap-4 mt-1" value={associateWith} onValueChange={setAssociateWith}>
+            <RadioGroup className="flex flex-row gap-4 mt-1" value={associateWith} onValueChange={(value) => setAssociateWith(value as 'account' | 'lead')}>
               <RadioGroupItem value="account" id="associate-account" />
               <Label htmlFor="associate-account" className="mr-4">Account</Label>
               <RadioGroupItem value="lead" id="associate-lead" />
@@ -316,7 +316,6 @@ export default function AddOpportunityDialog({ open, onOpenChange, onOpportunity
                     mode="single"
                     selected={expectedCloseDate}
                     onSelect={setExpectedCloseDate}
-                    initialFocus
                   />
                 </PopoverContent>
               </Popover>

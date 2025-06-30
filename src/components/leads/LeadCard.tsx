@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Users, User, Mail, Phone, Eye, CheckSquare, FileWarning, CalendarPlus, History, Linkedin, MapPin, Trash2, Pencil, X, FileText, Building2, UserCheck, Clock, Calendar as CalendarIcon, Activity, PlusCircle } from 'lucide-react';
+import { Users, User, Mail, Phone, Eye, CheckSquare, FileWarning, CalendarPlus, History, Linkedin, MapPin, Trash2, Pencil, X, FileText, Building2, UserCheck, Clock, Calendar as CalendarIcon, Activity, PlusCircle, MoreHorizontal } from 'lucide-react';
 import type { Lead, Update, LeadStatus } from '@/types';
 import { add, formatDistanceToNow, format, parseISO } from 'date-fns';
 import { convertLeadToAccount, deleteLead } from '@/lib/data';
@@ -21,6 +21,12 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { countries } from '@/lib/countryData';
 import AddOpportunityDialog from '@/components/opportunities/AddOpportunityDialog';
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from '@/components/ui/dropdown-menu';
 
 interface LeadCardProps {
   lead: Lead;
@@ -101,6 +107,8 @@ export default function LeadCard({ lead, onLeadConverted, onLeadDeleted, onActiv
   const [isUpdatingStatus, setIsUpdatingStatus] = React.useState(false);
   const [isAddOpportunityOpen, setIsAddOpportunityOpen] = React.useState(false);
   const [nextActionDate, setNextActionDate] = React.useState<Date | undefined>(undefined);
+  const [showConvertDialog, setShowConvertDialog] = React.useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = React.useState(false);
 
   // Fetch existing logs from Supabase
   useEffect(() => {
@@ -344,173 +352,53 @@ export default function LeadCard({ lead, onLeadConverted, onLeadDeleted, onActiv
   return (
     <>
       <Card
-        className={
-          `border border-[#CBCAC5] bg-white rounded-lg shadow-sm hover:shadow-md transition-all duration-300 flex flex-col h-full ${selectMode && selected ? 'ring-2 ring-[#97A487] ring-offset-2' : ''}`
-        }
-        onClick={selectMode ? onSelect : undefined}
-        style={selectMode ? { cursor: 'pointer' } : {}}
+        className={`border border-[#E5E3DF] bg-white rounded-sm shadow-sm hover:shadow-md transition-all duration-300 flex flex-col h-full p-4 ${selectMode && selected ? 'ring-2 ring-[#97A487] ring-offset-2' : ''}`}
+        onClick={selectMode ? onSelect : () => setIsDialogOpen(true)}
+        style={selectMode ? { cursor: 'pointer' } : { cursor: 'pointer' }}
       >
-        <CardHeader className="pb-3">
-          <div className="flex justify-between items-start gap-3">
-            <div className="flex-1 min-w-0">
-              <CardTitle className="text-lg font-semibold text-[#282828] truncate">
-                {lead.companyName}
-              </CardTitle>
-              <CardDescription className="text-sm text-[#5E6156] flex items-center mt-1">
-                <User className="mr-2 h-3.5 w-3.5 shrink-0" />
-                {lead.personName}
-              </CardDescription>
-            </div>
-            <Badge
-              variant={getStatusBadgeVariant(lead.status)}
-              className={`capitalize whitespace-nowrap text-xs font-medium px-2 py-1 ${getStatusBadgeColorClasses(lead.status)}`}
-            >
-              {lead.status}
-            </Badge>
-          </div>
-        </CardHeader>
-        
-        <CardContent className="flex-grow space-y-3 text-sm" onClick={selectMode ? undefined : () => setIsDialogOpen(true)} style={selectMode ? {} : { cursor: 'pointer' }}>
-          {lead.email && (
-            <div className="flex items-center text-[#5E6156]">
-              <Mail className="mr-2 h-3.5 w-3.5 shrink-0 text-[#C57E94]" />
-              <a href={`mailto:${lead.email}`} className="hover:text-[#C57E94] hover:underline truncate text-sm">
-                {lead.email}
-              </a>
-            </div>
-          )}
-          
-          {lead.phone && (
-            <div className="flex items-center text-[#5E6156]">
-              <Phone className="mr-2 h-3.5 w-3.5 shrink-0 text-[#4B7B9D]" />
-              <span className="text-sm">{lead.phone}</span>
-            </div>
-          )}
-          
-          {lead.country && (
-            <div className="flex items-center text-[#5E6156]">
-              <MapPin className="mr-2 h-3.5 w-3.5 shrink-0 text-[#998876]" />
-              <span className="text-sm">{lead.country}</span>
-            </div>
-          )}
-          
-          {role === 'admin' && assignedUser && (
-            <div className="flex items-center text-[#5E6156]">
-              <UserCheck className="mr-2 h-3.5 w-3.5 shrink-0 text-[#916D5B]" />
-              <span className="text-sm">Assigned to: {assignedUser}</span>
-            </div>
-          )}
-          
-          <div className="pt-2 space-y-1.5 border-t border-[#E5E3DF]">
-            <div className="text-xs text-[#998876] flex items-center">
-              <CalendarIcon className="mr-1.5 h-3 w-3 shrink-0" />
-              Created {formatDistanceToNow(new Date(lead.createdAt), { addSuffix: true })}
-            </div>
-            <div className="text-xs text-[#998876] flex items-center">
-              <Clock className="mr-1.5 h-3 w-3 shrink-0" />
-              Updated {formatDistanceToNow(new Date(lead.updatedAt), { addSuffix: true })}
+        <div className="flex flex-col gap-1">
+          <div className="flex items-start justify-between">
+            <div>
+              <div className="text-xl font-bold text-[#282828] leading-tight truncate">{lead.personName}</div>
+              <div className="text-base text-[#5E6156] font-medium mt-0.5 truncate">{lead.companyName}</div>
             </div>
           </div>
-        </CardContent>
-        
-        <CardFooter className="pt-3 border-t border-[#E5E3DF] mt-auto">
-          <div className="flex items-center justify-between w-full">
-            <Button 
-              variant="outline" 
-              size="sm" 
-              className="text-xs border-[#CBCAC5] text-[#5E6156] hover:bg-[#F8F7F3] hover:text-[#282828] rounded-md"
-              onClick={() => setIsViewDialogOpen(true)}
-            >
-              <Eye className="mr-1.5 h-3.5 w-3.5" />
-              View
-            </Button>
-            
-            <div className="flex items-center gap-2">
-              <TooltipProvider delayDuration={0}>
-                {canConvert && (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button 
-                        size="sm" 
-                        className="rounded-sm p-2 h-8 w-8 bg-[#998876] text-white hover:bg-[#998876]/80 border-0"
-                        onClick={() => setIsAddOpportunityOpen(true)}
-                      >
-                        <PlusCircle className="h-3.5 w-3.5" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent side="top" align="center">New Opportunity</TooltipContent>
-                  </Tooltip>
-                )}
-                
-                {canConvert ? (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button 
-                            size="sm" 
-                            variant="add" 
-                            className="rounded-sm p-2 h-8 w-8"
-                          >
-                            <CheckSquare className="h-3.5 w-3.5" />
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Convert Lead to Account?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              Are you sure you want to convert this lead to an account? This action cannot be undone and the lead will be moved to your accounts list.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction onClick={handleConvertLead} className="bg-[#2B2521] text-white rounded-md border-0 hover:bg-[#3a322c]">Convert</AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    </TooltipTrigger>
-                    <TooltipContent side="top" align="center">Convert Lead</TooltipContent>
-                  </Tooltip>
-                ) : (
-                  <Button size="sm" variant="outline" disabled className="rounded-sm p-2 h-8 w-8">
-                    {lead.status === "Lost" ? <FileWarning className="h-3.5 w-3.5" /> : <CheckSquare className="h-3.5 w-3.5" />}
-                  </Button>
-                )}
-                
-                {canConvert && (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button 
-                            size="sm" 
-                            variant="delete" 
-                            className="rounded-sm p-2 h-8 w-8"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Delete Lead?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              Are you sure you want to delete this lead? This action cannot be undone.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction onClick={handleDeleteLead} className="bg-[#916D5B] text-white rounded-md border-0 hover:bg-[#a98a77]">Delete</AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    </TooltipTrigger>
-                    <TooltipContent side="top" align="center">Delete</TooltipContent>
-                  </Tooltip>
-                )}
-              </TooltipProvider>
+          <div className="mt-3 text-sm font-medium text-[#5E6156]">Lead Score</div>
+          <div className="flex items-center gap-2 mt-1">
+            <div className="w-full bg-[#E5E3DF] rounded-full h-2 overflow-hidden">
+              <div className="h-2 rounded-full" style={{ width: '94%', backgroundImage: 'linear-gradient(to right, #DCCAC1, #B18D7B)' }} />
+            </div>
+            <div className="text-sm font-semibold text-[#282828] ml-2">94%</div>
+          </div>
+          <div className="mt-4 space-y-1.5 text-[15px]">
+            <div className="text-[#5E6156] truncate">
+              <span className="font-medium">Email: {lead.email} </span>
+            </div>
+            <div className="text-[#5E6156] truncate">
+              <span className="font-medium">Phone:</span> <span className="text-[#282828]">{lead.phone || 'N/A'}</span>
             </div>
           </div>
-        </CardFooter>
+        </div>
+        <div className="mt-6 border-t border-[#E5E3DF] pt-3 flex justify-center">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="w-full text-[#282828] font-semibold text-base py-2 rounded-md border-[#E5E3DF] bg-[#F8F7F3] hover:bg-[#EFEDE7] flex items-center justify-center gap-2 max-h-10">
+                <MoreHorizontal className="h-5 w-5 text-[#282828]" /> Actions
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="bg-[#fff] text-[#282828] p-1 rounded-xl border border-[#E5E3DF] shadow-xl min-w-[180px] sm:h-fit">
+              <DropdownMenuItem onClick={() => setIsAddOpportunityOpen(true)} className="min-h-[44px] text-[#282828] bg-[#fff] focus:bg-[#F8F7F3] focus:text-black flex items-center gap-2">
+                <PlusCircle className="h-5 w-5 text-[#282828]" /> Add Opportunity
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setShowConvertDialog(true)} disabled={lead.status === 'Converted to Account' || lead.status === 'Lost'} className="min-h-[44px] text-[#282828] bg-[#fff] focus:bg-[#F8F7F3] focus:text-black flex items-center gap-2">
+                <CheckSquare className="h-5 w-5 text-[#282828]" /> Convert to Account
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setShowDeleteDialog(true)} className="min-h-[44px] bg-[#fff] flex items-center gap-2 text-[#916D5B] focus:bg-[#F8F7F3] focus:text-[#916D5B]">
+                <Trash2 className="h-5 w-5 text-[#916D5B]" /> Delete Lead
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </Card>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -835,6 +723,36 @@ export default function LeadCard({ lead, onLeadConverted, onLeadDeleted, onActiv
         accountId={undefined}
         key={lead.id}
       />
+
+      <AlertDialog open={showConvertDialog} onOpenChange={setShowConvertDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Convert Lead to Account?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to convert this lead to an account? This action cannot be undone and the lead will be moved to your accounts list.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { setShowConvertDialog(false); handleConvertLead(); }} className="bg-[#2B2521] text-white rounded-md border-0 hover:bg-[#3a322c]">Convert</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Lead?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this lead? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { setShowDeleteDialog(false); handleDeleteLead(); }} className="bg-[#916D5B] text-white rounded-md border-0 hover:bg-[#a98a77]">Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
