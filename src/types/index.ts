@@ -18,6 +18,7 @@ export interface Account {
   contactPersonName?: string; // Added from lead conversion
   contactPhone?: string; // Added from lead conversion
   convertedFromLeadId?: string; // Track original lead
+  website?: string; // Optional website property for accounts
 }
 
 export interface Lead {
@@ -35,9 +36,9 @@ export interface Lead {
   updatedAt: string;
   assignedUserId?: string; // NEW: user assignment
   rejectionReasons?: string[]; // Reasons why the lead was rejected
-  website?: string;
-  industry?: string;
-  jobTitle?: string;
+  website?: string; // Optional website property for leads
+  jobTitle?: string; // Job title of the contact person
+  industry?: string; // Industry of the company
 }
 
 export interface Opportunity {

@@ -22,6 +22,7 @@ import { Label } from '@/components/ui/label';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
+import AccountModal from './AccountModal';
 
 interface AccountCardProps {
   account: Account;
@@ -43,7 +44,7 @@ export default function AccountCard({ account, view = 'grid', onNewOpportunity, 
   const [dailySummary, setDailySummary] = useState<AIDailySummary | null>(null);
   const [isLoadingSummary, setIsLoadingSummary] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
   const [logs, setLogs] = useState<Update[]>([]);
   const [updateType, setUpdateType] = useState<UpdateType | ''>('');
   const [updateContent, setUpdateContent] = useState('');
@@ -313,7 +314,7 @@ export default function AccountCard({ account, view = 'grid', onNewOpportunity, 
             {account.industry && <span className="text-xs">{account.industry}</span>}
         </CardDescription>
       </CardHeader>
-      <CardContent className="flex-grow space-y-3 text-sm" onClick={() => setDialogOpen(true)} style={{ cursor: 'pointer' }}>
+      <CardContent className="flex-grow space-y-3 text-sm" onClick={() => setModalOpen(true)} style={{ cursor: 'pointer' }}>
         <p className="text-muted-foreground line-clamp-2">{account.description || 'N/A'}</p>
         
         <div className="flex items-center text-muted-foreground">
@@ -374,7 +375,7 @@ export default function AccountCard({ account, view = 'grid', onNewOpportunity, 
                   className="rounded-[4px] p-2 mr-auto"
                   onClick={e => {
                     e.stopPropagation();
-                    setDialogOpen(true);
+                    setModalOpen(true);
                   }}
                 >
                   <Eye className="h-4 w-4" />
@@ -388,7 +389,7 @@ export default function AccountCard({ account, view = 'grid', onNewOpportunity, 
               <Button size="sm" variant="add" className="rounded-[4px] p-2" onClick={e => {
                 e.stopPropagation();
                 if (typeof onNewOpportunity === 'function') {
-                  setDialogOpen(false); // Ensure details dialog is closed
+                  setModalOpen(false); // Ensure details dialog is closed
                   onNewOpportunity();
                 }
               }}><PlusCircle className="h-4 w-4" /></Button>
@@ -419,254 +420,7 @@ export default function AccountCard({ account, view = 'grid', onNewOpportunity, 
           </Tooltip>
         </TooltipProvider>
       </CardFooter>
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-xl bg-white" onClick={e => e.stopPropagation()}>
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              {editMode ? (
-                <Input
-                  value={editAccount.name}
-                  onChange={e => handleEditChange('name', e.target.value)}
-                  className="font-bold text-3xl border-none bg-transparent px-0 focus:ring-0 focus:outline-none"
-                  placeholder="Account Name"
-                />
-              ) : (
-                <span className="font-bold text-3xl">{editAccount.name}</span>
-              )}
-              {!editMode && (
-                <Button variant="ghost" size="icon" className="ml-2" onClick={() => setEditMode(true)}>
-                  <Pencil className="h-5 w-5" />
-                </Button>
-              )}
-            </DialogTitle>
-            <div className="flex flex-col gap-2 mt-2">
-              <div className="flex flex-col gap-1">
-                <span className="font-semibold text-[#55504C]">Contact Person:</span>
-                {editMode ? (
-                  <Input
-                    value={editAccount.contactPersonName}
-                    onChange={e => handleEditChange('contactPersonName', e.target.value)}
-                    className="border border-muted/30 bg-[#EFEDE7] px-2 py-1 rounded focus:ring-0 focus:outline-none"
-                    placeholder="Contact Person"
-                  />
-                ) : (
-                  <span className="text-[#282828]">{editAccount.contactPersonName || 'N/A'}</span>
-                )}
-              </div>
-              <div className="flex flex-col gap-1">
-                <span className="font-semibold text-[#55504C]">Email:</span>
-                {editMode ? (
-                  <Input
-                    value={editAccount.contactEmail}
-                    onChange={e => handleEditChange('contactEmail', e.target.value)}
-                    className="border border-muted/30 bg-[#EFEDE7] px-2 py-1 rounded focus:ring-0 focus:outline-none"
-                    placeholder="Email"
-                  />
-                ) : (
-                  <span className="text-[#282828]">{editAccount.contactEmail || 'N/A'}</span>
-                )}
-              </div>
-              <div className="flex flex-col gap-1">
-                <span className="font-semibold text-[#55504C]">Phone:</span>
-                {editMode ? (
-                  <Input
-                    value={editAccount.contactPhone}
-                    onChange={e => handleEditChange('contactPhone', e.target.value)}
-                    className="border border-muted/30 bg-[#EFEDE7] px-2 py-1 rounded focus:ring-0 focus:outline-none"
-                    placeholder="Phone"
-                  />
-                ) : (
-                  <span className="text-[#282828]">{editAccount.contactPhone || 'N/A'}</span>
-                )}
-              </div>
-              <div className="flex flex-col gap-1">
-                <span className="font-semibold text-[#55504C]">Industry:</span>
-                {editMode ? (
-                  <Select value={editAccount.industry} onValueChange={value => handleEditChange('industry', value)}>
-                    <SelectTrigger className="border border-muted/30 bg-[#EFEDE7] px-2 py-1 rounded focus:ring-0 focus:outline-none">
-                      <SelectValue placeholder="Select industry" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Technology">Technology</SelectItem>
-                      <SelectItem value="Consulting">Consulting</SelectItem>
-                      <SelectItem value="Manufacturing">Manufacturing</SelectItem>
-                      <SelectItem value="Finance">Finance</SelectItem>
-                      <SelectItem value="Healthcare">Healthcare</SelectItem>
-                      <SelectItem value="Education">Education</SelectItem>
-                      <SelectItem value="Retail">Retail</SelectItem>
-                      <SelectItem value="Other">Other</SelectItem>
-                    </SelectContent>
-                  </Select>
-                ) : (
-                  <span className="text-[#282828]">{editAccount.industry || 'N/A'}</span>
-                )}
-              </div>
-              <div className="flex flex-col gap-1">
-                <span className="font-semibold text-[#55504C]">Description:</span>
-                {editMode ? (
-                  <Textarea
-                    value={editAccount.description}
-                    onChange={e => handleEditChange('description', e.target.value)}
-                    className="border border-muted/30 bg-[#EFEDE7] px-2 py-1 rounded focus:ring-0 focus:outline-none min-h-[60px]"
-                    placeholder="Description"
-                  />
-                ) : (
-                  <span className="text-[#282828]">{editAccount.description || 'N/A'}</span>
-                )}
-              </div>
-              {editMode && role === 'admin' && (
-                <div className="flex flex-col gap-1">
-                  <span className="font-semibold text-[#55504C]">Assigned To:</span>
-                  <Select value={editOwnerId} onValueChange={setEditOwnerId}>
-                    <SelectTrigger className="border border-muted/30 bg-[#EFEDE7] px-2 py-1 rounded focus:ring-0 focus:outline-none">
-                      <SelectValue placeholder="Select user" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {users.map(user => (
-                        <SelectItem key={user.id} value={user.id}>{user.name} ({user.email})</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-            </div>
-          </DialogHeader>
-          <div className="mt-4">
-            {!editMode && logs.length > 0 && (
-              <>
-                <div className="text-xs font-semibold text-muted-foreground uppercase mb-1">Activity Updates</div>
-                <div className="relative">
-                  <div className="space-y-2 max-h-36 overflow-y-auto pr-1">
-                    {logs.map((log, idx) => (
-                      <div key={log.id} className="flex items-start space-x-3 p-3 rounded-r-lg bg-[#9A8A744c] border-l-4 border-muted">
-                        <div className="flex-shrink-0 mt-1">
-                          {getUpdateTypeIcon(log.type)}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between mb-1">
-                            <p className="text-sm font-medium text-foreground line-clamp-2">
-                              {log.content}
-                            </p>
-                            <span className="text-xs text-muted-foreground ml-2">
-                              {format(new Date(log.date), 'MMM dd')}
-                            </span>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <Badge variant="outline" className="text-xs">{log.type}</Badge>
-                            {log.nextActionDate && (
-                              <span className="text-xs text-blue-600 font-medium">
-                                Next: {format(parseISO(log.nextActionDate), 'MMM dd, yyyy')}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  {/* Gradient overlay at the bottom, only if more than one log */}
-                  {logs.length > 2 && (
-                    <div className="pointer-events-none absolute left-0 right-0 bottom-0 h-8" style={{background: 'linear-gradient(to bottom, transparent, #fff 90%)'}} />
-                  )}
-                </div>
-              </>
-            )}
-            {editMode ? (
-              <div className="flex justify-end gap-2 mt-4">
-                <Button variant="outline" onClick={handleCancelEdit}>Cancel</Button>
-                <Button variant="add" onClick={handleSaveEdit}>Save</Button>
-              </div>
-            ) : (
-              <form className="space-y-4 mt-3" onSubmit={(e) => e.preventDefault()}>
-                <div className="flex flex-col md:flex-row gap-2">
-                  <div className="flex-1 min-w-0">
-                    <Label htmlFor="update-type">Update Type *</Label>
-                    <Select value={updateType} onValueChange={value => setUpdateType(value as UpdateType)}>
-                      <SelectTrigger id="update-type" className="w-full mt-1">
-                        <SelectValue placeholder="Select update type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="General">General</SelectItem>
-                        <SelectItem value="Call">Call</SelectItem>
-                        <SelectItem value="Meeting">Meeting</SelectItem>
-                        <SelectItem value="Email">Email</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <Label htmlFor="update-date">Date *</Label>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Input
-                          id="update-date"
-                          type="text"
-                          value={updateDate ? format(updateDate, 'dd/MM/yyyy') : ''}
-                          placeholder="dd/mm/yyyy"
-                          readOnly
-                          className="mt-1 cursor-pointer bg-white"
-                        />
-                      </PopoverTrigger>
-                      <PopoverContent align="start" className="p-0 w-auto border-none bg-[#CFD4C9] rounded-sm">
-                        <Calendar
-                          mode="single"
-                          selected={updateDate}
-                          onSelect={setUpdateDate}
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-                </div>
-                <div className="flex flex-col md:flex-row gap-2">
-                  <div className="flex-1 min-w-0">
-                    <Label htmlFor="next-action-date">Next Action Date (Optional)</Label>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Input
-                          id="next-action-date"
-                          type="text"
-                          value={nextActionDate ? format(nextActionDate, 'dd/MM/yyyy') : ''}
-                          placeholder="dd/mm/yyyy (optional)"
-                          readOnly
-                          className="mt-1 cursor-pointer bg-white"
-                        />
-                      </PopoverTrigger>
-                      <PopoverContent align="start" className="p-0 w-auto border-none bg-[#CFD4C9] rounded-sm">
-                        <Calendar
-                          mode="single"
-                          selected={nextActionDate}
-                          onSelect={setNextActionDate}
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-                </div>
-                <div>
-                  <Label htmlFor="update-content">Content *</Label>
-                  <Textarea
-                    id="update-content"
-                    value={updateContent}
-                    onChange={e => setUpdateContent(e.target.value)}
-                    placeholder="Describe the call, meeting, email, or general update..."
-                    className="min-h-[80px] resize-none"
-                  />
-                </div>
-                <DialogFooter>
-                  <Button 
-                    type="button" 
-                    variant="add" 
-                    className="w-full mt-2" 
-                    onClick={handleLogUpdate} 
-                    disabled={isLogging || !updateType || !updateContent.trim() || !updateDate}
-                  >
-                    {isLogging ? 'Adding...' : 'Add Activity'}
-                  </Button>
-                </DialogFooter>
-              </form>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
+      <AccountModal accountId={account.id} open={modalOpen} onClose={() => setModalOpen(false)} />
     </Card>
   );
 }
