@@ -21,6 +21,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/supabaseClient';
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const leadStatusOptions: LeadStatus[] = ["New", "Contacted", "Qualified", "Proposal Sent", "Lost"];
 
@@ -49,14 +50,83 @@ export default function LeadsPage() {
   const [isBulkAssigning, setIsBulkAssigning] = useState(false);
   const [isBulkDeleteDialogOpen, setIsBulkDeleteDialogOpen] = useState(false);
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+  const [isLoadingLeads, setIsLoadingLeads] = useState(true);
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [currentRejectedPage, setCurrentRejectedPage] = useState(1);
   const ITEMS_PER_PAGE = 16;
 
+  const [leadEnrichments, setLeadEnrichments] = useState<Record<string, { leadScore?: number; recommendations?: string[]; pitchNotes?: string; useCase?: string } | undefined>>({});
+  const [loadingEnrichments, setLoadingEnrichments] = useState<Record<string, boolean>>({});
+
+  // LeadCardSkeleton component
+  const LeadCardSkeleton = () => (
+    <div className="bg-white border border-[#E5E3DF] rounded-lg p-6 hover:shadow-md transition-shadow duration-200 cursor-pointer">
+      {/* Header */}
+      <div className="flex items-start justify-between mb-4">
+        <div className="flex-1">
+          <Skeleton className="h-6 w-3/4 mb-2" /> {/* Company name */}
+          <Skeleton className="h-4 w-1/2" /> {/* Person name */}
+        </div>
+        <Skeleton className="h-6 w-16 rounded-full" /> {/* Status badge */}
+      </div>
+
+      {/* Contact info */}
+      <div className="space-y-2 mb-4">
+        <div className="flex items-center gap-2">
+          <Skeleton className="h-4 w-4" /> {/* Email icon */}
+          <Skeleton className="h-4 w-2/3" /> {/* Email */}
+        </div>
+        <div className="flex items-center gap-2">
+          <Skeleton className="h-4 w-4" /> {/* Phone icon */}
+          <Skeleton className="h-4 w-1/2" /> {/* Phone */}
+        </div>
+        <div className="flex items-center gap-2">
+          <Skeleton className="h-4 w-4" /> {/* Country icon */}
+          <Skeleton className="h-4 w-1/3" /> {/* Country */}
+        </div>
+      </div>
+
+      {/* Lead Score */}
+      <div className="mb-4">
+        <Skeleton className="h-4 w-20 mb-2" /> {/* "Lead Score" text */}
+        <div className="flex items-center gap-2">
+          <Skeleton className="h-2 flex-1 rounded-full" /> {/* Progress bar */}
+          <Skeleton className="h-4 w-8" /> {/* Percentage */}
+        </div>
+      </div>
+
+      {/* Additional info */}
+      <div className="space-y-2 mb-4">
+        <div className="flex items-center gap-2">
+          <Skeleton className="h-4 w-4" /> {/* Website icon */}
+          <Skeleton className="h-4 w-1/2" /> {/* Website */}
+        </div>
+        <div className="flex items-center gap-2">
+          <Skeleton className="h-4 w-4" /> {/* Industry icon */}
+          <Skeleton className="h-4 w-1/3" /> {/* Industry */}
+        </div>
+        <div className="flex items-center gap-2">
+          <Skeleton className="h-4 w-4" /> {/* Job title icon */}
+          <Skeleton className="h-4 w-2/3" /> {/* Job title */}
+        </div>
+      </div>
+
+      {/* Actions */}
+      <div className="flex items-center justify-between pt-4 border-t border-[#E5E3DF]">
+        <Skeleton className="h-8 w-20" /> {/* Generate Email button */}
+        <div className="flex gap-2">
+          <Skeleton className="h-8 w-8 rounded" /> {/* Edit button */}
+          <Skeleton className="h-8 w-8 rounded" /> {/* More button */}
+        </div>
+      </div>
+    </div>
+  );
+
   useEffect(() => {
     const fetchLeadsAndUsers = async () => {
+      setIsLoadingLeads(true);
       const localUserId = localStorage.getItem('user_id');
       setUserId(localUserId || '');
       // Fetch user role
@@ -89,7 +159,6 @@ export default function LeadsPage() {
           updatedAt: lead.updated_at || new Date().toISOString(),
           assignedUserId: lead.owner_id || '',
           rejectionReasons: [], // Not implemented yet
-          website: lead.website || '',
           industry: lead.industry || '',
           jobTitle: lead.job_title || '',
         }));
@@ -97,6 +166,7 @@ export default function LeadsPage() {
       } else {
         setLeads([]);
       }
+      setIsLoadingLeads(false);
     };
     fetchLeadsAndUsers();
   }, [isAddLeadDialogOpen]);
@@ -503,8 +573,6 @@ export default function LeadsPage() {
       'linkedin': 'linkedinProfileUrl', 'linkedinprofile': 'linkedinProfileUrl', 'linkedin profile': 'linkedinProfileUrl', 'linkedinurl': 'linkedinProfileUrl', 'linkedin url': 'linkedinProfileUrl', 'linkedinprofileurl': 'linkedinProfileUrl', 'linkedin profile url': 'linkedinProfileUrl',
       // Country
       'country': 'country', 'location': 'country', 'region': 'country', 'nation': 'country', 'state': 'country', 'province': 'country', 'territory': 'country', 'countryregion': 'country', 'country region': 'country', 'country/region': 'country',
-      // Website
-      'website': 'website', 'web': 'website', 'company website': 'website', 'site': 'website',
       // Industry
       'industry': 'industry', 'sector': 'industry', 'business type': 'industry',
       // Job Title
@@ -834,6 +902,37 @@ export default function LeadsPage() {
     });
   };
 
+  // Add the useEffect here, after paginatedLeads is defined
+  useEffect(() => {
+    // Fetch enrichment for all paginated leads
+    paginatedLeads.forEach((lead) => {
+      if (leadEnrichments[lead.id] === undefined && !loadingEnrichments[lead.id]) {
+              setLoadingEnrichments(prev => ({ ...prev, [lead.id]: true }));
+      (async () => {
+        try {
+          const { data } = await supabase
+            .from('aianalysis')
+            .select('ai_output')
+            .eq('entity_type', 'Lead')
+            .eq('entity_id', lead.id)
+            .eq('analysis_type', 'enrichment')
+            .eq('status', 'success')
+            .order('last_refreshed_at', { ascending: false })
+            .limit(1)
+            .single();
+          setLeadEnrichments(prev => ({ ...prev, [lead.id]: data?.ai_output || null }));
+        } catch (error: any) {
+          // Handle error silently
+          console.error('Error fetching enrichment:', error);
+        } finally {
+          setLoadingEnrichments(prev => ({ ...prev, [lead.id]: false }));
+        }
+      })();
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paginatedLeads]);
+
   return (
     <div className="max-w-[1440px] px-4 mx-auto w-full space-y-6 pb-6">
       <PageTitle title="Lead Management" subtitle="Track and manage potential clients.">
@@ -1009,7 +1108,14 @@ export default function LeadsPage() {
       {rejectedLeads.length === 0 ? (
         /* No rejected leads - show leads directly */
         <div className="mt-6">
-      {filteredLeads.length > 0 ? (
+      {isLoadingLeads ? (
+        // Show skeleton cards during initial loading
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {Array.from({ length: 8 }, (_, i) => (
+            <LeadCardSkeleton key={i} />
+          ))}
+        </div>
+      ) : filteredLeads.length > 0 ? (
         view === 'list' ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {paginatedLeads.map((lead) => (
@@ -1029,6 +1135,8 @@ export default function LeadsPage() {
               onSelect={() => handleSelectLead(lead.id)}
               users={users}
               role={role}
+              enrichmentData={leadEnrichments[lead.id]}
+              isEnrichmentLoading={loadingEnrichments[lead.id]}
             />
           ))}
         </div>
@@ -1208,7 +1316,7 @@ export default function LeadsPage() {
           )}
           
           {/* Pagination for leads */}
-          {filteredLeads.length > ITEMS_PER_PAGE && (
+          {!isLoadingLeads && filteredLeads.length > ITEMS_PER_PAGE && (
             <div className="mt-6 flex justify-center">
               <Pagination>
                 <PaginationContent>
@@ -1282,7 +1390,14 @@ export default function LeadsPage() {
           {/* Accepted Leads Tab Content */}
           {activeTab === 'leads' && (
             <div className="mt-6">
-              {filteredLeads.length > 0 ? (
+              {isLoadingLeads ? (
+                // Show skeleton cards during initial loading
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {Array.from({ length: 6 }, (_, i) => (
+                    <LeadCardSkeleton key={i} />
+                  ))}
+                </div>
+              ) : filteredLeads.length > 0 ? (
                 view === 'list' ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {paginatedLeads.map((lead) => (
@@ -1302,6 +1417,8 @@ export default function LeadsPage() {
                         onSelect={() => handleSelectLead(lead.id)}
                         users={users}
                         role={role}
+                        enrichmentData={leadEnrichments[lead.id]}
+                        isEnrichmentLoading={loadingEnrichments[lead.id]}
                       />
                     ))}
                   </div>
@@ -1481,7 +1598,7 @@ export default function LeadsPage() {
               )}
               
               {/* Pagination for accepted leads in tabbed view */}
-              {filteredLeads.length > ITEMS_PER_PAGE && (
+              {!isLoadingLeads && filteredLeads.length > ITEMS_PER_PAGE && (
                 <div className="mt-6 flex justify-center">
                   <Pagination>
                     <PaginationContent>

@@ -9,7 +9,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "lead-enrichment-cron": "tsx src/jobs/lead-enrichment-cron.ts"
   },
   "dependencies": {
     "@fontsource/fustat": "^5.2.6",
@@ -47,6 +48,7 @@
     "genkit": "^1.8.0",
     "lucide-react": "^0.475.0",
     "next": "15.3.3",
+    "node-cron": "^4.2.0",
     "node-fetch": "^3.3.2",
     "openai": "^5.8.2",
     "patch-package": "^8.0.0",
@@ -65,6 +67,7 @@
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "@types/recharts": "^1.8.29",
+    "@types/uuid": "^10.0.0",
     "eslint": "9.29.0",
     "eslint-config-next": "15.3.4",
     "genkit-cli": "^1.8.0",

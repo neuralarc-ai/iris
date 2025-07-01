@@ -44,6 +44,8 @@ interface LeadCardProps {
   onStatusChange?: (newStatus: LeadStatus) => void;
   users?: Array<{ id: string; name: string; email: string }>;
   role?: string;
+  enrichmentData?: { leadScore?: number; recommendations?: string[]; pitchNotes?: string; useCase?: string };
+  isEnrichmentLoading?: boolean;
 }
 
 // Add type for editLead state
@@ -97,7 +99,7 @@ const getUpdateTypeIcon = (type: Update['type']) => {
   }
 };
 
-export default function LeadCard({ lead, onLeadConverted, onLeadDeleted, onActivityLogged, selectMode = false, selected = false, onSelect, assignedUser, onStatusChange, users = [], role }: LeadCardProps) {
+export default function LeadCard({ lead, onLeadConverted, onLeadDeleted, onActivityLogged, selectMode = false, selected = false, onSelect, assignedUser, onStatusChange, users = [], role, enrichmentData, isEnrichmentLoading }: LeadCardProps) {
   const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = React.useState(false);
   const [updateType, setUpdateType] = React.useState('');
@@ -130,18 +132,12 @@ export default function LeadCard({ lead, onLeadConverted, onLeadDeleted, onActiv
   const [nextActionDate, setNextActionDate] = React.useState<Date | undefined>(undefined);
   const [showConvertDialog, setShowConvertDialog] = React.useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = React.useState(false);
-  const [enrichmentData, setEnrichmentData] = React.useState<{
-    recommendations: string[];
-    pitchNotes: string;
-    useCase: string;
-    leadScore?: number;
-  } | null>(null);
-  const [isLoadingEnrichment, setIsLoadingEnrichment] = React.useState(false);
   const [isFutureActivity, setIsFutureActivity] = React.useState(false);
   const [activeTab, setActiveTab] = React.useState('overview');
   const [emailTabContent, setEmailTabContent] = React.useState<string | null>(null);
   const [isGeneratingEmail, setIsGeneratingEmail] = React.useState(false);
   const [currentUser, setCurrentUser] = React.useState<{ name: string; email: string } | null>(null);
+  const [isEnrichingLead, setIsEnrichingLead] = React.useState(false);
 
   const completenessFields = [lead.companyName, lead.personName, lead.email, lead.phone, lead.country];
   const filledFields = completenessFields.filter(Boolean).length;
@@ -183,36 +179,6 @@ export default function LeadCard({ lead, onLeadConverted, onLeadDeleted, onActiv
   useEffect(() => {
     setEditStatus(lead.status);
   }, [lead.status]);
-
-  // Move fetchEnrichmentData outside useEffect so it can be called from the Refresh button
-  const fetchEnrichmentData = async () => {
-    if (isDialogOpen && !enrichmentData && currentUser) {
-      setIsLoadingEnrichment(true);
-      try {
-        const response = await fetch('/api/lead-enrichment', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ lead, user: currentUser }),
-        });
-        const data = await response.json();
-        setEnrichmentData({
-          recommendations: data.recommendations,
-          pitchNotes: data.pitchNotes,
-          useCase: data.useCase,
-          leadScore: data.leadScore,
-        });
-      } catch (error) {
-        console.error('Failed to fetch lead enrichment data:', error);
-      } finally {
-        setIsLoadingEnrichment(false);
-      }
-    }
-  };
-
-  useEffect(() => {
-    fetchEnrichmentData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isDialogOpen, currentUser]);
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -515,6 +481,53 @@ Best regards,\n${currentUser?.name || '[Your Name]'}\n${userCompany.name}\n${cur
     });
   };
 
+  // Trigger lead enrichment when dialog opens and no score exists
+  const triggerLeadEnrichment = async () => {
+    if (enrichmentData?.leadScore !== undefined || isEnrichingLead) {
+      return; // Already enriched or currently enriching
+    }
+
+    setIsEnrichingLead(true);
+    try {
+      const response = await fetch('/api/lead-enrichment', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          leadId: lead.id,
+          triggerEnrichment: true,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to enrich lead');
+      }
+
+      const data = await response.json();
+      
+      // Show success message
+      toast({
+        title: 'Lead Enriched',
+        description: `AI analysis completed for ${lead.companyName}. Lead score: ${data.leadScore}%`,
+        className: "bg-green-100 dark:bg-green-900 border-green-500"
+      });
+
+      // Trigger a page refresh to show the new enrichment data
+      window.location.reload();
+      
+    } catch (error) {
+      console.error('Error enriching lead:', error);
+      toast({
+        title: 'Enrichment Failed',
+        description: 'Failed to enrich lead. Please try again.',
+        variant: "destructive"
+      });
+    } finally {
+      setIsEnrichingLead(false);
+    }
+  };
+
   // Copy email content to clipboard
   const handleCopyEmail = () => {
     if (emailTabContent) {
@@ -552,6 +565,13 @@ Best regards,\n${currentUser?.name || '[Your Name]'}\n${userCompany.name}\n${cur
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
 
+  // Trigger enrichment when dialog opens and no lead score exists
+  React.useEffect(() => {
+    if (isDialogOpen && enrichmentData?.leadScore === undefined && !isEnrichingLead && !isEnrichmentLoading) {
+      triggerLeadEnrichment();
+    }
+  }, [isDialogOpen, enrichmentData?.leadScore, isEnrichingLead, isEnrichmentLoading]);
+
   return (
     <>
       <Card
@@ -569,9 +589,21 @@ Best regards,\n${currentUser?.name || '[Your Name]'}\n${userCompany.name}\n${cur
           <div className="mt-3 text-sm font-medium text-[#5E6156]">Lead Score</div>
           <div className="flex items-center gap-2 mt-1">
             <div className="w-full bg-[#E5E3DF] rounded-full h-2 overflow-hidden">
-              <div className="h-2 rounded-full" style={{ width: '94%', backgroundImage: 'linear-gradient(to right, #3987BE, #D48EA3)' }} />
+              {isEnrichmentLoading ? (
+                <Skeleton className="h-2 w-full rounded-full" />
+              ) : (
+                <div
+                  className="h-2 rounded-full"
+                  style={{
+                    width: `${enrichmentData?.leadScore !== undefined ? enrichmentData.leadScore : 0}%`,
+                    backgroundImage: 'linear-gradient(to right, #3987BE, #D48EA3)',
+                  }}
+                />
+              )}
             </div>
-            <div className="text-sm font-semibold text-[#282828] ml-2">94%</div>
+            <div className="text-sm font-semibold text-[#282828] ml-2">
+              {isEnrichmentLoading ? <Skeleton className="h-4 w-8 rounded" /> : enrichmentData?.leadScore !== undefined ? `${enrichmentData.leadScore}%` : '--%'}
+            </div>
           </div>
           <div className="mt-4 space-y-1.5 text-[15px]">
             <div className="text-[#5E6156] truncate">
@@ -667,20 +699,33 @@ Best regards,\n${currentUser?.name || '[Your Name]'}\n${userCompany.name}\n${cur
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  {editMode ? (
-                    <Select value={editLead.status} onValueChange={val => handleEditChange('status', val)}>
-                      <SelectTrigger className="w-[180px] sm:w-fit border-[#E5E3DF] mr-6">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="sm:w-fit">
-                        {["New", "Contacted", "Qualified", "Proposal Sent", "Converted to Account", "Lost", "Rejected"].map(status => (
-                          <SelectItem key={status} value={status} className="sm:w-fit">{status}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <Badge className={`text-xs mr-6 ${getStatusBadgeColorClasses(lead.status)}`}>{lead.status}</Badge>
-                  )}
+                  <Select value={editStatus} onValueChange={async (val) => {
+                    setEditStatus(val as LeadStatus);
+                    setIsUpdatingStatus(true);
+                    try {
+                      const { error } = await supabase
+                        .from('lead')
+                        .update({ status: val })
+                        .eq('id', lead.id);
+                      if (error) throw error;
+                      toast({ title: 'Status updated', description: `Lead status changed to ${val}.` });
+                      if (onStatusChange) onStatusChange(val as LeadStatus);
+                    } catch (error) {
+                      toast({ title: 'Error', description: error instanceof Error ? error.message : 'Failed to update status.', variant: 'destructive' });
+                    } finally {
+                      setIsUpdatingStatus(false);
+                    }
+                  }} disabled={isUpdatingStatus}>
+                    <SelectTrigger className="gap-2 sm:w-fit border-[#E5E3DF] mr-6">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="sm:w-fit">
+                      {["New", "Contacted", "Qualified", "Proposal Sent", "Converted to Account", "Lost", "Rejected"].map(status => (
+                        <SelectItem key={status} value={status} className="w-full">{status}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {isUpdatingStatus && <span className="ml-2 text-xs text-[#998876]">Updating...</span>}
                 </div>
               </div>
             </DialogHeader>
@@ -817,16 +862,27 @@ Best regards,\n${currentUser?.name || '[Your Name]'}\n${userCompany.name}\n${cur
                       <div>
                         <div className="flex justify-between items-center mb-1">
                           <p className="text-sm text-[#5E6156]">Lead Score</p>
-                          <p className="text-sm font-semibold text-[#282828]">{enrichmentData?.leadScore !== undefined ? `${enrichmentData.leadScore}/100` : '--/100'}</p>
+                          <p className="text-sm font-semibold text-[#282828]">
+                            {isEnrichingLead ? (
+                              <span className="flex items-center gap-2">
+                                <RefreshCw className="h-3 w-3 animate-spin" />
+                                Analyzing...
+                              </span>
+                            ) : enrichmentData?.leadScore !== undefined ? `${enrichmentData.leadScore}/100` : '--/100'}
+                          </p>
                         </div>
                         <div className="w-full bg-[#E5E3DF] rounded-full h-2.5">
-                          <div
-                            className="h-2.5 rounded-full"
-                            style={{
-                              width: `${enrichmentData?.leadScore !== undefined ? enrichmentData.leadScore : 0}%`,
-                              backgroundImage: 'linear-gradient(to right, #3987BE, #D48EA3)',
-                            }}
-                          ></div>
+                          {isEnrichingLead ? (
+                            <Skeleton className="h-2.5 w-full rounded-full" />
+                          ) : (
+                            <div
+                              className="h-2.5 rounded-full"
+                              style={{
+                                width: `${enrichmentData?.leadScore !== undefined ? enrichmentData.leadScore : 0}%`,
+                                backgroundImage: 'linear-gradient(to right, #3987BE, #D48EA3)',
+                              }}
+                            ></div>
+                          )}
                         </div>
                       </div>
                       <div className="mt-6 space-y-4">
@@ -835,32 +891,28 @@ Best regards,\n${currentUser?.name || '[Your Name]'}\n${userCompany.name}\n${cur
                           <button
                             className="ml-auto px-2 py-1 text-xs rounded bg-[#E5E3DF] hover:bg-[#d4d2ce] text-[#3987BE] font-medium border border-[#C7C7C7]"
                             onClick={async () => {
-                              setIsLoadingEnrichment(true);
-                              try {
-                                await fetch('/api/lead-enrichment?refresh=true', {
-                                  method: 'POST',
-                                  headers: { 'Content-Type': 'application/json' },
-                                  body: JSON.stringify({ lead, user: currentUser }),
-                                });
-                                // Wait a moment for the job to be picked up, then re-fetch
-                                setTimeout(fetchEnrichmentData, 2000);
-                              } catch (e) {
-                                // Optionally show error toast
-                              } finally {
-                                setIsLoadingEnrichment(false);
-                              }
+                              setIsGeneratingEmail(true);
+                              setEmailTabContent(null);
+                              const email = await generateProfessionalEmail();
+                              setEmailTabContent(email);
                             }}
-                            disabled={isLoadingEnrichment}
+                            disabled={isGeneratingEmail}
                             title="Refresh AI analysis"
                           >
-                            {isLoadingEnrichment ? 'Refreshing...' : 'Refresh'}
+                            {isGeneratingEmail ? 'Regenerating...' : 'Regenerate'}
                           </button>
                         </div>
-                        {isLoadingEnrichment ? (
-                          <div className="space-y-2">
-                            <Skeleton className="h-6 w-3/4 rounded-md" />
-                            <Skeleton className="h-10 w-full rounded-md" />
-                            <Skeleton className="h-10 w-full rounded-md" />
+                        {isGeneratingEmail ? (
+                          <div className="space-y-4 min-h-[220px]">
+                            <Skeleton className="h-8 w-1/3 rounded-md mb-2" />
+                            <Skeleton className="h-8 w-2/3 rounded-md mb-2" />
+                            <div className="flex gap-2">
+                              <Skeleton className="h-6 w-24 rounded-full" />
+                              <Skeleton className="h-6 w-20 rounded-full" />
+                              <Skeleton className="h-6 w-28 rounded-full" />
+                            </div>
+                            <Skeleton className="h-16 w-full rounded-md mb-2" />
+                            <Skeleton className="h-16 w-full rounded-md" />
                           </div>
                         ) : enrichmentData ? (
                           <>
@@ -873,13 +925,13 @@ Best regards,\n${currentUser?.name || '[Your Name]'}\n${userCompany.name}\n${cur
                                   ))}
                               </div>
                             </div>
-                            <div className="bg-[#F8F7F3] p-3 rounded-md mb-2 h-full min-h-[140px] max-h-[160px] flex flex-col justify-start overflow-y-auto" style={{ maxHeight: '120px' }}>
+                            <div className="bg-[#F8F7F3] p-3 rounded-md mb-2 h-full flex flex-col justify-start overflow-y-auto">
                               <p className="text-sm text-[#5E6156] mb-2 font-semibold flex items-center gap-1.5"><FileTextIcon className="h-5 w-5" /> Pitch Notes</p>
-                              <p className="text-sm text-[#5E6156]">{enrichmentData.pitchNotes}</p>
+                              <p className="text-sm text-[#5E6156] max-h-[160px] ">{enrichmentData.pitchNotes}</p>
                             </div>
-                            <div className="bg-[#F8F7F3] p-3 rounded-md h-full min-h-[140px] max-h-[160px] flex flex-col justify-start overflow-y-auto" style={{ maxHeight: '120px' }}>
+                            <div className="bg-[#F8F7F3] p-3 rounded-md h-full min-h-[140px] max-h-[160px] flex flex-col justify-start overflow-y-auto">
                               <p className="text-sm text-[#5E6156] mb-2 font-semibold flex items-center gap-1.5"><Lightbulb className="h-5 w-5" /> Use Case</p>
-                              <p className="text-sm text-[#5E6156]">{enrichmentData.useCase}</p>
+                              <p className="text-sm text-[#5E6156] max-h-[160px]">{enrichmentData.useCase}</p>
                             </div>
                           </>
                         ) : (
@@ -1024,9 +1076,9 @@ Best regards,\n${currentUser?.name || '[Your Name]'}\n${userCompany.name}\n${cur
                     </form>
                    </div>
                   <div className="md:col-span-1 bg-white border border-[#E5E3DF] rounded-lg p-6">
-                    {!editMode && logs.length > 0 && (
+                    <div className="text-sm font-semibold text-[#5E6156] uppercase tracking-wide mb-3">Recent Activity</div>
+                    {!editMode && logs.length > 0 ? (
                       <>
-                        <div className="text-sm font-semibold text-[#5E6156] uppercase tracking-wide mb-3">Recent Activity</div>
                         <div className="relative">
                           <div className="space-y-2 max-h-[calc(100vh-400px)] overflow-y-auto pr-2">
                             {logs.map((log, idx) => (
@@ -1060,6 +1112,12 @@ Best regards,\n${currentUser?.name || '[Your Name]'}\n${userCompany.name}\n${cur
                           )}
                         </div>
                       </>
+                    ) : (
+                      <div className="flex flex-1 flex-col items-center justify-center h-full text-[#998876]">
+                        <History className="w-12 h-12 mb-2 text-[#E5E3DF]" />
+                        <span className="text-base font-medium">No activity yet</span>
+                        <span className="text-sm">All your recent activity will appear here.</span>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -1099,11 +1157,17 @@ Best regards,\n${currentUser?.name || '[Your Name]'}\n${userCompany.name}\n${cur
                     </div>
                     <div className="flex-1 overflow-y-auto px-6 py-6 whitespace-pre-line text-[#282828] text-[16px] leading-relaxed font-normal">
                       {isGeneratingEmail && !emailTabContent ? (
-                        <span className="text-[#998876]">Generating email...</span>
-                      ) : emailTabContent ? (
+                        <div className="w-full flex flex-col gap-4">
+                          <Skeleton className="h-8 w-full rounded-md mb-2" /> {/* Subject */}
+                          <Skeleton className="h-24 w-full rounded-md mb-2" /> {/* First paragraph */}
+                          <Skeleton className="h-16 w-2/3 rounded-md mb-2" /> {/* Second paragraph, shorter */}
+                          <Skeleton className="h-6 w-1/2 rounded-md" /> {/* Closing/signature */}
+                        </div>
+                      ) : (emailTabContent ? (
                         <>
                           {/* Subject line bold and larger */}
                           {(() => {
+                            if (!emailTabContent) return null;
                             const lines = emailTabContent.split('\n');
                             const subject = lines[0];
                             const body = lines.slice(1).join('\n').replace(/^\n+/, '');
@@ -1115,7 +1179,7 @@ Best regards,\n${currentUser?.name || '[Your Name]'}\n${userCompany.name}\n${cur
                             );
                           })()}
                         </>
-                      ) : null}
+                      ) : null)}
                     </div>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>

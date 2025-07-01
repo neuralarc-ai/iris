@@ -4,8 +4,8 @@ import { createClient } from '@supabase/supabase-js';
 import { v4 as uuidv4 } from 'uuid';
 
 const supabase = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_KEY!
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_SUPABASE_SERVICE_KEY!
 );
 
 async function fetchTavilySummary(query: string) {
@@ -53,11 +53,13 @@ export async function POST(req: NextRequest) {
     const url = new URL(req.url);
     const refresh = url.searchParams.get('refresh') === 'true';
     const body = await req.text();
-    let lead, user;
+    let lead, user, leadId, triggerEnrichment;
     try {
       const parsed = JSON.parse(body);
       lead = parsed.lead;
       user = parsed.user;
+      leadId = parsed.leadId;
+      triggerEnrichment = parsed.triggerEnrichment;
     } catch (parseError) {
       console.error('Failed to parse JSON body:', parseError, 'Body:', body);
       return NextResponse.json({ error: 'Invalid JSON in request body.' }, { status: 400 });
@@ -70,6 +72,61 @@ export async function POST(req: NextRequest) {
 
     // Fetch company data
     const { data: company } = await supabase.from('company').select('*, services:company_service(*)').single();
+
+    // If triggerEnrichment is requested, fetch lead data and process
+    if (triggerEnrichment && leadId) {
+      // Fetch lead data from database
+      const { data: leadData, error: leadError } = await supabase
+        .from('lead')
+        .select('*')
+        .eq('id', leadId)
+        .single();
+
+      if (leadError || !leadData) {
+        return NextResponse.json({ error: 'Lead not found.' }, { status: 404 });
+      }
+
+      // Fetch user data
+      const userId = leadData.owner_id;
+      const { data: userData } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', userId)
+        .single();
+
+      // Transform lead data to match expected format
+      lead = {
+        id: leadData.id,
+        companyName: leadData.company_name || '',
+        personName: leadData.person_name || '',
+        email: leadData.email || '',
+        phone: leadData.phone || '',
+        linkedinProfileUrl: leadData.linkedin_profile_url || '',
+        country: leadData.country || '',
+        website: leadData.website || '',
+        industry: leadData.industry || '',
+        jobTitle: leadData.job_title || '',
+        status: leadData.status || 'New',
+        createdAt: leadData.created_at || new Date().toISOString(),
+        updatedAt: leadData.updated_at || new Date().toISOString(),
+        assignedUserId: leadData.owner_id || '',
+        opportunityIds: [],
+        updateIds: [],
+        rejectionReasons: [],
+      };
+
+      // If no user data found, try to get an admin user as fallback
+      if (!userData) {
+        const { data: adminUser } = await supabase
+          .from('users')
+          .select('*')
+          .eq('role', 'admin')
+          .single();
+        user = adminUser || { name: 'Admin User', email: 'admin@example.com', role: 'admin' };
+      } else {
+        user = userData;
+      }
+    }
 
     // If refresh is requested, enqueue a job and return
     if (refresh) {
