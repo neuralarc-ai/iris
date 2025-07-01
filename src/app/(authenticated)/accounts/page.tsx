@@ -18,6 +18,7 @@ import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/comp
 import AddOpportunityDialog from '@/components/opportunities/AddOpportunityDialog';
 import { supabase } from '@/lib/supabaseClient';
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 
 export default function AccountsPage() {
@@ -27,7 +28,7 @@ export default function AccountsPage() {
   const [statusFilter, setStatusFilter] = useState<AccountStatus | 'all'>('all');
   const [typeFilter, setTypeFilter] = useState<AccountType | 'all'>('all');
   const [isAddAccountDialogOpen, setIsAddAccountDialogOpen] = useState(false);
-  const [view, setView] = useState<'grid' | 'table'>('grid');
+  const [view, setView] = useState<'list' | 'table'>('list');
   const [isAddOpportunityDialogOpen, setIsAddOpportunityDialogOpen] = useState(false);
   const [opportunityAccountId, setOpportunityAccountId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -151,78 +152,88 @@ export default function AccountsPage() {
         </Button>
       </PageTitle>
 
-      <Card className="shadow duration-300">
-        <CardHeader className="pb-4 flex flex-row items-center justify-between">
-            <CardTitle className="text-lg flex items-center">
-                <ListFilter className="mr-2 h-5 w-5 text-primary"/> Filter & Search Accounts
-            </CardTitle>
-            <div className="flex items-center gap-2">
-              <TooltipProvider delayDuration={0}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button variant={view === 'grid' ? 'default' : 'outline'} size="icon" className="rounded-[4px]" onClick={() => setView('grid')}><Grid className="h-5 w-5" /></Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Grid View</TooltipContent>
-                </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button variant={view === 'table' ? 'default' : 'outline'} size="icon" className="rounded-[4px]" onClick={() => setView('table')}><List className="h-5 w-5" /></Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Table View</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </div>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-            <div>
-              <Label htmlFor="search-accounts">Search Accounts</Label>
-              <div className="relative mt-1">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="search-accounts"
-                  type="text"
-                  placeholder="Search by name or email..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-9"
-                />
+      {/* Search & Filters Row */}
+      <div className="flex items-center w-full gap-4 mb-4">
+        {/* Search Bar (40% width, left) */}
+        <div className="flex-1 max-w-[40%] relative">
+          <Input
+            id="search-accounts"
+            type="text"
+            placeholder="Search accounts by name or email..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="bg-white pl-9 w-full border border-[#E5E3DF] shadow-none min-h-12"
+            style={{ minWidth: 200 }}
+          />
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+        </div>
+        {/* Spacer */}
+        <div className="flex-1" />
+        {/* Filter Button and Tabs (right) */}
+        <div className="flex items-center gap-2 ml-auto">
+          {/* Filter Dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="bg-white max-h-12 max-w-12 border border-[#E5E3DF] text-[#282828] font-medium px-4 py-2 rounded-md flex items-center gap-2">
+                <ListFilter className="h-5 w-5 text-primary" /> Filters
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="bg-white sm:h-fit p-4 rounded-md border border-[#E5E3DF] w-64 text-[#282828]">
+              <div className="mb-4">
+                <Label htmlFor="status-filter" className="text-[#282828] font-medium">Status</Label>
+                <Select value={statusFilter} onValueChange={(value: AccountStatus | 'all') => setStatusFilter(value)}>
+                  <SelectTrigger id="status-filter" className="w-full mt-1 border border-[#E5E3DF] text-[#282828]">
+                    <SelectValue placeholder="Filter by status" className="text-[#282828]" />
+                  </SelectTrigger>
+                  <SelectContent className="text-[#282828]">
+                    <SelectItem value="all" className="text-[#282828]">All Statuses</SelectItem>
+                    <SelectItem value="Active" className="text-[#282828]">Active</SelectItem>
+                    <SelectItem value="Inactive" className="text-[#282828]">Inactive</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-            </div>
-            <div>
-              <Label htmlFor="status-filter">Status</Label>
-              <Select value={statusFilter} onValueChange={(value: AccountStatus | 'all') => setStatusFilter(value)}>
-                <SelectTrigger id="status-filter" className="w-full mt-1">
-                  <SelectValue placeholder="Filter by status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Statuses</SelectItem>
-                  <SelectItem value="Active">Active</SelectItem>
-                  <SelectItem value="Inactive">Inactive</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label htmlFor="type-filter">Type</Label>
-              <Select value={typeFilter} onValueChange={(value: AccountType | 'all') => setTypeFilter(value)}>
-                <SelectTrigger id="type-filter" className="w-full mt-1">
-                  <SelectValue placeholder="Filter by type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Types</SelectItem>
-                  <SelectItem value="Client">Client</SelectItem>
-                  <SelectItem value="Channel Partner">Channel Partner</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+              <div>
+                <Label htmlFor="type-filter" className="text-[#282828] font-medium">Type</Label>
+                <Select value={typeFilter} onValueChange={(value: AccountType | 'all') => setTypeFilter(value)}>
+                  <SelectTrigger id="type-filter" className="w-full mt-1 border border-[#E5E3DF] text-[#282828]">
+                    <SelectValue placeholder="Filter by type" className="text-[#282828]" />
+                  </SelectTrigger>
+                  <SelectContent className="text-[#282828]">
+                    <SelectItem value="all" className="text-[#282828]">All Types</SelectItem>
+                    <SelectItem value="Client" className="text-[#282828]">Client</SelectItem>
+                    <SelectItem value="Channel Partner" className="text-[#282828]">Channel Partner</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          {/* Tabs (right edge, white bg) */}
+          <div className="flex items-center p-1 bg-white rounded-md border border-[#E5E3DF]">
+            <Button
+              variant={view === 'list' ? 'default' : 'ghost'}
+              size="icon"
+              className={`rounded-[4px] ${view === 'list' ? 'text-[#2B2521]' : 'text-[#2B2521]'} border-none`}
+              onClick={() => setView('list')}
+              aria-label="Grid View"
+            >
+              <Grid className="h-5 w-5" />
+            </Button>
+            <Button
+              variant={view === 'table' ? 'default' : 'ghost'}
+              size="icon"
+              className={`rounded-[4px] ${view === 'table' ? 'text-[#2B2521]' : 'text-[#2B2521]'} border-none`}
+              onClick={() => setView('table')}
+              aria-label="List View"
+            >
+              <List className="h-5 w-5" />
+            </Button>
           </div>
-        </CardContent>
-      </Card>
-
+        </div>
+      </div>
 
       {filteredAccounts.length > 0 ? (
-        view === 'grid' ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-8">
+        view === 'list' ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 pb-8">
             {paginatedAccounts.map((account) => (
               <AccountCard
                 key={account.id}

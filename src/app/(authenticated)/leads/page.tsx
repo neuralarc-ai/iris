@@ -628,7 +628,7 @@ export default function LeadsPage() {
       const leadData: any = {};
       Object.entries(fieldMappings).forEach(([field, idx]) => {
         // Only strip quotes, do not split on colon
-        let value = values[idx]?.replace(/^"|"$/g, '') || '';
+        const value = values[idx]?.replace(/^"|"$/g, '') || '';
         leadData[field] = value;
       });
       leads.push(leadData);
