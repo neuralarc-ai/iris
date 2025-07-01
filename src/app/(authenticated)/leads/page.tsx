@@ -63,63 +63,28 @@ export default function LeadsPage() {
   // LeadCardSkeleton component
   const LeadCardSkeleton = () => (
     <div className="bg-white border border-[#E5E3DF] rounded-lg p-6 hover:shadow-md transition-shadow duration-200 cursor-pointer">
-      {/* Header */}
-      <div className="flex items-start justify-between mb-4">
-        <div className="flex-1">
-          <Skeleton className="h-6 w-3/4 mb-2" /> {/* Company name */}
-          <Skeleton className="h-4 w-1/2" /> {/* Person name */}
-        </div>
-        <Skeleton className="h-6 w-16 rounded-full" /> {/* Status badge */}
+      {/* Header: Name + Company */}
+      <div className="mb-4">
+        <Skeleton className="h-10 w-3/4 mb-2" /> {/* Company name */}
       </div>
-
-      {/* Contact info */}
+      {/* Lead Score */}
+      <div className="mb-4">
+        <div className="flex items-center gap-2">
+          <Skeleton className="h-6 flex-1" /> {/* Progress bar */}
+        </div>
+      </div>
+      {/* Email + Phone */}
       <div className="space-y-2 mb-4">
         <div className="flex items-center gap-2">
-          <Skeleton className="h-4 w-4" /> {/* Email icon */}
           <Skeleton className="h-4 w-2/3" /> {/* Email */}
         </div>
         <div className="flex items-center gap-2">
-          <Skeleton className="h-4 w-4" /> {/* Phone icon */}
           <Skeleton className="h-4 w-1/2" /> {/* Phone */}
         </div>
-        <div className="flex items-center gap-2">
-          <Skeleton className="h-4 w-4" /> {/* Country icon */}
-          <Skeleton className="h-4 w-1/3" /> {/* Country */}
-        </div>
       </div>
-
-      {/* Lead Score */}
-      <div className="mb-4">
-        <Skeleton className="h-4 w-20 mb-2" /> {/* "Lead Score" text */}
-        <div className="flex items-center gap-2">
-          <Skeleton className="h-2 flex-1 rounded-full" /> {/* Progress bar */}
-          <Skeleton className="h-4 w-8" /> {/* Percentage */}
-        </div>
-      </div>
-
-      {/* Additional info */}
-      <div className="space-y-2 mb-4">
-        <div className="flex items-center gap-2">
-          <Skeleton className="h-4 w-4" /> {/* Website icon */}
-          <Skeleton className="h-4 w-1/2" /> {/* Website */}
-        </div>
-        <div className="flex items-center gap-2">
-          <Skeleton className="h-4 w-4" /> {/* Industry icon */}
-          <Skeleton className="h-4 w-1/3" /> {/* Industry */}
-        </div>
-        <div className="flex items-center gap-2">
-          <Skeleton className="h-4 w-4" /> {/* Job title icon */}
-          <Skeleton className="h-4 w-2/3" /> {/* Job title */}
-        </div>
-      </div>
-
-      {/* Actions */}
+      {/* Actions Button */}
       <div className="flex items-center justify-between pt-4 border-t border-[#E5E3DF]">
-        <Skeleton className="h-8 w-20" /> {/* Generate Email button */}
-        <div className="flex gap-2">
-          <Skeleton className="h-8 w-8 rounded" /> {/* Edit button */}
-          <Skeleton className="h-8 w-8 rounded" /> {/* More button */}
-        </div>
+        <Skeleton className="h-8 w-full" /> {/* Actions button */}
       </div>
     </div>
   );
@@ -186,7 +151,14 @@ export default function LeadsPage() {
   const totalLeadsPages = Math.ceil(filteredLeads.length / ITEMS_PER_PAGE);
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
   const endIndex = startIndex + ITEMS_PER_PAGE;
-  const paginatedLeads = filteredLeads.slice(startIndex, endIndex);
+  // Sort so leads with a lead score appear first
+  const sortedLeads = [...filteredLeads].sort((a, b) => {
+    const aHasScore = leadEnrichments[a.id]?.leadScore !== undefined;
+    const bHasScore = leadEnrichments[b.id]?.leadScore !== undefined;
+    if (aHasScore === bHasScore) return 0;
+    return aHasScore ? -1 : 1;
+  });
+  const paginatedLeads = sortedLeads.slice(startIndex, endIndex);
 
   // Filter rejected leads based on search term
   const filteredRejectedLeads = rejectedLeads.filter(lead =>

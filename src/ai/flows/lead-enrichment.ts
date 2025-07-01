@@ -41,6 +41,38 @@ async function retryWithBackoff<T>(
   throw lastError!;
 }
 
+// Gemini fallback function
+async function callGeminiAPI(prompt: string) {
+  // Respect Gemini's per-minute rate limit (max 60/minute)
+  await sleep(1200); // 1.2s delay between requests
+  const response = await fetch(
+    'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + process.env.GEMINI_API_KEY,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        generationConfig: {
+          response_mime_type: 'application/json',
+        },
+      }),
+    }
+  );
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Gemini API error: ${response.statusText} - ${errorText}`);
+  }
+  const data = await response.json();
+  let generatedContent;
+  try {
+    // Gemini's response: candidates[0].content.parts[0].text (should be JSON string)
+    generatedContent = JSON.parse(data.candidates?.[0]?.content?.parts?.[0]?.text || '{}');
+  } catch (e) {
+    throw new Error('Gemini response was not valid JSON.');
+  }
+  return generatedContent;
+}
+
 export async function leadEnrichmentFlow({ lead, user, company, tavilySummary, websiteSummary }: { lead: any, user: any, company: any, tavilySummary?: string, websiteSummary?: string }) {
   const prompt = `
 You are an expert sales assistant. Your user is ${user.name}.
@@ -75,38 +107,46 @@ Return a valid JSON object with keys: recommendations, pitchNotes, useCase, lead
 IMP: give the output in a valid JSON string (it should not be wrapped in markdown, just plain json object) and stick to the schema mentioned here: {"recommendations": string[], "pitchNotes": string, "useCase": string, "leadScore": number}.
 `;
 
-  return await retryWithBackoff(async () => {
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: CRON_CONFIG.API.OPENROUTER_MODEL,
-        messages: [
-          { role: 'system', content: 'You are a helpful assistant.' },
-          { role: 'user', content: prompt },
-        ],
-        response_format: { type: 'json_object' },
-        temperature: CRON_CONFIG.API.OPENROUTER_TEMPERATURE,
-        max_tokens: CRON_CONFIG.API.OPENROUTER_MAX_TOKENS,
-      }),
-    });
+  try {
+    return await retryWithBackoff(async () => {
+      const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: CRON_CONFIG.API.OPENROUTER_MODEL,
+          messages: [
+            { role: 'system', content: 'You are a helpful assistant.' },
+            { role: 'user', content: prompt },
+          ],
+          response_format: { type: 'json_object' },
+          temperature: CRON_CONFIG.API.OPENROUTER_TEMPERATURE,
+          max_tokens: CRON_CONFIG.API.OPENROUTER_MAX_TOKENS,
+        }),
+      });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`OpenRouter API error: ${response.statusText} - ${errorText}`);
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`OpenRouter API error: ${response.statusText} - ${errorText}`);
+      }
+      const data = await response.json();
+      let generatedContent;
+      try {
+        generatedContent = JSON.parse(data.choices[0].message.content);
+      } catch (e) {
+        console.error('Failed to parse AI response:', e, data);
+        throw new Error('AI response was not valid JSON.');
+      }
+      return generatedContent;
+    });
+  } catch (error: any) {
+    // If OpenRouter fails with a 429, fallback to Gemini
+    if (error.message?.includes('429') || error.message?.toLowerCase().includes('rate limit')) {
+      console.warn('OpenRouter rate limit hit, falling back to Gemini...');
+      return await callGeminiAPI(prompt);
     }
-    
-    const data = await response.json();
-    let generatedContent;
-    try {
-      generatedContent = JSON.parse(data.choices[0].message.content);
-    } catch (e) {
-      console.error('Failed to parse AI response:', e, data);
-      throw new Error('AI response was not valid JSON.');
-    }
-    return generatedContent;
-  });
+    throw error;
+  }
 } 

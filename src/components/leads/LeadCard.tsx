@@ -601,7 +601,7 @@ Best regards,\n${currentUser?.name || '[Your Name]'}\n${userCompany.name}\n${cur
                 />
               )}
             </div>
-            <div className="text-sm font-semibold text-[#282828] ml-2">
+            <div className="text-sm font-semibold text-[#282828] ml-2 flex flex-row items-center flex-shrink-0">
               {isEnrichmentLoading ? <Skeleton className="h-4 w-8 rounded" /> : enrichmentData?.leadScore !== undefined ? `${enrichmentData.leadScore}%` : '--%'}
             </div>
           </div>
