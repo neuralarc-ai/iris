@@ -936,10 +936,10 @@ export default function LeadsPage() {
         </div>
       </PageTitle>
 
-      <Card className="shadow duration-300">
-         <CardHeader className="pb-4 flex flex-row items-center justify-between">
+      <Card className="duration-300 bg-transparent shadow-none border-none">
+         <CardHeader className="flex flex-row items-center justify-between p-0 pb-0">
             <div className="flex-1 flex items-center gap-2">
-              <div className="relative w-full">
+              <div className="relative w-[60%]">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   id="search-leads"
@@ -947,14 +947,14 @@ export default function LeadsPage() {
                   placeholder="Search leads by name, company, or email..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-9 w-full"
+                  className="pl-9 w-full min-h-12"
                 />
               </div>
             </div>
             <div className="flex items-center gap-2 ml-4">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" className="flex items-center gap-2 min-w-[140px] max-h-10">
+                  <Button variant="outline" className="flex items-center gap-2 min-w-[140px] max-h-12">
                     <ListFilter className="h-5 w-5 text-primary" />
                     Sort & Filter
                   </Button>
@@ -972,11 +972,11 @@ export default function LeadsPage() {
                   ))}
                 </DropdownMenuContent>
               </DropdownMenu>
-              <div className="flex items-center bg-[#F8F7F3] rounded-[8px] p-1 gap-1">
+              <div className="flex items-center bg-white rounded-[8px] p-1 gap-1">
                 <Button
                   variant={view === 'list' ? 'default' : 'ghost'}
                   size="icon"
-                  className={`rounded-[6px] ${view === 'list' ? 'bg-[#E6D0D7] text-[#2B2521]' : 'text-[#2B2521]'}`}
+                  className={`rounded-[4px] ${view === 'list' ? 'bg-[#E6D0D7] text-[#2B2521]' : 'text-[#2B2521]'}`}
                   onClick={() => setView('list')}
                   aria-label="Grid View"
                 >
@@ -985,7 +985,7 @@ export default function LeadsPage() {
                 <Button
                   variant={view === 'table' ? 'default' : 'ghost'}
                   size="icon"
-                  className={`rounded-[6px] ${view === 'table' ? 'bg-[#E6D0D7] text-[#2B2521]' : 'text-[#2B2521]'}`}
+                  className={`rounded-[4px] ${view === 'table' ? 'bg-[#E6D0D7] text-[#2B2521]' : 'text-[#2B2521]'}`}
                   onClick={() => setView('table')}
                   aria-label="List View"
                 >
@@ -994,7 +994,7 @@ export default function LeadsPage() {
               </div>
             </div>
         </CardHeader>
-        <CardContent className="p-0">
+        <CardContent className="p-0 bg-transparent">
           {selectMode && (
             <div className="mt-4 rounded-lg border border-[#D6D8CE] bg-[#CFD4C9] flex items-center px-3 py-3 gap-4 min-h-[56px] justify-between">
               <div className="flex items-center gap-4">

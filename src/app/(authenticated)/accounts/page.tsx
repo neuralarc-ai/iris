@@ -26,7 +26,6 @@ export default function AccountsPage() {
   const [owners, setOwners] = useState<Record<string, { name: string; email: string }>>({});
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<AccountStatus | 'all'>('all');
-  const [typeFilter, setTypeFilter] = useState<AccountType | 'all'>('all');
   const [isAddAccountDialogOpen, setIsAddAccountDialogOpen] = useState(false);
   const [view, setView] = useState<'list' | 'table'>('list');
   const [isAddOpportunityDialogOpen, setIsAddOpportunityDialogOpen] = useState(false);
@@ -75,8 +74,7 @@ export default function AccountsPage() {
   const filteredAccounts = accounts.filter(account => {
     const matchesSearch = account.name.toLowerCase().includes(searchTerm.toLowerCase()) || (account.contactEmail && account.contactEmail.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesStatus = statusFilter === 'all' || account.status === statusFilter;
-    const matchesType = typeFilter === 'all' || account.type === typeFilter;
-    return matchesSearch && matchesStatus && matchesType;
+    return matchesSearch && matchesStatus;
   }).sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
 
   // Pagination logic
@@ -88,7 +86,7 @@ export default function AccountsPage() {
   // Reset to first page when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, statusFilter, typeFilter]);
+  }, [searchTerm, statusFilter]);
 
   // Pagination functions
   const goToPage = (page: number) => {
@@ -152,38 +150,35 @@ export default function AccountsPage() {
         </Button>
       </PageTitle>
 
-      {/* Search & Filters Row */}
-      <div className="flex items-center w-full gap-4 mb-4">
-        {/* Search Bar (40% width, left) */}
-        <div className="flex-1 max-w-[40%] relative">
-          <Input
-            id="search-accounts"
-            type="text"
-            placeholder="Search accounts by name or email..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="bg-white pl-9 w-full border border-[#E5E3DF] shadow-none min-h-12"
-            style={{ minWidth: 200 }}
-          />
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-        </div>
-        {/* Spacer */}
-        <div className="flex-1" />
-        {/* Filter Button and Tabs (right) */}
-        <div className="flex items-center gap-2 ml-auto">
-          {/* Filter Dropdown */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="bg-white max-h-12 max-w-12 border border-[#E5E3DF] text-[#282828] font-medium px-4 py-2 rounded-md flex items-center gap-2">
-                <ListFilter className="h-5 w-5 text-primary" /> Filters
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="bg-white sm:h-fit p-4 rounded-md border border-[#E5E3DF] w-64 text-[#282828]">
-              <div className="mb-4">
-                <Label htmlFor="status-filter" className="text-[#282828] font-medium">Status</Label>
+      {/* Search, Filter, and View Toggle Row (refactored to match leads page) */}
+      <Card className="duration-300 bg-transparent shadow-none p-0">
+        <CardHeader className="pb-4 flex flex-row bg-transparent shadow-none p-0 items-center justify-between">
+          <div className="flex-1 flex items-center gap-2 bg-transparent">
+            <div className="relative w-[60%]">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                id="search-accounts"
+                type="text"
+                placeholder="Search accounts by name or email..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-9 w-full"
+              />
+            </div>
+          </div>
+          <div className="flex items-center gap-2 ml-4">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="flex items-center gap-2 min-w-[140px] max-h-10">
+                  <ListFilter className="h-5 w-5 text-primary" />
+                  Sort & Filter
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className='w-[150px] rounded-sm h-fit'>
+                <Label htmlFor="status-filter" className="text-[#282828] font-medium px-2 py-1">Status</Label>
                 <Select value={statusFilter} onValueChange={(value: AccountStatus | 'all') => setStatusFilter(value)}>
-                  <SelectTrigger id="status-filter" className="w-full mt-1 border border-[#E5E3DF] text-[#282828]">
-                    <SelectValue placeholder="Filter by status" className="text-[#282828]" />
+                  <SelectTrigger id="status-filter" className="w-full mt-1 border-none text-[#282828]">
+                    <SelectValue placeholder="All Statuses" className="text-[#282828]" />
                   </SelectTrigger>
                   <SelectContent className="text-[#282828]">
                     <SelectItem value="all" className="text-[#282828]">All Statuses</SelectItem>
@@ -191,45 +186,31 @@ export default function AccountsPage() {
                     <SelectItem value="Inactive" className="text-[#282828]">Inactive</SelectItem>
                   </SelectContent>
                 </Select>
-              </div>
-              <div>
-                <Label htmlFor="type-filter" className="text-[#282828] font-medium">Type</Label>
-                <Select value={typeFilter} onValueChange={(value: AccountType | 'all') => setTypeFilter(value)}>
-                  <SelectTrigger id="type-filter" className="w-full mt-1 border border-[#E5E3DF] text-[#282828]">
-                    <SelectValue placeholder="Filter by type" className="text-[#282828]" />
-                  </SelectTrigger>
-                  <SelectContent className="text-[#282828]">
-                    <SelectItem value="all" className="text-[#282828]">All Types</SelectItem>
-                    <SelectItem value="Client" className="text-[#282828]">Client</SelectItem>
-                    <SelectItem value="Channel Partner" className="text-[#282828]">Channel Partner</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          {/* Tabs (right edge, white bg) */}
-          <div className="flex items-center p-1 bg-white rounded-md border border-[#E5E3DF]">
-            <Button
-              variant={view === 'list' ? 'default' : 'ghost'}
-              size="icon"
-              className={`rounded-[4px] ${view === 'list' ? 'text-[#2B2521]' : 'text-[#2B2521]'} border-none`}
-              onClick={() => setView('list')}
-              aria-label="Grid View"
-            >
-              <Grid className="h-5 w-5" />
-            </Button>
-            <Button
-              variant={view === 'table' ? 'default' : 'ghost'}
-              size="icon"
-              className={`rounded-[4px] ${view === 'table' ? 'text-[#2B2521]' : 'text-[#2B2521]'} border-none`}
-              onClick={() => setView('table')}
-              aria-label="List View"
-            >
-              <List className="h-5 w-5" />
-            </Button>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <div className="flex items-center bg-[#F8F7F3] rounded-[8px] p-1 gap-1">
+              <Button
+                variant={view === 'list' ? 'default' : 'ghost'}
+                size="icon"
+                className={`rounded-[6px] ${view === 'list' ? 'bg-[#E6D0D7] text-[#2B2521]' : 'text-[#2B2521]'}`}
+                onClick={() => setView('list')}
+                aria-label="Grid View"
+              >
+                <Grid className="h-5 w-5" />
+              </Button>
+              <Button
+                variant={view === 'table' ? 'default' : 'ghost'}
+                size="icon"
+                className={`rounded-[6px] ${view === 'table' ? 'bg-[#E6D0D7] text-[#2B2521]' : 'text-[#2B2521]'}`}
+                onClick={() => setView('table')}
+                aria-label="List View"
+              >
+                <List className="h-5 w-5" />
+              </Button>
+            </div>
           </div>
-        </div>
-      </div>
+        </CardHeader>
+      </Card>
 
       {filteredAccounts.length > 0 ? (
         view === 'list' ? (
