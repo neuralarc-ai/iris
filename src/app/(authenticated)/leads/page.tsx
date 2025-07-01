@@ -22,6 +22,15 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/supabaseClient';
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
 import { Skeleton } from '@/components/ui/skeleton';
+import CompanyProfileDialog from '@/components/layout/CompanyProfileDialog';
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator
+} from '@/components/ui/dropdown-menu';
 
 const leadStatusOptions: LeadStatus[] = ["New", "Contacted", "Qualified", "Proposal Sent", "Lost"];
 
@@ -59,6 +68,8 @@ export default function LeadsPage() {
 
   const [leadEnrichments, setLeadEnrichments] = useState<Record<string, { leadScore?: number; recommendations?: string[]; pitchNotes?: string; useCase?: string } | undefined>>({});
   const [loadingEnrichments, setLoadingEnrichments] = useState<Record<string, boolean>>({});
+
+  const [isCompanyProfileDialogOpen, setIsCompanyProfileDialogOpen] = useState(false);
 
   // LeadCardSkeleton component
   const LeadCardSkeleton = () => (
@@ -927,61 +938,63 @@ export default function LeadsPage() {
 
       <Card className="shadow duration-300">
          <CardHeader className="pb-4 flex flex-row items-center justify-between">
-            <CardTitle className="text-lg flex items-center">
-                <ListFilter className="mr-2 h-5 w-5 text-primary"/> Filter & Search Leads
-            </CardTitle>
-            <div className="flex items-center gap-2">
-              <TooltipProvider delayDuration={0}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button variant={view === 'list' ? 'default' : 'outline'} size="icon" className="rounded-[4px]" onClick={() => setView('list')}><Grid className="h-5 w-5" /></Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Grid View</TooltipContent>
-                </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button variant={view === 'table' ? 'default' : 'outline'} size="icon" className="rounded-[4px]" onClick={() => setView('table')}><List className="h-5 w-5" /></Button>
-                  </TooltipTrigger>
-                  <TooltipContent>List View</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </div>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col md:flex-row md:items-end gap-4 w-full">
-            <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="search-leads">Search Leads</Label>
-               <div className="relative mt-1">
+            <div className="flex-1 flex items-center gap-2">
+              <div className="relative w-full">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                    id="search-leads"
-                    type="text"
-                    placeholder="Search by company, name, email, country..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-9"
+                  id="search-leads"
+                  type="text"
+                  placeholder="Search leads by name, company, or email..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-9 w-full"
                 />
               </div>
             </div>
-            <div className="flex items-end gap-4 w-full">
-              <div className="flex-1">
-                <Label htmlFor="status-filter">Status</Label>
-                <Select value={statusFilter} onValueChange={(value: LeadStatus | 'all') => setStatusFilter(value)}>
-                  <SelectTrigger id="status-filter" className="w-full mt-1">
-                    <SelectValue placeholder="Filter by status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Statuses</SelectItem>
-                    {leadStatusOptions.map(status => (
-                      <SelectItem key={status} value={status}>{status}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+            <div className="flex items-center gap-2 ml-4">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="flex items-center gap-2 min-w-[140px] max-h-10">
+                    <ListFilter className="h-5 w-5 text-primary" />
+                    Sort & Filter
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className='w-[150px] rounded-sm h-fit'>
+                  <DropdownMenuLabel>Status</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => setStatusFilter('all')}>
+                    All Statuses
+                  </DropdownMenuItem>
+                  {leadStatusOptions.map(status => (
+                    <DropdownMenuItem key={status} onClick={() => setStatusFilter(status)}>
+                      {status}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <div className="flex items-center bg-[#F8F7F3] rounded-[8px] p-1 gap-1">
+                <Button
+                  variant={view === 'list' ? 'default' : 'ghost'}
+                  size="icon"
+                  className={`rounded-[6px] ${view === 'list' ? 'bg-[#E6D0D7] text-[#2B2521]' : 'text-[#2B2521]'}`}
+                  onClick={() => setView('list')}
+                  aria-label="Grid View"
+                >
+                  <Grid className="h-5 w-5" />
+                </Button>
+                <Button
+                  variant={view === 'table' ? 'default' : 'ghost'}
+                  size="icon"
+                  className={`rounded-[6px] ${view === 'table' ? 'bg-[#E6D0D7] text-[#2B2521]' : 'text-[#2B2521]'}`}
+                  onClick={() => setView('table')}
+                  aria-label="List View"
+                >
+                  <List className="h-5 w-5" />
+                </Button>
               </div>
             </div>
-            </div>
-          </div>
+        </CardHeader>
+        <CardContent className="p-0">
           {selectMode && (
             <div className="mt-4 rounded-lg border border-[#D6D8CE] bg-[#CFD4C9] flex items-center px-3 py-3 gap-4 min-h-[56px] justify-between">
               <div className="flex items-center gap-4">
@@ -1909,6 +1922,16 @@ export default function LeadsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <CompanyProfileDialog
+        open={isCompanyProfileDialogOpen}
+        onOpenChange={setIsCompanyProfileDialogOpen}
+        isEditable={true}
+        onImportLeadsFile={(file) => {
+          setIsCompanyProfileDialogOpen(false);
+          setIsImportDialogOpen(false); // Ensure only one import dialog is open
+          handleFile(file);
+        }}
+      />
     </div>
   );
 }

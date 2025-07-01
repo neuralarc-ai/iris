@@ -12,7 +12,7 @@ const industryOptions = [
   'SaaS', 'Consulting', 'Finance', 'Healthcare', 'Education', 'Manufacturing', 'Retail', 'Technology', 'Other'
 ];
 
-export default function CompanyProfileDialog({ open, onOpenChange, isEditable = false }: { open: boolean; onOpenChange: (v: boolean) => void; isEditable?: boolean }) {
+export default function CompanyProfileDialog({ open, onOpenChange, isEditable = false, onImportLeadsFile }: { open: boolean; onOpenChange: (v: boolean) => void; isEditable?: boolean; onImportLeadsFile?: (file: File) => void }) {
   const { toast } = useToast();
   const [step, setStep] = useState(1);
   const [companyName, setCompanyName] = useState('');
@@ -31,10 +31,14 @@ export default function CompanyProfileDialog({ open, onOpenChange, isEditable = 
     targetMarket: ''
   });
 
+  // File input ref for import step
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
   useEffect(() => {
     if (open) {
       fetchCompany();
     }
+    if (!open) setStep(1);
     // eslint-disable-next-line
   }, [open]);
 
@@ -116,6 +120,25 @@ export default function CompanyProfileDialog({ open, onOpenChange, isEditable = 
     } finally {
       setIsSaving(false);
     }
+  };
+
+  // Handle file drop or selection
+  const handleFile = (file: File) => {
+    if (onImportLeadsFile) {
+      onOpenChange(false);
+      onImportLeadsFile(file);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const file = e.dataTransfer.files[0];
+    if (file) handleFile(file);
+  };
+
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) handleFile(file);
   };
 
   return (
@@ -256,59 +279,70 @@ export default function CompanyProfileDialog({ open, onOpenChange, isEditable = 
                   </div>
                 )}
               </div>
+              <DialogFooter className="flex flex-row sm:justify-between w-full items-center mb-0">
+                <div className="flex-1 flex justify-start">
+                  <Button type="button" variant="outline" className="sm:max-w-fit sm:w-fit max-h-12 px-2 flex items-center gap-1" disabled={Number(step) === 1} onClick={() => setStep(Number(step) - 1)}>
+                    <ArrowLeft className="w-4 h-4" /> Previous
+                  </Button>
+                </div>
+                <div className="flex-1 flex justify-end gap-4">
+                  <Button type="button" variant="ghost" className="self-center text-[#282828] text-sm font-medium cursor-pointer hover:underline" onClick={() => onOpenChange(false)}>
+                    Skip for Now
+                  </Button>
+                  <Button type="submit" className="sm:max-w-fit sm:w-fit max-h-12 px-2 bg-[#282828] text-white hover:bg-[#3a322c] rounded-md flex items-center gap-1" disabled={Number(step) === 2 || !isEditable}>
+                    Next <ArrowRight className="w-4 h-4" />
+                  </Button>
+                </div>
+              </DialogFooter>
             </form>
           ) : (
             <form className="space-y-4" onSubmit={e => { e.preventDefault(); handleSave(); }}>
               <div className="bg-[#F8F7F3] p-6 rounded-xl">
                 <div className="mb-4">
-                  <p className="font-semibold text-[#282828] text-base mb-1">Import Your Contacts</p>
-                  <p className="text-sm text-[#5E6156]">Start building relationships by importing your existing contacts with AI-powered enhancement.</p>
+                  <p className="font-semibold text-[#282828] text-base mb-1">Import Your Leads</p>
+                  <p className="text-sm text-[#5E6156]">Start building relationships by importing your existing leads with AI-powered enhancement.</p>
                 </div>
                 <div className="flex flex-col gap-4">
                   <div className="flex items-center justify-between">
                     <span className="font-semibold text-[#282828] text-base">File Upload</span>
                     <Button type="button" variant="outline" className="rounded-lg px-4 py-2 font-medium text-base border-[#E0E0E0] text-[#282828] max-h-12 max-w-fit">Download Template</Button>
                   </div>
-                  <div className="bg-white border-2 border-dashed border-[#E0E0E0] rounded-xl flex flex-col items-center justify-center py-10 mb-2">
+                  <div
+                    className="bg-white border-2 border-dashed border-[#E0E0E0] rounded-xl flex flex-col items-center justify-center py-10 mb-2 cursor-pointer"
+                    onDragOver={e => e.preventDefault()}
+                    onDrop={handleDrop}
+                    onClick={() => fileInputRef.current?.click()}
+                    tabIndex={0}
+                    role="button"
+                    aria-label="Upload file"
+                  >
                     <Upload className="w-10 h-10 text-[#B0B0B0] mb-2" />
                     <span className="text-base font-medium text-[#282828]">Drop your files here</span>
                     <span className="text-sm text-[#5E6156]">or click to browse</span>
                     <span className="text-xs text-[#B0B0B0] mt-2">Supports CSV, Excel (.xlsx/.xls), and Google Sheets</span>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel"
+                      className="hidden"
+                      onChange={handleFileInputChange}
+                    />
                   </div>
                 </div>
               </div>
+              <DialogFooter className="flex flex-row sm:justify-between w-full items-center mb-0">
+                <div className="flex-1 flex justify-start">
+                  <Button type="button" variant="outline" className="sm:max-w-fit sm:w-fit max-h-12 px-2 flex items-center gap-1" onClick={() => setStep(1)} disabled={!isEditable}>
+                    <ArrowLeft className="w-4 h-4" /> Back
+                  </Button>
+                </div>
+                <div className="flex-1 flex justify-end">
+                  <Button type="submit" className="sm:max-w-fit sm:w-fit max-h-12 px-2 bg-[#282828] text-white hover:bg-[#3a322c] rounded-md flex items-center gap-1" disabled={!isEditable || isSaving}>
+                    Finish <ArrowRight className="w-4 h-4" />
+                  </Button>
+                </div>
+              </DialogFooter>
             </form>
-          )}
-        </div>
-        {/* Sticky Footer */}
-        <div className="px-8 pb-8 pt-4 bg-white border-t border-[#E0E0E0] mt-auto">
-          {step === 1 ? (
-            <DialogFooter className="flex flex-row sm:justify-between w-full items-center mb-0">
-              <div className="flex-1 flex justify-start">
-                <Button type="button" variant="outline" className="sm:max-w-fit sm:w-fit max-h-12 px-2 flex items-center gap-1" disabled={Number(step) === 1} onClick={() => setStep(Number(step) - 1)}>
-                  <ArrowLeft className="w-4 h-4" /> Previous
-                </Button>
-              </div>
-              <div className="flex-1 flex justify-end gap-4">
-                <span className="self-center text-[#282828] text-sm font-medium cursor-pointer hover:underline" onClick={() => setStep(2)}>Skip for Now</span>
-                <Button type="submit" className="sm:max-w-fit sm:w-fit max-h-12 px-2 bg-[#282828] text-white hover:bg-[#3a322c] rounded-md flex items-center gap-1" disabled={Number(step) === 2 || !isEditable}>
-                  Next <ArrowRight className="w-4 h-4" />
-                </Button>
-              </div>
-            </DialogFooter>
-          ) : (
-            <DialogFooter className="flex flex-row sm:justify-between w-full items-center mb-0">
-              <div className="flex-1 flex justify-start">
-                <Button type="button" variant="outline" className="sm:max-w-fit sm:w-fit max-h-12 px-2 flex items-center gap-1" onClick={() => setStep(1)} disabled={!isEditable}>
-                  <ArrowLeft className="w-4 h-4" /> Back
-                </Button>
-              </div>
-              <div className="flex-1 flex justify-end">
-                <Button type="submit" className="sm:max-w-fit sm:w-fit max-h-12 px-2 bg-[#282828] text-white hover:bg-[#3a322c] rounded-md flex items-center gap-1" disabled={!isEditable || isSaving}>
-                  Finish <ArrowRight className="w-4 h-4" />
-                </Button>
-              </div>
-            </DialogFooter>
           )}
         </div>
       </DialogContent>
