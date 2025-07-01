@@ -222,7 +222,7 @@ export default function DashboardPage() {
   }, [currentUserId, userRole]);
 
   return (
-    <div className="max-w-[1440px] px-4 mx-auto w-full pb-8 space-y-10 md:space-y-12"> 
+    <div className="max-w-[1440px] px-4 mx-auto w-full pb-8 space-y-10 md:space-y-12">
       <PageTitle title="Intelligent Sales Dashboard">
         <div className="flex items-center gap-2">
           {lastRefreshed && (
@@ -237,23 +237,16 @@ export default function DashboardPage() {
         </div>
       </PageTitle>
 
-      <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300 h-40 relative overflow-hidden border-none">
-        <Image src="/images/ai-forecast.png" alt="AI Forecast" fill className="absolute inset-0 w-full h-full object-cover" priority />
-        <div className="relative z-10 flex items-center h-full pl-8">
-          <span className="text-3xl font-bold text-white drop-shadow-lg">AI Features Coming Soon!</span>
-        </div>
-      </Card>
-
       {!currentUserId ? (
         <div className="flex items-center justify-center h-64">
           <LoadingSpinner size={32} />
           <span className="ml-2 text-muted-foreground">Loading user data...</span>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {/* LEFT COLUMN: Opportunities Pipeline + Lead Engagement */}
-          <div className="md:col-span-1 space-y-8 flex flex-col sticky top-6 h-fit">
-             <Card className="border border-[#CBCAC5] bg-white rounded-lg shadow-sm flex flex-col">
+        <div className="grid grid-cols-5 grid-rows-4 gap-4">
+          {/* 1. Opportunities Pipeline */}
+          <div className="col-span-2 row-span-2">
+            <Card className="border border-[#E5E3DF] bg-white rounded-sm shadow-sm flex flex-col h-full">
               <CardHeader>
                 <CardTitle className="text-lg flex items-center text-[#282828]">
                   <BarChartHorizontalBig className="mr-3 h-5 w-5 text-[#916D5B]" />
@@ -331,8 +324,66 @@ export default function DashboardPage() {
                 )}
               </CardContent>
             </Card>
+          </div>
 
-            <Card className="border border-[#CBCAC5] bg-white rounded-sm shadow-sm flex flex-col min-h-[402px]">
+          {/* 2. Key Opportunity Insights */}
+          <div className="col-span-3 row-span-2 col-start-3">
+            <Card className="border border-[#E5E3DF] bg-white rounded-sm shadow-sm flex flex-col h-full">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center text-[#282828]">
+                  <Lightbulb className="mr-3 h-5 w-5 text-[#916D5B]" />
+                  Key Opportunity Insights
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="flex-grow flex flex-col gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {isLoading && latestOpportunities.length === 0 ? (
+                    Array.from({ length: 2 }).map((_, i) => (
+                      <Card key={i} className="shadow-md rounded-sm animate-pulse h-full">
+                        <CardHeader>
+                          <div className="h-6 bg-muted/50 rounded w-3/4 mb-2"></div>
+                          <div className="h-4 bg-muted/50 rounded w-1/2"></div>
+                        </CardHeader>
+                        <CardContent className="space-y-2">
+                          <div className="h-4 bg-muted/50 rounded w-full"></div>
+                          <div className="h-4 bg-muted/50 rounded w-5/6"></div>
+                          <div className="h-4 bg-muted/50 rounded w-full mt-2"></div>
+                        </CardContent>
+                      </Card>
+                    ))
+                  ) : latestOpportunities.length > 0 ? (
+                    latestOpportunities.map((opp) => (
+                      <OpportunityCard key={opp.id} opportunity={opp} accountName={(opp as any).accountName} />
+                    ))
+                  ) : (
+                    !isLoading && (
+                      <div className="col-span-2 flex flex-col items-center justify-center bg-white rounded-[8px] h-[343px] shadow-sm border text-center gap-4 animate-fade-in">
+                        {/* Hopeful horizon icon */}
+                        <svg width="56" height="56" viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg" className="mb-2">
+                          <defs>
+                            <linearGradient id="oppGradient" x1="0" y1="0" x2="56" y2="56" gradientUnits="userSpaceOnUse">
+                              <stop stopColor="#5E6156"/>
+                              <stop offset="1" stopColor="#C57E94"/>
+                            </linearGradient>
+                          </defs>
+                          <ellipse cx="28" cy="40" rx="20" ry="8" fill="#F8F7F3"/>
+                          <rect x="16" y="24" width="24" height="10" rx="5" fill="url(#oppGradient)" fillOpacity="0.18"/>
+                          <circle cx="28" cy="29" r="5" fill="#CBCAC5"/>
+                          <rect x="26" y="34" width="4" height="6" rx="2" fill="#C57E94"/>
+                        </svg>
+                        <span className="text-lg text-muted-foreground font-medium text-center">No opportunities found</span>
+                        <span className="text-sm text-muted-foreground text-center">Add your first opportunity to get started!</span>
+                      </div>
+                    )
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* 3. Lead Engagement */}
+          <div className="col-span-2 row-span-2 row-start-3">
+            <Card className="border border-[#E5E3DF] bg-white rounded-sm shadow-sm flex flex-col min-h-[402px] h-full">
               <CardHeader>
                 <CardTitle className="text-lg flex items-center text-[#282828]">
                   <Users className="mr-3 h-5 w-5 text-[#916D5B]" />
@@ -363,101 +414,55 @@ export default function DashboardPage() {
             </Card>
           </div>
 
-          {/* RIGHT COLUMN: Recent Activity Stream + Key Opportunity Insights */}
-          <div className="md:col-span-2">
-            <div className="bg-transparent py-4 flex flex-col gap-4">
-              <div>
-                <h2 className="text-xl font-semibold flex items-center text-foreground mb-4">
-                    <History className="mr-3 h-6 w-6 text-[#916D5B]" />
-                    Recent Activity Stream
-                </h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6"> 
-                    {isLoading && recentUpdates.length === 0 ? (
-                        Array.from({ length: 2 }).map((_, i) => (
-                            <Card key={`update-skeleton-${i}`} className="shadow-md rounded-sm animate-pulse h-full">
-                                <CardHeader><div className="h-5 bg-muted/50 rounded w-1/2"></div></CardHeader>
-                                <CardContent className="space-y-2">
-                                    <div className="h-4 bg-muted/50 rounded w-full"></div>
-                                    <div className="h-4 bg-muted/50 rounded w-3/4"></div>
-                                </CardContent>
-                            </Card>
-                        ))
-                    ) : recentUpdates.length > 0 ? (
-                        recentUpdates.map(update => (
-                            <UpdateItem key={update.id} update={update} />
-                        ))
-                    ) : (
-                        !isLoading && (
-                          <div className="col-span-2 flex flex-col items-center justify-center bg-white rounded-[8px] h-[343px] shadow-sm border text-center gap-4 animate-fade-in">
-                            {/* Pastel calendar with magnifier */}
-                            <svg width="56" height="56" viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg" className="mb-2">
-                              <defs>
-                                <linearGradient id="activityGradient" x1="0" y1="0" x2="56" y2="56" gradientUnits="userSpaceOnUse">
-                                  <stop stopColor="#998876"/>
-                                  <stop offset="1" stopColor="#CBCAC5"/>
-                                </linearGradient>
-                              </defs>
-                              <rect x="8" y="16" width="32" height="24" rx="6" fill="#F8F7F3" stroke="url(#activityGradient)" strokeWidth="2"/>
-                              <rect x="12" y="20" width="24" height="8" rx="2" fill="#CBCAC5"/>
-                              <circle cx="40" cy="40" r="7" fill="#fff" stroke="#C57E94" strokeWidth="2"/>
-                              <path d="M44 44L48 48" stroke="#C57E94" strokeWidth="2" strokeLinecap="round"/>
-                            </svg>
-                            <span className="text-lg text-muted-foreground font-medium text-center">No recent activity yet</span>
-                            <span className="text-sm text-muted-foreground text-center">Once you start engaging, updates will appear here!</span>
-                          </div>
-                        )
-                    )}
-                </div>
-              </div>
-
-              <div>
-                <h2 className="text-xl font-semibold flex items-center text-foreground mb-4 mt-8">
-                    <Lightbulb className="mr-3 h-6 w-6 text-[#916D5B]" />
-                    Key Opportunity Insights
-                </h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6"> 
-                    {isLoading && latestOpportunities.length === 0 ? (
-                    Array.from({ length: 2 }).map((_, i) => ( 
-                        <Card key={i} className="shadow-md rounded-sm animate-pulse h-full">
-                        <CardHeader>
-                            <div className="h-6 bg-muted/50 rounded w-3/4 mb-2"></div>
-                            <div className="h-4 bg-muted/50 rounded w-1/2"></div>
-                        </CardHeader>
+          {/* 4. Recent Activity Stream */}
+          <div className="col-span-3 row-span-2 col-start-3 row-start-3">
+            <Card className="border border-[#E5E3DF] bg-white rounded-sm shadow-sm flex flex-col h-full">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center text-[#282828]">
+                  <History className="mr-3 h-5 w-5 text-[#916D5B]" />
+                  Recent Activity Stream
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="flex-grow flex flex-col gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {isLoading && recentUpdates.length === 0 ? (
+                    Array.from({ length: 2 }).map((_, i) => (
+                      <Card key={`update-skeleton-${i}`} className="shadow-md rounded-sm animate-pulse h-full">
+                        <CardHeader><div className="h-5 bg-muted/50 rounded w-1/2"></div></CardHeader>
                         <CardContent className="space-y-2">
-                            <div className="h-4 bg-muted/50 rounded w-full"></div>
-                            <div className="h-4 bg-muted/50 rounded w-5/6"></div>
-                            <div className="h-4 bg-muted/50 rounded w-full mt-2"></div>
+                          <div className="h-4 bg-muted/50 rounded w-full"></div>
+                          <div className="h-4 bg-muted/50 rounded w-3/4"></div>
                         </CardContent>
-                        </Card>
+                      </Card>
                     ))
-                    ) : latestOpportunities.length > 0 ? (
-                    latestOpportunities.map((opp) => (
-                      <OpportunityCard key={opp.id} opportunity={opp} accountName={(opp as any).accountName} />
+                  ) : recentUpdates.length > 0 ? (
+                    recentUpdates.map(update => (
+                      <UpdateItem key={update.id} update={update} />
                     ))
-                    ) : (
-                        !isLoading && (
-                          <div className="col-span-2 flex flex-col items-center justify-center bg-white rounded-[8px] h-[343px] shadow-sm border text-center gap-4 animate-fade-in">
-                            {/* Hopeful horizon icon */}
-                            <svg width="56" height="56" viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg" className="mb-2">
-                              <defs>
-                                <linearGradient id="oppGradient" x1="0" y1="0" x2="56" y2="56" gradientUnits="userSpaceOnUse">
-                                  <stop stopColor="#5E6156"/>
-                                  <stop offset="1" stopColor="#C57E94"/>
-                                </linearGradient>
-                              </defs>
-                              <ellipse cx="28" cy="40" rx="20" ry="8" fill="#F8F7F3"/>
-                              <rect x="16" y="24" width="24" height="10" rx="5" fill="url(#oppGradient)" fillOpacity="0.18"/>
-                              <circle cx="28" cy="29" r="5" fill="#CBCAC5"/>
-                              <rect x="26" y="34" width="4" height="6" rx="2" fill="#C57E94"/>
-                            </svg>
-                            <span className="text-lg text-muted-foreground font-medium text-center">No opportunities found</span>
-                            <span className="text-sm text-muted-foreground text-center">Add your first opportunity to get started!</span>
-                          </div>
-                        )
-                    )}
+                  ) : (
+                    !isLoading && (
+                      <div className="col-span-2 flex flex-col items-center justify-center bg-white rounded-[8px] h-[343px] shadow-sm border text-center gap-4 animate-fade-in">
+                        {/* Pastel calendar with magnifier */}
+                        <svg width="56" height="56" viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg" className="mb-2">
+                          <defs>
+                            <linearGradient id="activityGradient" x1="0" y1="0" x2="56" y2="56" gradientUnits="userSpaceOnUse">
+                              <stop stopColor="#998876"/>
+                              <stop offset="1" stopColor="#CBCAC5"/>
+                            </linearGradient>
+                          </defs>
+                          <rect x="8" y="16" width="32" height="24" rx="6" fill="#F8F7F3" stroke="url(#activityGradient)" strokeWidth="2"/>
+                          <rect x="12" y="20" width="24" height="8" rx="2" fill="#CBCAC5"/>
+                          <circle cx="40" cy="40" r="7" fill="#fff" stroke="#C57E94" strokeWidth="2"/>
+                          <path d="M44 44L48 48" stroke="#C57E94" strokeWidth="2" strokeLinecap="round"/>
+                        </svg>
+                        <span className="text-lg text-muted-foreground font-medium text-center">No recent activity yet</span>
+                        <span className="text-sm text-muted-foreground text-center">Once you start engaging, updates will appear here!</span>
+                      </div>
+                    )
+                  )}
                 </div>
-              </div>
-            </div>
+              </CardContent>
+            </Card>
           </div>
         </div>
       )}
