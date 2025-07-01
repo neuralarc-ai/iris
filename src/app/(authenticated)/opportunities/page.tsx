@@ -17,6 +17,7 @@ import { Loader2 } from 'lucide-react';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 interface OpportunityData {
   id: string;
@@ -187,74 +188,79 @@ export default function OpportunitiesPage() {
         </Button>
       </PageTitle>
 
-      <Card className="shadow-sm">
-        <CardHeader className="pb-4 flex flex-row items-center justify-between">
-            <CardTitle className="text-lg flex items-center">
-                <ListFilter className="mr-2 h-5 w-5 text-primary"/> Filter & Search Opportunities
-            </CardTitle>
-            <div className="flex items-center gap-2">
-              <TooltipProvider delayDuration={0}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button variant={view === 'grid' ? 'default' : 'outline'} size="icon" className="rounded-[4px]" onClick={() => setView('grid')}><Grid className="h-5 w-5" /></Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Grid View</TooltipContent>
-                </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button variant={view === 'table' ? 'default' : 'outline'} size="icon" className="rounded-[4px]" onClick={() => setView('table')}><List className="h-5 w-5" /></Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Table View</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </div>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-            <div>
-              <Label htmlFor="search-opportunities">Search Opportunities</Label>
-              <div className="relative mt-1">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="search-opportunities"
-                  type="text"
-                  placeholder="Search by name..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-9"
-                />
-              </div>
-            </div>
-            <div>
-              <Label htmlFor="status-filter">Status</Label>
-              <Select value={statusFilter} onValueChange={(value: OpportunityStatus | 'all') => setStatusFilter(value)}>
-                <SelectTrigger id="status-filter" className="w-full mt-1">
-                  <SelectValue placeholder="Filter by status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Statuses</SelectItem>
-                  {opportunityStatusOptions.map(status => (
-                    <SelectItem key={status} value={status}>{status}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label htmlFor="account-filter">Account</Label>
-              <Select value={accountFilter} onValueChange={(value: string | 'all') => setAccountFilter(value)}>
-                <SelectTrigger id="account-filter" className="w-full mt-1">
-                  <SelectValue placeholder="Filter by account" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Accounts</SelectItem>
-                  {accountOptions.map(account => (
-                    <SelectItem key={account.id} value={account.id}>{account.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+      {/* Search, Filter, and View Toggle Row (refactored to match accounts page) */}
+      <Card className="duration-300 bg-transparent shadow-none p-0">
+        <CardHeader className="pb-4 flex flex-row bg-transparent shadow-none p-0 items-center justify-between">
+          <div className="flex-1 flex items-center gap-2 bg-transparent">
+            <div className="relative w-[60%]">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                id="search-opportunities"
+                type="text"
+                placeholder="Search opportunities by name..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-9 w-full"
+              />
             </div>
           </div>
-        </CardContent>
+          <div className="flex items-center gap-2 ml-4">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="flex items-center gap-2 min-w-[140px] max-h-10">
+                  <ListFilter className="h-5 w-5 text-primary" />
+                  Sort & Filter
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className='w-[150px] rounded-sm h-fit'>
+                <Label htmlFor="status-filter" className="text-[#282828] font-medium px-2 py-1">Status</Label>
+                <Select value={statusFilter} onValueChange={(value: OpportunityStatus | 'all') => setStatusFilter(value)}>
+                  <SelectTrigger id="status-filter" className="w-full mt-1 border-none text-[#282828]">
+                    <SelectValue placeholder="All Statuses" className="text-[#282828]" />
+                  </SelectTrigger>
+                  <SelectContent className="text-[#282828]">
+                    <SelectItem value="all" className="text-[#282828]">All Statuses</SelectItem>
+                    {opportunityStatusOptions.map(status => (
+                      <SelectItem key={status} value={status} className="text-[#282828]">{status}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Label htmlFor="account-filter" className="text-[#282828] font-medium px-2 py-1 mt-2">Account</Label>
+                <Select value={accountFilter} onValueChange={(value: string | 'all') => setAccountFilter(value)}>
+                  <SelectTrigger id="account-filter" className="w-full mt-1 border-none text-[#282828]">
+                    <SelectValue placeholder="All Accounts" className="text-[#282828]" />
+                  </SelectTrigger>
+                  <SelectContent className="text-[#282828]">
+                    <SelectItem value="all" className="text-[#282828]">All Accounts</SelectItem>
+                    {accountOptions.map(account => (
+                      <SelectItem key={account.id} value={account.id} className="text-[#282828]">{account.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <div className="flex items-center bg-[#F8F7F3] rounded-[8px] p-1 gap-1">
+              <Button
+                variant={view === 'grid' ? 'default' : 'ghost'}
+                size="icon"
+                className={`rounded-[6px] ${view === 'grid' ? 'bg-[#E6D0D7] text-[#2B2521]' : 'text-[#2B2521]'}`}
+                onClick={() => setView('grid')}
+                aria-label="Grid View"
+              >
+                <Grid className="h-5 w-5" />
+              </Button>
+              <Button
+                variant={view === 'table' ? 'default' : 'ghost'}
+                size="icon"
+                className={`rounded-[6px] ${view === 'table' ? 'bg-[#E6D0D7] text-[#2B2521]' : 'text-[#2B2521]'}`}
+                onClick={() => setView('table')}
+                aria-label="List View"
+              >
+                <List className="h-5 w-5" />
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
       </Card>
 
       {filteredOpportunities.length > 0 ? (
