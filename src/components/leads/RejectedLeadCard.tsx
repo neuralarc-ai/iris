@@ -5,8 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { AlertTriangle, Mail, Phone, MapPin, ExternalLink, CheckCircle, XCircle, Edit } from 'lucide-react';
+import { FileText, Mail, Phone, MapPin, Edit } from 'lucide-react';
 import { Lead } from '@/types';
 
 interface RejectedLeadCardProps {
@@ -18,25 +17,26 @@ interface RejectedLeadCardProps {
 
 export default function RejectedLeadCard({ lead, onApprove, onDelete, onUpdate }: RejectedLeadCardProps) {
   const [isEditModalOpen, setIsEditModalOpen] = React.useState(false);
-  const [isConfirmApproveOpen, setIsConfirmApproveOpen] = React.useState(false);
   const [editData, setEditData] = React.useState({
     companyName: lead.companyName,
     personName: lead.personName,
     email: lead.email,
     phone: lead.phone || '',
     linkedinProfileUrl: lead.linkedinProfileUrl || '',
-    country: lead.country || ''
+    country: lead.country || '',
+    jobTitle: lead.jobTitle || '',
+    website: lead.website || '',
+    industry: lead.industry || '',
   });
 
-  const handleCardClick = () => {
-    setIsEditModalOpen(true);
+  const handleEditChange = (field: string, value: string) => {
+    setEditData(prev => ({ ...prev, [field]: value }));
   };
 
   const handleSave = () => {
     if (onUpdate) {
       onUpdate(lead.id, editData);
     }
-    
     setIsEditModalOpen(false);
   };
 
@@ -47,89 +47,54 @@ export default function RejectedLeadCard({ lead, onApprove, onDelete, onUpdate }
       email: lead.email,
       phone: lead.phone || '',
       linkedinProfileUrl: lead.linkedinProfileUrl || '',
-      country: lead.country || ''
+      country: lead.country || '',
+      jobTitle: lead.jobTitle || '',
+      website: lead.website || '',
+      industry: lead.industry || '',
     });
     setIsEditModalOpen(false);
   };
 
-  const handleApprove = () => {
-    // Open confirmation dialog
-    setIsConfirmApproveOpen(true);
-  };
-
-  const handleConfirmApprove = () => {
-    if (onUpdate) {
-      onUpdate(lead.id, editData);
-    }
-    
-    if (onApprove) {
-      onApprove(lead.id);
-    }
-    
-    setIsEditModalOpen(false);
-    setIsConfirmApproveOpen(false);
-  };
-
   return (
     <>
-      <Card 
-        className="shadow-sm border-l-4 border-l-red-500 hover:shadow-md transition-shadow duration-200 cursor-pointer"
-        onClick={handleCardClick}
-      >
+      <Card className="shadow-sm border-l-4 border-l-red-500 bg-white">
         <CardHeader className="pb-3">
           <div className="flex items-start justify-between">
             <div className="flex-1">
               <CardTitle className="text-base font-semibold text-foreground flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4 text-red-500" />
-                {lead.companyName}
+                {lead.companyName || <span className="italic text-muted-foreground">No Company</span>}
               </CardTitle>
-              <p className="text-sm text-muted-foreground mt-1">{lead.personName}</p>
+              <p className="text-sm text-muted-foreground mt-1 flex items-center gap-2">
+                {lead.personName || <span className="italic">No Name</span>}
+              </p>
             </div>
             <Badge variant="destructive" className="text-xs px-2 py-1">
               Rejected
             </Badge>
           </div>
         </CardHeader>
-        
         <CardContent className="space-y-3">
           {/* Contact Information */}
           <div className="space-y-1.5">
-            <div className="flex items-center gap-2 text-sm">
-              <Mail className="h-3.5 w-3.5 text-muted-foreground" />
-              <a href={`mailto:${lead.email}`} className="text-primary hover:underline text-sm">
-                {lead.email}
-              </a>
-            </div>
-            
+            {lead.email && (
+              <div className="flex items-center gap-2 text-sm">
+                <Mail className="h-3.5 w-3.5 text-muted-foreground" />
+                <span>{lead.email}</span>
+              </div>
+            )}
             {lead.phone && (
               <div className="flex items-center gap-2 text-sm">
                 <Phone className="h-3.5 w-3.5 text-muted-foreground" />
-                <span className="text-sm">{lead.phone}</span>
+                <span>{lead.phone}</span>
               </div>
             )}
-            
             {lead.country && (
               <div className="flex items-center gap-2 text-sm">
                 <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
-                <span className="text-sm">{lead.country}</span>
-              </div>
-            )}
-            
-            {lead.linkedinProfileUrl && (
-              <div className="flex items-center gap-2 text-sm">
-                <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
-                <a 
-                  href={lead.linkedinProfileUrl} 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="text-primary hover:underline text-sm"
-                >
-                  LinkedIn Profile
-                </a>
+                <span>{lead.country}</span>
               </div>
             )}
           </div>
-          
           {/* Rejection Reasons */}
           {lead.rejectionReasons && lead.rejectionReasons.length > 0 && (
             <div className="space-y-1.5">
@@ -137,40 +102,31 @@ export default function RejectedLeadCard({ lead, onApprove, onDelete, onUpdate }
               <div className="space-y-1">
                 {lead.rejectionReasons.map((reason, index) => (
                   <div key={index} className="flex items-start gap-1.5 text-xs text-red-600 dark:text-red-400">
-                    <XCircle className="h-3 w-3 mt-0.5 flex-shrink-0" />
+                    <FileText className="h-3 w-3 mt-0.5 flex-shrink-0" />
                     <span className="text-xs">{reason}</span>
                   </div>
                 ))}
               </div>
             </div>
           )}
-          
-          {/* Created Date */}
-          <div className="text-xs text-muted-foreground pt-1">
-            Created: {new Date(lead.createdAt).toLocaleDateString('en-GB')}
-          </div>
-          
           {/* Action Buttons */}
-          <div className="flex gap-2 pt-2" onClick={(e) => e.stopPropagation()}>
+          <div className="flex gap-2 pt-2">
+            <Button 
+              size="sm" 
+              variant="outline" 
+              className="flex-1 text-blue-600 border-blue-200 hover:bg-blue-50 h-8 text-xs" 
+              onClick={() => setIsEditModalOpen(true)}
+            >
+              <Edit className="h-3 w-3 mr-1" />
+              Edit
+            </Button>
             {onApprove && (
-              <Button 
-                size="sm" 
-                variant="outline" 
-                className="flex-1 text-green-600 border-green-200 hover:bg-green-50 h-8 text-xs"
-                onClick={() => setIsEditModalOpen(true)}
-              >
-                <Edit className="h-3 w-3 mr-1" />
-                Edit & Approve
+              <Button size="sm" variant="outline" className="flex-1 text-green-600 border-green-200 hover:bg-green-50 h-8 text-xs" onClick={() => onApprove(lead.id)}>
+                Approve
               </Button>
             )}
             {onDelete && (
-              <Button 
-                size="sm" 
-                variant="outline" 
-                className="flex-1 text-red-600 border-red-200 hover:bg-red-50 h-8 text-xs"
-                onClick={() => onDelete(lead.id)}
-              >
-                <XCircle className="h-3 w-3 mr-1" />
+              <Button size="sm" variant="outline" className="flex-1 text-red-600 border-red-200 hover:bg-red-50 h-8 text-xs" onClick={() => onDelete(lead.id)}>
                 Delete
               </Button>
             )}
@@ -183,64 +139,21 @@ export default function RejectedLeadCard({ lead, onApprove, onDelete, onUpdate }
         <DialogContent className="max-w-2xl w-[95vw] bg-white dark:bg-gray-900">
           <DialogHeader className="pb-6">
             <DialogTitle className="text-xl font-semibold flex items-center gap-3">
-              <div className="p-2 bg-red-100 dark:bg-red-900/20 rounded-lg">
-                <Edit className="h-5 w-5 text-red-600 dark:text-red-400" />
+              <div className="p-2 bg-blue-100 dark:bg-blue-900/20 rounded-lg">
+                <Edit className="h-5 w-5 text-blue-600 dark:text-blue-400" />
               </div>
               <div>
                 <div>Edit Rejected Lead</div>
                 <div className="text-sm font-normal text-muted-foreground mt-1">
-                  Fix the issues and approve this lead
+                  Update the lead information
                 </div>
               </div>
             </DialogTitle>
           </DialogHeader>
           
           <div className="space-y-6">
-            {/* Current Lead Info */}
-            <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
-              <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Current Information</h4>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-                <div>
-                  <span className="text-gray-500 dark:text-gray-400">Company:</span>
-                  <span className="ml-2 font-medium">{lead.companyName}</span>
-                </div>
-                <div>
-                  <span className="text-gray-500 dark:text-gray-400">Contact:</span>
-                  <span className="ml-2 font-medium">{lead.personName}</span>
-                </div>
-                <div>
-                  <span className="text-gray-500 dark:text-gray-400">Email:</span>
-                  <span className="ml-2 font-medium">{lead.email}</span>
-                </div>
-                <div>
-                  <span className="text-gray-500 dark:text-gray-400">Phone:</span>
-                  <span className="ml-2 font-medium">{lead.phone || 'Not provided'}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Rejection Reasons */}
-            {lead.rejectionReasons && lead.rejectionReasons.length > 0 && (
-              <div className="bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800 rounded-lg p-4">
-                <h4 className="text-sm font-medium text-red-700 dark:text-red-400 mb-3 flex items-center gap-2">
-                  <AlertTriangle className="h-4 w-4" />
-                  Issues to Fix
-                </h4>
-                <div className="space-y-2">
-                  {lead.rejectionReasons.map((reason, index) => (
-                    <div key={index} className="flex items-start gap-2 text-sm text-red-600 dark:text-red-400">
-                      <XCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                      <span>{reason}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
             {/* Edit Form */}
             <div className="space-y-4">
-              <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">Update Information</h4>
-              
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="companyName" className="text-sm font-medium">
@@ -249,7 +162,7 @@ export default function RejectedLeadCard({ lead, onApprove, onDelete, onUpdate }
                   <Input
                     id="companyName"
                     value={editData.companyName}
-                    onChange={(e) => setEditData(prev => ({ ...prev, companyName: e.target.value }))}
+                    onChange={(e) => handleEditChange('companyName', e.target.value)}
                     placeholder="Enter company name"
                   />
                 </div>
@@ -261,7 +174,7 @@ export default function RejectedLeadCard({ lead, onApprove, onDelete, onUpdate }
                   <Input
                     id="personName"
                     value={editData.personName}
-                    onChange={(e) => setEditData(prev => ({ ...prev, personName: e.target.value }))}
+                    onChange={(e) => handleEditChange('personName', e.target.value)}
                     placeholder="Enter contact name"
                   />
                 </div>
@@ -274,7 +187,7 @@ export default function RejectedLeadCard({ lead, onApprove, onDelete, onUpdate }
                     id="email"
                     type="email"
                     value={editData.email}
-                    onChange={(e) => setEditData(prev => ({ ...prev, email: e.target.value }))}
+                    onChange={(e) => handleEditChange('email', e.target.value)}
                     placeholder="Enter email address"
                   />
                 </div>
@@ -284,18 +197,18 @@ export default function RejectedLeadCard({ lead, onApprove, onDelete, onUpdate }
                   <Input
                     id="phone"
                     value={editData.phone}
-                    onChange={(e) => setEditData(prev => ({ ...prev, phone: e.target.value }))}
+                    onChange={(e) => handleEditChange('phone', e.target.value)}
                     placeholder="Enter phone number"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="linkedinProfileUrl" className="text-sm font-medium">LinkedIn Profile URL</Label>
+                  <Label htmlFor="jobTitle" className="text-sm font-medium">Job Title</Label>
                   <Input
-                    id="linkedinProfileUrl"
-                    value={editData.linkedinProfileUrl}
-                    onChange={(e) => setEditData(prev => ({ ...prev, linkedinProfileUrl: e.target.value }))}
-                    placeholder="https://linkedin.com/in/username"
+                    id="jobTitle"
+                    value={editData.jobTitle}
+                    onChange={(e) => handleEditChange('jobTitle', e.target.value)}
+                    placeholder="Enter job title"
                   />
                 </div>
 
@@ -304,8 +217,38 @@ export default function RejectedLeadCard({ lead, onApprove, onDelete, onUpdate }
                   <Input
                     id="country"
                     value={editData.country}
-                    onChange={(e) => setEditData(prev => ({ ...prev, country: e.target.value }))}
+                    onChange={(e) => handleEditChange('country', e.target.value)}
                     placeholder="Enter country"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="website" className="text-sm font-medium">Website</Label>
+                  <Input
+                    id="website"
+                    value={editData.website}
+                    onChange={(e) => handleEditChange('website', e.target.value)}
+                    placeholder="Enter website URL"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="industry" className="text-sm font-medium">Industry</Label>
+                  <Input
+                    id="industry"
+                    value={editData.industry}
+                    onChange={(e) => handleEditChange('industry', e.target.value)}
+                    placeholder="Enter industry"
+                  />
+                </div>
+
+                <div className="space-y-2 sm:col-span-2">
+                  <Label htmlFor="linkedinProfileUrl" className="text-sm font-medium">LinkedIn Profile URL</Label>
+                  <Input
+                    id="linkedinProfileUrl"
+                    value={editData.linkedinProfileUrl}
+                    onChange={(e) => handleEditChange('linkedinProfileUrl', e.target.value)}
+                    placeholder="https://linkedin.com/in/username"
                   />
                 </div>
               </div>
@@ -321,70 +264,15 @@ export default function RejectedLeadCard({ lead, onApprove, onDelete, onUpdate }
               Cancel
             </Button>
             <Button 
-              variant="outline" 
-              className="text-green-600 border-green-200 hover:bg-green-50 dark:hover:bg-green-900/20 w-full sm:w-auto order-2"
+              className="bg-blue-600 hover:bg-blue-700 w-full sm:w-auto order-1 sm:order-3"
               onClick={handleSave}
             >
               <Edit className="h-4 w-4 mr-2" />
               Save Changes
             </Button>
-            <Button 
-              className="bg-green-600 hover:bg-green-700 w-full sm:w-auto order-1 sm:order-3"
-              onClick={handleApprove}
-            >
-              <CheckCircle className="h-4 w-4 mr-2" />
-              Approve Lead
-            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* Confirmation Dialog for Approval */}
-      <AlertDialog open={isConfirmApproveOpen} onOpenChange={setIsConfirmApproveOpen}>
-        <AlertDialogContent className="max-w-md">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
-              <CheckCircle className="h-5 w-5 text-green-600" />
-              Approve Lead?
-            </AlertDialogTitle>
-            <AlertDialogDescription className="text-left">
-              <div className="space-y-3">
-                <p>
-                  Are you sure you want to approve this lead? This will:
-                </p>
-                <ul className="list-disc list-inside space-y-1 text-sm text-gray-600 dark:text-gray-400">
-                  <li>Move the lead from "Rejected" to "Accepted"</li>
-                  <li>Set the lead status to "New"</li>
-                  <li>Make it available for normal lead management</li>
-                </ul>
-                <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 mt-3">
-                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Lead Details:</p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    <strong>{editData.companyName}</strong> - {editData.personName}
-                  </p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">{editData.email}</p>
-                </div>
-              </div>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter className="flex flex-row gap-3 pt-2">
-            <Button
-              variant="outline"
-              onClick={() => setIsConfirmApproveOpen(false)}
-              className="w-full sm:w-auto h-11 rounded-[4px] border border-[#2B2521] text-[#2B2521] font-medium text-base hover:bg-[#F8F7F3] transition"
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleConfirmApprove}
-              className="w-full sm:w-auto h-11 rounded-[4px] bg-[#34A853] hover:bg-[#25953c] text-white font-semibold text-base flex items-center justify-center gap-2 px-6 transition"
-            >
-              <CheckCircle className="h-5 w-5 mr-1 -ml-1" />
-              Approve
-            </Button>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </>
   );
 } 
