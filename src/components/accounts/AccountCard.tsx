@@ -33,6 +33,7 @@ export default function AccountCard({ account, onNewOpportunity, owner, onAccoun
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [aiEnrichment, setAiEnrichment] = useState<any>(null);
   const [isAiLoading, setIsAiLoading] = useState(false);
+  const [enrichmentUpdated, setEnrichmentUpdated] = useState(0);
 
   // Map fields for runtime compatibility (camelCase preferred, fallback to snake_case)
   const contactPersonName = account.contactPersonName || (account as any).contact_person_name || account.name;
@@ -67,7 +68,7 @@ export default function AccountCard({ account, onNewOpportunity, owner, onAccoun
       setAiScore(data?.match_score ?? null);
     };
     fetchAiScore();
-  }, [account.id]);
+  }, [account.id, enrichmentUpdated]);
 
   useEffect(() => {
     setIsAiLoading(true);
@@ -86,7 +87,7 @@ export default function AccountCard({ account, onNewOpportunity, owner, onAccoun
       setIsAiLoading(false);
     };
     fetchAiEnrichment();
-  }, [account.id]);
+  }, [account.id, enrichmentUpdated]);
 
   return (
     <Card
@@ -104,16 +105,20 @@ export default function AccountCard({ account, onNewOpportunity, owner, onAccoun
         <div className="mt-3 text-sm font-medium text-[#5E6156]">Account Score</div>
         <div className="flex items-center gap-2 mt-1">
           <div className="w-full bg-[#E5E3DF] rounded-full h-2 overflow-hidden">
-            <div
-              className="h-2 rounded-full"
-              style={{
-                width: `${aiScore !== null ? aiScore : Math.min(opportunities.length * 10, 100)}%`,
-                backgroundImage: 'linear-gradient(to right, #3987BE, #D48EA3)',
-              }}
-            />
+            {aiScore !== null ? (
+              <div
+                className="h-2 rounded-full"
+                style={{
+                  width: `${aiScore}%`,
+                  backgroundImage: 'linear-gradient(to right, #3987BE, #D48EA3)',
+                }}
+              />
+            ) : (
+              <div className="h-2 rounded-full bg-[#E5E3DF]" style={{ width: '100%' }} />
+            )}
           </div>
           <div className="text-sm font-semibold text-[#282828] ml-2 flex flex-row items-center flex-shrink-0">
-            {aiScore !== null ? `${aiScore}%` : `${Math.min(opportunities.length * 10, 100)}%`}
+            {aiScore !== null ? `${aiScore}%` : 'N/A'}
           </div>
         </div>
         <div className="mt-4 space-y-1.5 text-[15px]">
@@ -145,7 +150,14 @@ export default function AccountCard({ account, onNewOpportunity, owner, onAccoun
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-      <AccountModal accountId={account.id} open={modalOpen} onClose={() => setModalOpen(false)} aiEnrichment={aiEnrichment} isAiLoading={isAiLoading} />
+      <AccountModal
+        accountId={account.id}
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        aiEnrichment={aiEnrichment}
+        isAiLoading={isAiLoading}
+        onEnrichmentComplete={() => setEnrichmentUpdated(v => v + 1)}
+      />
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>

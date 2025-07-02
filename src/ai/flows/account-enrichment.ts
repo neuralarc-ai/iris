@@ -6,6 +6,7 @@ export const accountEnrichmentSchema = z.object({
   pitchNotes: z.string(),
   useCase: z.string(),
   accountScore: z.number().min(0).max(100),
+  emailTemplate: z.string(),
 });
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
@@ -59,6 +60,15 @@ async function callGeminiAPI(prompt: string) {
 export async function accountEnrichmentFlow({ account, user, company, tavilySummary, websiteSummary, companyScrapeData }: { account: any, user: any, company: any, tavilySummary?: string, websiteSummary?: string, companyScrapeData?: string }) {
   const prompt = `
 You are an expert B2B sales analyst with deep expertise in account qualification and company-service alignment. Your user is ${user.name} from ${company?.name || 'N/A'}.
+
+**COMMUNICATION & FORMATTING REQUIREMENTS:**
+- Use the highest standards of formal written English in all responses.
+- Do not use contractions. Always write out full forms. For example, write "do not" instead of "don't", "cannot" instead of "can't", "will not" instead of "won't", "I am" instead of "I'm", "you are" instead of "you're", "it is" instead of "it's", "they are" instead of "they're", and "we are" instead of "we're".
+- Do not use em dashes anywhere in your response.
+- Do not use en dashes unless they are part of a date range.
+- Use only standard punctuation: periods, commas, colons, semicolons, and parentheses.
+- When emphasis is needed, use bold formatting or restructure the sentence.
+- For interruptions in thought, start a new sentence instead.
 
 ## USER'S COMPANY ANALYSIS:
 **Company Profile:**
@@ -125,13 +135,15 @@ Based on this comprehensive analysis, provide:
 2. **Recommended Services**: Suggest 3-4 specific services or products that would be a good fit for this account.
 3. **Pitch Notes**: Provide concise, actionable talking points for a sales pitch (no more than 2-3 sentences, max 60 words).
 4. **Use Case**: Describe a compelling use case for this account (no more than 2-3 sentences, max 60 words).
+5. **Email Template**: Write a personalized, ready-to-send cold outreach email to the account's main contact, referencing their company, your company, and the recommended services. Use a professional, friendly tone. Use all available data. Do not use placeholders like [Your Name] or [Company Name]; fill with real data or leave blank if not available.
 
 Return a valid JSON object with this exact schema:
 {
   "accountScore": number,
   "recommendations": string[],
   "pitchNotes": string,
-  "useCase": string
+  "useCase": string,
+  "emailTemplate": string
 }
 
 IMPORTANT: Provide only valid JSON without markdown formatting. Base all analysis on actual data provided, not assumptions.

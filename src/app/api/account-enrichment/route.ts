@@ -142,7 +142,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'AI enrichment failed due to insufficient data or an AI error.' }, { status: 500 });
     }
     // Validate AI result
-    if (!aiResult || !aiResult.recommendations || !aiResult.pitchNotes || !aiResult.useCase) {
+    if (!aiResult || !aiResult.recommendations || !aiResult.pitchNotes || !aiResult.useCase || !aiResult.emailTemplate) {
       return NextResponse.json({ error: 'AI enrichment returned incomplete data.' }, { status: 500 });
     }
     // Add a small random factor to the account score for realism
@@ -161,6 +161,7 @@ export async function POST(req: NextRequest) {
         recommended_services: aiResult.recommendations,
         use_case: aiResult.useCase,
         pitch_notes: aiResult.pitchNotes,
+        email_template: aiResult.emailTemplate,
         ai_output: aiResult,
         status: 'success',
         last_refreshed_at: new Date().toISOString(),

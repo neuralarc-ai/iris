@@ -26,9 +26,10 @@ interface AccountModalProps {
   onClose: () => void;
   aiEnrichment?: any;
   isAiLoading?: boolean;
+  onEnrichmentComplete?: () => void;
 }
 
-export default function AccountModal({ accountId, open, onClose, aiEnrichment, isAiLoading }: AccountModalProps) {
+export default function AccountModal({ accountId, open, onClose, aiEnrichment, isAiLoading, onEnrichmentComplete }: AccountModalProps) {
   const { toast } = useToast();
   const [tab, setTab] = useState<'overview' | 'activity' | 'email'>('overview');
   const [account, setAccount] = useState<(Account & {
@@ -60,11 +61,9 @@ export default function AccountModal({ accountId, open, onClose, aiEnrichment, i
 
   useEffect(() => {
     if (!open) return;
-    setLoadingAI(true);
-    const fetchData = async () => {
+    (async () => {
       // Fetch account
       const { data: acc } = await supabase.from('account').select('*').eq('id', accountId).single();
-      // Map DB fields to camelCase
       if (acc) {
         setAccount({
           ...acc,
@@ -100,15 +99,10 @@ export default function AccountModal({ accountId, open, onClose, aiEnrichment, i
         accountId: log.account_id,
         nextActionDate: log.next_action_date,
       })));
-      // Fetch AI recommendations (replace with your real AI call)
-      const { data: aiData } = await supabase.from('aianalysis').select('*').eq('entity_id', accountId).eq('entity_type', 'Account').order('created_at', { ascending: false }).limit(1).single();
-      setAI(aiData);
       // Fetch users for assignment
       const { data: usersData } = await supabase.from('users').select('id, name, email');
       if (usersData) setUsers(usersData);
-      setLoadingAI(false);
-    };
-    fetchData();
+    })();
   }, [accountId, open]);
 
   useEffect(() => {
@@ -206,19 +200,24 @@ export default function AccountModal({ accountId, open, onClose, aiEnrichment, i
   // Email generation logic
   const generateProfessionalEmail = async () => {
     setIsGeneratingEmail(true);
-    // Compose recommended services string
+    // If AI-generated email template is present, use it
+    if (ai?.emailTemplate) {
+      setIsGeneratingEmail(false);
+      return ai.emailTemplate;
+    }
+    // Fallback: Compose recommended services string
     const services = (ai?.recommended_services || ai?.recommendations)?.length
       ? (ai.recommended_services || ai.recommendations).map((s: string) => `- ${s}`).join('\n')
       : '- AI-powered CRM\n- Sales Forecasting\n- Automated Reporting';
     // Simulate API call delay
     return new Promise<string>((resolve) => {
       setTimeout(() => {
-        resolve(`Subject: Unlock Your Sales Potential at ${account?.name}
-\nHi ${account?.contactPersonName},
-\nI hope this message finds you well. My name is ${currentUser?.name || '[Your Name]'} from ${userCompany.name}. I wanted to introduce you to our platform, designed to help companies like ${account?.name} streamline sales processes, gain actionable insights, and boost conversions.
+        resolve(`Subject: Unlock Your Sales Potential at ${account?.name || ''}
+\nHi ${account?.contactPersonName || ''},
+\nI hope this message finds you well. My name is ${currentUser?.name || ''} from ${userCompany.name}. I wanted to introduce you to our platform, designed to help companies like ${account?.name || ''} streamline sales processes, gain actionable insights, and boost conversions.
 \nOur solution offers:\n${services}
-\nI'd love to schedule a quick call to discuss how we can help ${account?.name} achieve its sales goals. Please let me know your availability, or feel free to reply directly to this email.
-\nBest regards,\n${currentUser?.name || '[Your Name]'}\n${userCompany.name}\n${currentUser?.email || '[Your Email]'}\n${userCompany.website}`);
+\nI'd love to schedule a quick call to discuss how we can help ${account?.name || ''} achieve its sales goals. Please let me know your availability, or feel free to reply directly to this email.
+\nBest regards,\n${currentUser?.name || ''}\n${userCompany.name}\n${currentUser?.email || ''}\n${userCompany.website}`);
         setIsGeneratingEmail(false);
       }, 1200);
     });
@@ -266,6 +265,35 @@ export default function AccountModal({ accountId, open, onClose, aiEnrichment, i
     setAI(aiEnrichment || null);
     setLoadingAI(isAiLoading || false);
   }, [aiEnrichment, isAiLoading]);
+
+  // Replace the enrichment fetch logic with this useEffect:
+  useEffect(() => {
+    if (open && !ai && !loadingAI) {
+      setLoadingAI(true);
+      (async () => {
+        try {
+          const response = await fetch('/api/account-enrichment', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ accountId, triggerEnrichment: true }),
+          });
+          if (!response.ok) {
+            const errorData = await response.json();
+            toast({ title: 'AI Enrichment Failed', description: errorData.error || 'Could not enrich account. Please try again.', variant: 'destructive' });
+            setLoadingAI(false);
+            return;
+          }
+          const data = await response.json();
+          setAI(data.ai_output || data);
+          setLoadingAI(false);
+          if (onEnrichmentComplete) onEnrichmentComplete();
+        } catch (e) {
+          toast({ title: 'AI Enrichment Failed', description: 'Could not enrich account. Please try again.', variant: 'destructive' });
+          setLoadingAI(false);
+        }
+      })();
+    }
+  }, [open]);
 
   if (!open) return null;
 
@@ -592,10 +620,10 @@ export default function AccountModal({ accountId, open, onClose, aiEnrichment, i
                       <div className="mb-2">
                         <div className="flex items-center justify-between text-xs mb-1">
                           <span>Account Score</span>
-                          <span className="font-semibold">{ai?.score || 'N/A'}/100</span>
+                          <span className="font-semibold">{ai?.accountScore ?? ai?.score ?? 'N/A'}/100</span>
                         </div>
                         <div className="w-full bg-[#E5E3DF] rounded-full h-2 overflow-hidden">
-                          <div className="h-2 rounded-full" style={{ width: `${ai?.score || 0}%`, backgroundImage: 'linear-gradient(to right, #3987BE, #D48EA3)' }} />
+                          <div className="h-2 rounded-full" style={{ width: `${ai?.accountScore ?? ai?.score ?? 0}%`, backgroundImage: 'linear-gradient(to right, #3987BE, #D48EA3)' }} />
                         </div>
                       </div>
                       <div className="mt-6 space-y-4">
@@ -612,17 +640,21 @@ export default function AccountModal({ accountId, open, onClose, aiEnrichment, i
                                 const response = await fetch('/api/account-enrichment', {
                                   method: 'POST',
                                   headers: { 'Content-Type': 'application/json' },
-                                  body: JSON.stringify({ accountId: accountId, triggerEnrichment: true, forceRefresh: true }),
+                                  body: JSON.stringify({ accountId, triggerEnrichment: true, forceRefresh: true }),
                                 });
-                                if (!response.ok) throw new Error('Failed to regenerate AI analysis');
+                                if (!response.ok) {
+                                  const errorData = await response.json();
+                                  toast({ title: 'Regeneration Failed', description: errorData.error || 'Could not regenerate AI analysis.', variant: 'destructive' });
+                                  setLoadingAI(false);
+                                  return;
+                                }
                                 const data = await response.json();
-                                setAI(data);
-                                toast({ title: 'AI analysis regenerated', description: 'Account AI recommendations updated.' });
+                                setAI(data.ai_output || data);
+                                if (onEnrichmentComplete) onEnrichmentComplete();
                               } catch (e) {
                                 toast({ title: 'Regeneration Failed', description: 'Could not regenerate AI analysis.', variant: 'destructive' });
-                              } finally {
-                                setLoadingAI(false);
                               }
+                              setLoadingAI(false);
                             }}
                             disabled={loadingAI}
                             title="Refresh AI analysis"
