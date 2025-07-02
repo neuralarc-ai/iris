@@ -947,14 +947,14 @@ export default function LeadsPage() {
                   placeholder="Search leads by name, company, or email..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-9 w-full min-h-12"
+                  className="pl-9 bg-white w-full min-h-12"
                 />
               </div>
             </div>
             <div className="flex items-center gap-2 ml-4">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" className="flex items-center gap-2 min-w-[140px] max-h-12">
+                  <Button variant="outline" className="flex bg-white max-w-10 border-[#2B2521]/30 items-center gap-2 min-w-[140px] max-h-12">
                     <ListFilter className="h-5 w-5 text-primary" />
                     Sort & Filter
                   </Button>
@@ -972,11 +972,11 @@ export default function LeadsPage() {
                   ))}
                 </DropdownMenuContent>
               </DropdownMenu>
-              <div className="flex items-center bg-white rounded-[8px] p-1 gap-1">
+              <div className="flex items-center border border-[#2B2521]/30 bg-white rounded-[4px] p-1 gap-1">
               <Button
                   variant={view === 'list' ? 'default' : 'ghost'}
                   size="icon"
-                  className={`rounded-[4px] ${view === 'list' ? 'bg-[#E6D0D7] text-[#2B2521]' : 'text-[#2B2521]'}`}
+                  className={`rounded-[2px] ${view === 'list' ? 'text-[#2B2521]' : 'text-[#2B2521]'}`}
                   onClick={() => setView('list')}
                   aria-label="Grid View"
                 >
@@ -985,7 +985,7 @@ export default function LeadsPage() {
                 <Button
                   variant={view === 'table' ? 'default' : 'ghost'}
                   size="icon"
-                  className={`rounded-[4px] ${view === 'table' ? 'bg-[#E6D0D7] text-[#2B2521]' : 'text-[#2B2521]'}`}
+                  className={`rounded-[2px] ${view === 'table' ? 'text-[#2B2521]' : 'text-[#2B2521]'}`}
                   onClick={() => setView('table')}
                   aria-label="List View"
                 >
