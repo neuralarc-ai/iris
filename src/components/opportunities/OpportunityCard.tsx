@@ -696,7 +696,7 @@ export default function OpportunityCard({ opportunity, accountName, onStatusChan
         </div>
       </Card>
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-4xl bg-white border-0 rounded-lg p-0">
+        <DialogContent className="sm:max-w-4xl bg-white border-0 rounded-lg p-0 focus-within:ourline-0 focus-within:ring-0 focus-visible:outline-0 focus-visible:ring-0">
           <div className="p-6 pb-0">
             <DialogHeader className="">
               <div className="flex items-start gap-4 justify-between">
@@ -706,7 +706,7 @@ export default function OpportunityCard({ opportunity, accountName, onStatusChan
                   </div>
                   <div className="flex flex-col gap-0.5">
                     <div className="flex items-center gap-2">
-                      <div className="text-3xl font-bold text-[#282828]">{opportunity.name}</div>
+                      <DialogTitle className="text-3xl font-bold text-[#282828]">{opportunity.name}</DialogTitle>
                       {!editMode && (
                         <Button variant="ghost" size="icon" className="ml-1" onClick={() => setEditMode(true)}>
                           <Pencil className="h-5 w-5 text-[#998876]" />
