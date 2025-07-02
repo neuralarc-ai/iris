@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { BarChartBig, DollarSign, CalendarDays, Eye, AlertTriangle, CheckCircle2, Briefcase, Lightbulb, TrendingUp, Users, Clock, MessageSquarePlus, Calendar as CalendarIcon, Sparkles, Pencil, Check, X, Phone, Mail, FileText, Activity, UserCheck, User, MoreHorizontal, Trash2 } from 'lucide-react';
+import { BarChartBig, DollarSign, CalendarDays, Eye, AlertTriangle, CheckCircle2, Briefcase, Lightbulb, TrendingUp, Users, Clock, MessageSquarePlus, Calendar as CalendarIcon, Sparkles, Pencil, Check, X, Phone, Mail, FileText, Activity, UserCheck, User, MoreHorizontal, Trash2, Coins, MinusCircle } from 'lucide-react';
 import type { Opportunity, OpportunityForecast as AIOpportunityForecast, Account, OpportunityStatus, Update } from '@/types';
 import { Progress } from "@/components/ui/progress";
 import {format, differenceInDays, parseISO, isValid, formatDistanceToNowStrict, formatDistanceToNow} from 'date-fns';
@@ -25,6 +25,8 @@ import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { History } from 'lucide-react';
 
 interface OpportunityCardProps {
   opportunity: Opportunity;
@@ -114,11 +116,7 @@ export default function OpportunityCard({ opportunity, accountName, onStatusChan
   const [editValue, setEditValue] = useState(opportunity.value.toString());
   const [isUpdatingValue, setIsUpdatingValue] = useState(false);
 
-  // Editable Timeline
-  const [isEditingTimeline, setIsEditingTimeline] = useState(false);
-  const [editStartDate, setEditStartDate] = useState(opportunity.startDate);
-  const [editEndDate, setEditEndDate] = useState<Date | undefined>(safeParseISO(opportunity.endDate) || undefined);
-  const [isUpdatingTimeline, setIsUpdatingTimeline] = useState(false);
+
   
   // AI Score and Delete Dialog
   const [aiScore, setAiScore] = useState<number | null>(null);
@@ -561,9 +559,7 @@ export default function OpportunityCard({ opportunity, accountName, onStatusChan
   useEffect(() => {
     setEditStatus(opportunity.status as OpportunityStatus);
     setEditValue(opportunity.value.toString());
-    setEditStartDate(opportunity.startDate);
-    setEditEndDate(safeParseISO(opportunity.endDate) || undefined);
-  }, [opportunity.value, opportunity.startDate, opportunity.endDate]);
+  }, [opportunity.value, opportunity.status]);
 
   const handleValueSave = async () => {
     setIsUpdatingValue(true);
@@ -582,24 +578,63 @@ export default function OpportunityCard({ opportunity, accountName, onStatusChan
     setIsUpdatingValue(false);
   };
 
-  const handleTimelineSave = async () => {
-    if (!editEndDate) return;
-    setIsUpdatingTimeline(true);
-    try {
-      const { error } = await supabase
-        .from('opportunity')
-        .update({ end_date: editEndDate.toISOString() })
-        .eq('id', opportunity.id);
-      if (error) throw error;
-      setIsEditingTimeline(false);
-      toast({ title: 'Timeline updated', description: 'Expected close date has been updated.' });
-      if (onTimelineChange) onTimelineChange(opportunity.startDate, editEndDate.toISOString());
-    } catch (error) {
-      toast({ title: 'Error', description: error instanceof Error ? error.message : 'Failed to update timeline.', variant: 'destructive' });
-    } finally {
-      setIsUpdatingTimeline(false);
+  const [editMode, setEditMode] = useState(false);
+  const [editOpportunity, setEditOpportunity] = useState({
+    name: opportunity.name,
+    value: opportunity.value.toString(),
+    status: opportunity.status,
+    description: opportunity.description || '',
+    accountName: accountName || '',
+  });
+
+  // Timeline status calculation
+  function getTimelineStatus() {
+    const end = safeParseISO(opportunity.endDate);
+    const start = safeParseISO(opportunity.startDate);
+    if (!end || !start) return { label: 'N/A', color: 'gray', days: 0 };
+    const now = new Date();
+    if (['Win', 'Loss'].includes(opportunity.status)) {
+      return { label: 'Closed', color: '#CBCAC5', days: 0 };
     }
-  };
+    if (now < end) {
+      // On track or delayed
+      if (now < start) return { label: 'Not started', color: '#CBCAC5', days: 0 };
+      const daysLeft = Math.ceil((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+      if (daysLeft >= 0) {
+        return { label: 'On Track', color: '#4BB543', days: daysLeft };
+      }
+    }
+    // Overdue
+    const daysOverdue = Math.abs(Math.ceil((now.getTime() - end.getTime()) / (1000 * 60 * 60 * 24)));
+    return { label: `Overdue by ${daysOverdue} day${daysOverdue !== 1 ? 's' : ''}`, color: '#E53E3E', days: daysOverdue };
+  }
+  const timelineStatus = getTimelineStatus();
+
+  // Gantt bar calculation
+  function getGanttBar() {
+    const start = safeParseISO(opportunity.startDate);
+    const end = safeParseISO(opportunity.endDate);
+    const now = new Date();
+    if (!start || !end) return null;
+    const total = end.getTime() - start.getTime();
+    const elapsed = Math.max(0, Math.min(now.getTime() - start.getTime(), total));
+    const overdue = now > end ? now.getTime() - end.getTime() : 0;
+    const percentElapsed = Math.min(100, Math.max(0, (elapsed / total) * 100));
+    const percentOverdue = overdue > 0 ? Math.min(100, (overdue / total) * 100) : 0;
+    return { percentElapsed, percentOverdue };
+  }
+  const gantt = getGanttBar();
+
+  const startDateObj = safeParseISO(opportunity.startDate);
+  const endDateObj = safeParseISO(opportunity.endDate);
+  let todayDotLeft = '0%';
+  if (startDateObj && endDateObj) {
+    todayDotLeft = `${Math.min(100, Math.max(0, ((new Date().getTime() - startDateObj.getTime()) / (endDateObj.getTime() - startDateObj.getTime())) * 100))}%`;
+  }
+  let daysLeftLabel = '';
+  if (gantt && startDateObj && endDateObj) {
+    daysLeftLabel = `${Math.round((gantt.percentElapsed / 100) * ((endDateObj.getTime() - startDateObj.getTime()) / (1000 * 60 * 60 * 24)))} days left`;
+  }
 
   return (
     <>
@@ -661,205 +696,327 @@ export default function OpportunityCard({ opportunity, accountName, onStatusChan
         </div>
       </Card>
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-xl bg-white" onClick={e => e.stopPropagation()}>
-          <DialogHeader className="flex flex-row items-center justify-between w-full">
-            <div className="flex items-center gap-2">
-              <DialogTitle className="text-xl font-headline">
-                {opportunity.name}
-              </DialogTitle>
-            </div>
-          </DialogHeader>
-
-          <div className="flex-1 overflow-y-auto space-y-6">
-            {/* Details Section */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-              <div className="bg-[#F3F4F6] p-4 rounded-lg flex flex-col items-center justify-center min-h-[56px]">
-                <div className="text-sm font-medium text-muted-foreground">Value</div>
-                <div className="text-2xl font-bold text-[#5E6156] mt-1">
-                  {isEditingValue ? (
-                    <div className="flex flex-col items-center gap-2">
-                      <Input
-                        value={editValue}
-                        onChange={(e) => setEditValue(e.target.value)}
-                        className="w-20 text-center"
-                        placeholder="0"
-                      />
-                      <div className="flex gap-1">
-                        <button onClick={handleValueSave} disabled={isUpdatingValue} className="text-green-600 hover:text-green-800"><Check className="w-4 h-4" /></button>
-                        <button onClick={() => { setIsEditingValue(false); setEditValue(opportunity.value.toString()); }} disabled={isUpdatingValue} className="text-red-600 hover:text-red-800"><X className="w-4 h-4" /></button>
-                      </div>
+        <DialogContent className="sm:max-w-4xl bg-white border-0 rounded-lg p-0">
+          <div className="p-6 pb-0">
+            <DialogHeader className="">
+              <div className="flex items-start gap-4 justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="h-16 w-16 bg-[#5E6156] rounded-full flex items-center justify-center">
+                    <Briefcase className="h-8 w-8 text-white" />
+                  </div>
+                  <div className="flex flex-col gap-0.5">
+                    <div className="flex items-center gap-2">
+                      <div className="text-3xl font-bold text-[#282828]">{opportunity.name}</div>
+                      {!editMode && (
+                        <Button variant="ghost" size="icon" className="ml-1" onClick={() => setEditMode(true)}>
+                          <Pencil className="h-5 w-5 text-[#998876]" />
+                        </Button>
+                      )}
+                      {editMode && (
+                        <Button variant="ghost" size="icon" className="ml-1 flex-shrink-0" onClick={() => {
+                          setEditMode(false);
+                          setEditOpportunity({
+                            name: opportunity.name,
+                            value: opportunity.value.toString(),
+                            status: opportunity.status,
+                            description: opportunity.description || '',
+                            accountName: accountName || '',
+                          });
+                        }}>
+                          <X className="h-5 w-5" style={{ color: '#916D5B' }} />
+                        </Button>
+                      )}
+                      {editMode && (
+                        <Button variant="ghost" size="icon" className="ml-1 flex-shrink-0" onClick={async () => {
+                          // Save edits (name, value, status, description, accountName)
+                          const updates: any = {};
+                          if (editOpportunity.name !== opportunity.name) updates.name = editOpportunity.name;
+                          if (editOpportunity.value !== opportunity.value.toString()) updates.value = Number(editOpportunity.value.replace(/,/g, ''));
+                          if (editOpportunity.status !== opportunity.status) updates.status = editOpportunity.status;
+                          if (editOpportunity.description !== opportunity.description) updates.description = editOpportunity.description;
+                          // Optionally update account name if needed
+                          if (Object.keys(updates).length > 0) {
+                            await supabase.from('opportunity').update(updates).eq('id', opportunity.id);
+                          }
+                          setEditMode(false);
+                        }}>
+                          <Check className="h-5 w-5" style={{ color: '#97A487' }} />
+                        </Button>
+                      )}
                     </div>
-                  ) : (
-                    <>{currencySymbol} {opportunity.value.toLocaleString()}</>
-                  )}
-                </div>
-              </div>
-              <div className="bg-[#F3F4F6] p-4 rounded-lg flex flex-col items-center justify-center min-h-[56px]">
-                <div className="text-sm font-medium text-muted-foreground">Status</div>
-                <Select
-                  value={editStatus}
-                  onValueChange={value => handleStatusChange(value as OpportunityStatus)}
-                  disabled={isUpdatingStatus}
-                >
-                  <SelectTrigger className="w-full mt-2 bg-[#E5E7EB] text-[#333] rounded-[8px] px-4 py-1 text-base font-semibold capitalize">
-                    <SelectValue placeholder="Select status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {statusOptions.map(opt => (
-                      <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {isUpdatingStatus && <span className="text-xs text-muted-foreground mt-1">Updating...</span>}
-              </div>
-              <div className="bg-[#F3F4F6] p-4 rounded-lg flex flex-col items-center justify-center min-h-[56px]">
-                <div className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                  Expected Close
-                  <Button variant="ghost" size="icon" className="h-4 w-4 p-0" onClick={() => setIsEditingTimeline(true)}>
-                    <Pencil className="h-3 w-3" />
-                  </Button>
-                </div>
-                <div className="text-lg font-semibold mt-1">
-                  {isEditingTimeline ? (
-                    <div className="flex flex-col items-center gap-2">
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button variant="outline" size="sm" className="w-full">
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {editEndDate ? format(editEndDate, 'MMM dd, yyyy') : 'Select date'}
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="center">
-                          <Calendar
-                            mode="single"
-                            selected={editEndDate}
-                            onSelect={setEditEndDate}
-                            initialFocus
-                          />
-                        </PopoverContent>
-                      </Popover>
-                      <div className="flex gap-1">
-                        <button onClick={handleTimelineSave} disabled={isUpdatingTimeline} className="text-green-600 hover:text-green-800"><Check className="w-4 h-4" /></button>
-                        <button onClick={() => { setIsEditingTimeline(false); setEditEndDate(safeParseISO(opportunity.endDate) || undefined); }} disabled={isUpdatingTimeline} className="text-red-600 hover:text-red-800"><X className="w-4 h-4" /></button>
-                      </div>
-                    </div>
-                  ) : (
-                    (() => {
-                      const end = safeParseISO(opportunity.endDate);
-                      return end ? format(end, 'MMM dd, yyyy') : 'N/A';
-                    })()
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Full Description */}
-            <div>
-              <h4 className="text-sm font-bold text-muted-foreground mb-2">Description</h4>
-              <div className="bg-muted/30 p-4 rounded-sm">
-                <p className="text-sm text-foreground">
-                  {opportunity.description || 'No description available.'}
-                </p>
-              </div>
-            </div>
-
-            {/* All Activity Logs */}
-            <div className="mt-4">
-              <div className="text-sm font-bold text-muted-foreground mb-1">Recent Activity</div>
-              <div className="relative">
-                {isLoadingLogs ? (
-                  <div className="flex items-center justify-center h-32">
-                    <LoadingSpinner size={24} />
-                    <span className="ml-2 text-muted-foreground">Loading activity...</span>
-                  </div>
-                ) : activityLogs.length > 0 ? (
-                  <div className="space-y-2 max-h-36 overflow-y-auto pr-1">
-                    {activityLogs.map((log) => renderActivityLogItem(log))}
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-center h-32 text-muted-foreground">
-                    <span>No activity updates yet</span>
-                  </div>
-                )}
-                {/* Gradient overlay at the bottom, only if more than one log */}
-                {activityLogs.length > 2 && (
-                  <div className="pointer-events-none absolute left-0 right-0 bottom-0 h-4 bg-gradient-to-b from-transparent to-white/70 to-70%" />
-                )}
-              </div>
-            </div>
-
-            {/* Add New Activity Form */}
-            <div>
-              
-              <div className="space-y-3">
-                <div className="flex gap-4">
-                  <div className="flex-1">
-                    <Label htmlFor="activity-type" className="text-muted-foreground font-semibold">Update Type</Label>
-                    <Select value={newActivityType} onValueChange={value => setNewActivityType(value as 'General' | 'Call' | 'Meeting' | 'Email')}>
-                      <SelectTrigger id="activity-type" className="w-full">
-                        <SelectValue placeholder="Type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="General">General</SelectItem>
-                        <SelectItem value="Call">Call</SelectItem>
-                        <SelectItem value="Meeting">Meeting</SelectItem>
-                        <SelectItem value="Email">Email</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="flex-1">
-                    <Label htmlFor="next-action-date" className="text-muted-foreground font-semibold">Next Action Date (Optional)</Label>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Input
-                          id="next-action-date"
-                          type="text"
-                          value={nextActionDate ? format(nextActionDate, 'dd/MM/yyyy') : ''}
-                          placeholder="dd/mm/yyyy (optional)"
-                          readOnly
-                          disabled={isLoggingActivity}
-                          className="cursor-pointer bg-white"
-                        />
-                      </PopoverTrigger>
-                      <PopoverContent align="start" className="p-0 w-auto border-none bg-[#CFD4C9] rounded-sm">
-                        <Calendar
-                          mode="single"
-                          selected={nextActionDate}
-                          onSelect={setNextActionDate}
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
+                    <p className="text-lg text-[#5E6156] leading-tight">{accountName || 'No Account'}</p>
+                    <p className="text-lg text-[#5E6156] leading-tight">{opportunity.status}</p>
                   </div>
                 </div>
-                <div>
-                  <Label htmlFor="activity-content" className="text-muted-foreground font-semibold">Content</Label>
-                  <Textarea
-                    id="activity-content"
-                    placeholder="Describe the activity..."
-                    value={newActivityDescription}
-                    onChange={(e) => setNewActivityDescription(e.target.value)}
-                    className="min-h-[94px] resize-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0"
-                  />
-                </div>
-                <div className="flex justify-end">
-                  <Button 
-                    variant="add" 
-                    className="w-fit"
-                    onClick={handleLogActivity}
-                    disabled={isLoggingActivity || !newActivityDescription.trim()}
-                  >
-                    {isLoggingActivity ? (
-                      <LoadingSpinner size={16} className="mr-2" />
-                    ) : (
-                      <Activity className="mr-2 h-4 w-4" />
-                    )}
-                    Add Activity
-                  </Button>
+                <div className="flex items-start gap-2 mr-6">
+                  <Select value={editMode ? editOpportunity.status : editStatus} onValueChange={val => {
+                    if (editMode) setEditOpportunity({ ...editOpportunity, status: val as OpportunityStatus });
+                    else handleStatusChange(val as OpportunityStatus);
+                  }} disabled={isUpdatingStatus}>
+                    <SelectTrigger className={`gap-2 sm:w-fit border-[#E5E3DF] mr-6 ${editMode ? 'border-0 border-b-2 border-[#916D5B] rounded-none' : ''}`}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="sm:w-fit">
+                      {statusOptions.map(status => (
+                        <SelectItem key={status} value={status} className="w-full">{status}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {isUpdatingStatus && <span className="ml-2 text-xs text-[#998876]">Updating...</span>}
                 </div>
               </div>
-            </div>
+            </DialogHeader>
           </div>
+
+          <Tabs defaultValue="overview" className="w-full">
+            <TabsList className="bg-[#EFEDE7] h-fit w-fit mx-auto grid grid-cols-2 items-center p-1 rounded-lg justify-center shadow-none">
+              <TabsTrigger value="overview" className="text-base px-4 py-1.5 rounded-md flex items-center gap-2 data-[state=active]:bg-[#2B2521] data-[state=active]:text-white data-[state=active]:shadow-sm">
+                <Briefcase className="h-4 w-4" /> Overview
+              </TabsTrigger>
+              <TabsTrigger value="activity" className="text-base px-4 py-1.5 rounded-md flex items-center gap-2 data-[state=active]:bg-[#2B2521] data-[state=active]:text-white data-[state=active]:shadow-sm">
+                <Activity className="h-4 w-4" /> Activity
+              </TabsTrigger>
+            </TabsList>
+
+            <div className="bg-white rounded-b-md p-6">
+              <TabsContent value="overview" className='max-h-[708px] overflow-y-scroll'>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-6 flex flex-col h-full">
+                    {/* Key Information */}
+                    <div className="bg-white border border-[#E5E3DF] rounded-lg p-6 flex-1 flex flex-col justify-between">
+                      <h3 className="text-lg font-semibold text-[#282828] flex items-center gap-2 mb-4">
+                        <Briefcase className="h-5 w-5 text-[#5E6156]" /> Key Information
+                      </h3>
+                      <div className="space-y-4">
+                        <div className="bg-[#F8F7F3] p-4 rounded-md">
+                          <div className="flex items-center gap-3">
+                            <Coins className="h-5 w-5 text-[#916D5B] mt-1 flex-shrink-0" />
+                            <div>
+                              <p className="text-sm text-[#5E6156]">Value</p>
+                              <div className="text-2xl font-bold text-[#282828] mt-1">
+                                {editMode ? (
+                                  <Input
+                                    value={editOpportunity.value}
+                                    onChange={e => setEditOpportunity({ ...editOpportunity, value: e.target.value })}
+                                    className="w-fit text-center border-0 border-b-2 border-[#916D5B] focus:ring-0 bg-transparent px-0 rounded-none text-2xl placeholder:text-2xl"
+                                    placeholder="0"
+                                  />
+                                ) : (
+                                  <span className="text-xl">{currencySymbol} {opportunity.value.toLocaleString()}</span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="bg-[#F8F7F3] p-4 rounded-md">
+                          <div className="flex items-center gap-3">
+                            <CalendarDays className="h-5 w-5 text-[#4B7B9D] mt-1 flex-shrink-0" />
+                            <div>
+                              <p className="text-sm text-[#5E6156]">Expected Close Date</p>
+                              <p className="text-lg font-bold text-[#282828] mt-1">
+                                {(() => {
+                                  const end = safeParseISO(opportunity.endDate);
+                                  return end ? format(end, 'MMM dd, yyyy') : 'N/A';
+                                })()}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="bg-[#F8F7F3] p-4 rounded-md">
+                          <div className="flex items-center gap-3">
+                            <CalendarIcon className="h-5 w-5 text-[#5E6156] mt-1 flex-shrink-0" />
+                            <div>
+                              <p className="text-sm text-[#5E6156]">Start Date</p>
+                              <p className="text-lg font-bold text-[#282828] mt-1">
+                                {opportunity.startDate ? format(new Date(opportunity.startDate), 'MMM dd, yyyy') : 'N/A'}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Description */}
+                  <div className="bg-white border border-[#E5E3DF] rounded-lg p-6 flex-1 flex flex-col justify-between">
+                    <h3 className="text-lg font-semibold text-[#282828] flex items-center gap-2 mb-4">
+                      <FileText className="h-5 w-5 text-[#5E6156]" /> Description
+                    </h3>
+                    <div className="bg-[#F8F7F3] p-4 rounded-md min-h-[200px]">
+                      {editMode ? (
+                        <Textarea
+                          value={editOpportunity.description}
+                          onChange={e => setEditOpportunity({ ...editOpportunity, description: e.target.value })}
+                          className="min-h-[120px] resize-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 border-0 bg-transparent px-0"
+                          placeholder="Enter a description..."
+                        />
+                      ) : (
+                        <p className="text-sm text-[#282828] leading-relaxed">
+                          {opportunity.description || 'No description available.'}
+                        </p>
+                      )}
+                    </div>
+                    {/* Minimal timeline UI below description */}
+                    <div className="mt-4 flex items-center gap-2">
+                      {(() => {
+                        let statusLabel = 'On Time';
+                        let icon = <CheckCircle2 className="w-4 h-4" style={{ color: '#4BB543' }} />;
+                        let tooltip = 'This opportunity is currently on time.';
+                        if (typeof timelineStatus.label === 'string' && timelineStatus.label.startsWith('Overdue')) {
+                          statusLabel = 'Overdue';
+                          icon = <AlertTriangle className="w-4 h-4" style={{ color: '#E53E3E' }} />;
+                          tooltip = 'This opportunity is overdue.';
+                        } else if (timelineStatus.label === 'Closed') {
+                          statusLabel = 'Closed';
+                          icon = <MinusCircle className="w-4 h-4" style={{ color: '#CBCAC5' }} />;
+                          tooltip = 'This opportunity is closed.';
+                        } else if (timelineStatus.label !== 'On Track') {
+                          statusLabel = 'Delayed';
+                          icon = <Clock className="w-4 h-4" style={{ color: '#FBBF24' }} />;
+                          tooltip = 'This opportunity is delayed.';
+                        }
+                        return (
+                          <div
+                            className="mt-4 inline-flex items-center gap-2 px-3 py-1 rounded-full border border-[#ECECEC] bg-white shadow-sm"
+                            aria-label={`Status: ${statusLabel}`}
+                            title={tooltip}
+                          >
+                            {icon}
+                            <span className="text-sm font-semibold text-[#282828] tracking-tight">{statusLabel}</span>
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="activity">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="md:col-span-1 bg-white border border-[#E5E3DF] rounded-lg p-6">
+                     <div className="text-sm font-semibold text-[#5E6156] uppercase tracking-wide mb-3">Add New Activity</div>
+                     <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
+                      <div className="flex flex-col md:flex-row gap-3">
+                        <div className="flex-1 min-w-0">
+                          <Label htmlFor="activity-type" className="text-sm font-medium text-[#5E6156] mb-2 block">Activity Type</Label>
+                          <Select value={newActivityType} onValueChange={value => setNewActivityType(value as 'General' | 'Call' | 'Meeting' | 'Email')}>
+                            <SelectTrigger id="activity-type" className="w-full border border-[#CBCAC5] bg-[#F8F7F3] focus:ring-1 focus:ring-[#916D5B] focus:border-[#916D5B] rounded-md">
+                              <SelectValue placeholder="Select activity type" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="General">General</SelectItem>
+                              <SelectItem value="Call">Call</SelectItem>
+                              <SelectItem value="Meeting">Meeting</SelectItem>
+                              <SelectItem value="Email">Email</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <Label htmlFor="next-action-date" className="text-sm font-medium text-[#5E6156] mb-2 block">Next Action Date (Optional)</Label>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Input
+                                id="next-action-date"
+                                type="text"
+                                value={nextActionDate ? format(nextActionDate, 'dd/MM/yyyy') : ''}
+                                placeholder="dd/mm/yyyy (optional)"
+                                readOnly
+                                disabled={isLoggingActivity}
+                                className="cursor-pointer bg-[#F8F7F3] border-[#CBCAC5] focus:ring-1 focus:ring-[#916D5B] focus:border-[#916D5B] rounded-md"
+                              />
+                            </PopoverTrigger>
+                            <PopoverContent align="start" className="p-0 w-auto border-[#CBCAC5] bg-white rounded-md shadow-lg">
+                              <Calendar
+                                mode="single"
+                                selected={nextActionDate}
+                                onSelect={setNextActionDate}
+                                initialFocus
+                              />
+                            </PopoverContent>
+                          </Popover>
+                        </div>
+                      </div>
+                      <div>
+                        <Label htmlFor="activity-content" className="text-sm font-medium text-[#5E6156] mb-2 block">Activity Details</Label>
+                        <Textarea
+                          id="activity-content"
+                          placeholder="Describe the activity..."
+                          value={newActivityDescription}
+                          onChange={(e) => setNewActivityDescription(e.target.value)}
+                          className="min-h-[100px] resize-none border-[#CBCAC5] bg-[#F8F7F3] focus:ring-1 focus:ring-[#916D5B] focus:border-[#916D5B] rounded-md"
+                        />
+                      </div>
+                      <div className="flex justify-end">
+                        <Button 
+                          variant="add" 
+                          className="w-full bg-[#2B2521] text-white hover:bg-[#3a322c] rounded-md"
+                          onClick={handleLogActivity}
+                          disabled={isLoggingActivity || !newActivityDescription.trim()}
+                        >
+                          {isLoggingActivity ? (
+                            <LoadingSpinner size={16} className="mr-2" />
+                          ) : (
+                            <Activity className="mr-2 h-4 w-4" />
+                          )}
+                          Add Activity
+                        </Button>
+                      </div>
+                    </form>
+                   </div>
+                  <div className="md:col-span-1 bg-white border border-[#E5E3DF] rounded-lg p-6">
+                    <div className="text-sm font-semibold text-[#5E6156] uppercase tracking-wide mb-3">Recent Activity</div>
+                    {isLoadingLogs ? (
+                      <div className="flex items-center justify-center h-32">
+                        <LoadingSpinner size={24} />
+                        <span className="ml-2 text-muted-foreground">Loading activity...</span>
+                      </div>
+                    ) : activityLogs.length > 0 ? (
+                      <>
+                        <div className="relative">
+                          <div className="space-y-2 max-h-[calc(100vh-400px)] overflow-y-auto pr-2">
+                            {activityLogs.map((log) => (
+                              <div key={log.id} className="flex items-start space-x-3 p-3 rounded-lg bg-[#F8F7F3] border border-[#E5E3DF] hover:bg-[#EFEDE7] transition-colors">
+                                <div className="flex-shrink-0 mt-1">
+                                  {getUpdateTypeIcon(log.type)}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center justify-between mb-1">
+                                    <p className="text-sm font-medium text-[#282828] line-clamp-2">
+                                      {log.content}
+                                    </p>
+                                    <span className="text-xs text-[#998876] ml-2 font-medium">
+                                      {format(new Date(log.date), 'MMM dd')}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center space-x-2">
+                                    <Badge variant="outline" className="text-xs bg-white border-[#CBCAC5] text-[#5E6156] font-medium">{log.type}</Badge>
+                                    {log.nextActionDate && (
+                                      <span className="text-xs text-[#4B7B9D] font-medium">
+                                        Next: {format(parseISO(log.nextActionDate), 'MMM dd, yyyy')}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                          {activityLogs.length > 5 && (
+                            <div className="pointer-events-none absolute left-0 right-0 bottom-0 h-8" style={{background: 'linear-gradient(to bottom, transparent, #fff 90%)'}} />
+                          )}
+                        </div>
+                      </>
+                    ) : (
+                      <div className="flex flex-1 flex-col items-center justify-center h-full text-[#998876]">
+                        <History className="w-12 h-12 mb-2 text-[#E5E3DF]" />
+                        <span className="text-base font-medium">No activity yet</span>
+                        <span className="text-sm">All your recent activity will appear here.</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </TabsContent>
+            </div>
+          </Tabs>
         </DialogContent>
       </Dialog>
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
