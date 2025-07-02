@@ -942,11 +942,11 @@ export default function LeadsPage() {
               <div className="relative w-[60%]">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  id="search-leads"
-                  type="text"
+                    id="search-leads"
+                    type="text"
                   placeholder="Search leads by name, company, or email..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-9 w-full min-h-12"
                 />
               </div>
@@ -965,7 +965,7 @@ export default function LeadsPage() {
                   <DropdownMenuItem onClick={() => setStatusFilter('all')}>
                     All Statuses
                   </DropdownMenuItem>
-                  {leadStatusOptions.map(status => (
+                    {leadStatusOptions.map(status => (
                     <DropdownMenuItem key={status} onClick={() => setStatusFilter(status)}>
                       {status}
                     </DropdownMenuItem>
@@ -973,7 +973,7 @@ export default function LeadsPage() {
                 </DropdownMenuContent>
               </DropdownMenu>
               <div className="flex items-center bg-white rounded-[8px] p-1 gap-1">
-                <Button
+              <Button
                   variant={view === 'list' ? 'default' : 'ghost'}
                   size="icon"
                   className={`rounded-[4px] ${view === 'list' ? 'bg-[#E6D0D7] text-[#2B2521]' : 'text-[#2B2521]'}`}
@@ -990,8 +990,8 @@ export default function LeadsPage() {
                   aria-label="List View"
                 >
                   <List className="h-5 w-5" />
-                </Button>
-              </div>
+              </Button>
+            </div>
             </div>
         </CardHeader>
         <CardContent className="p-0 bg-transparent">
