@@ -15,6 +15,7 @@ import {
   Activity,
   Settings,
   Users,
+  Bolt,
 } from "lucide-react";
 import UserProfile from "./UserProfile";
 import { cn } from "@/lib/utils";
@@ -33,7 +34,7 @@ const navItems = [
   { href: "/accounts", label: "Accounts", icon: Briefcase },
   { href: "/opportunities", label: "Opportunities", icon: BarChartBig },
   { href: "/activity", label: "Activity", icon: Activity },
-  { href: "/settings/users", label: "User Management", icon: Settings },
+  { href: "/settings/users", label: "User Management", icon: Bolt },
 ];
 
 export default function HorizontalNav() {
