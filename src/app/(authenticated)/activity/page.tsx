@@ -466,9 +466,9 @@ export default function UpdatesPage() {
         </Button>
       </PageTitle>
 
-      {/* Search, Filter, and View Toggle Row (refactored to match accounts page) */}
-      <Card className="duration-300 bg-transparent shadow-none p-0">
-        <CardHeader className="pb-4 flex flex-row bg-transparent shadow-none p-0 items-center justify-between">
+      {/* Search, Filter, and View Toggle Row (unified style) */}
+      <Card className="bg-transparent shadow-none border-none p-0">
+        <CardHeader className="flex flex-row items-center justify-between p-0 pb-0 bg-transparent shadow-none">
           <div className="flex-1 flex items-center gap-2 bg-transparent">
             <div className="relative w-[60%]">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -478,19 +478,19 @@ export default function UpdatesPage() {
                 placeholder="Search activities by content, type, or entity..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9 w-full"
+                className="pl-9 bg-white w-full min-h-12 shadow-sm"
               />
             </div>
           </div>
           <div className="flex items-center gap-2 ml-4">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="flex items-center gap-2 min-w-[140px] max-h-10">
+                <Button variant="outline" className="flex bg-white max-w-10 border-[#2B2521]/30 items-center gap-2 min-w-[140px] max-h-12 shadow-sm">
                   <ListFilter className="h-5 w-5 text-primary" />
                   Sort & Filter
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className='w-[200px] rounded-sm h-fit'>
+              <DropdownMenuContent align="end" className="w-[200px] rounded-sm h-fit">
                 <Label htmlFor="entity-filter" className="text-[#282828] font-medium px-2 py-1">Entity Type</Label>
                 <Select value={entityTypeFilter} onValueChange={(value: 'all' | 'lead' | 'opportunity' | 'account') => setEntityTypeFilter(value)}>
                   <SelectTrigger id="entity-filter" className="w-full mt-1 border-none text-[#282828]">
@@ -591,11 +591,11 @@ export default function UpdatesPage() {
                 </Popover>
               </DropdownMenuContent>
             </DropdownMenu>
-            <div className="flex items-center bg-[#F8F7F3] rounded-[8px] p-1 gap-1">
+            <div className="flex items-center border border-[#2B2521]/30 bg-white rounded-[4px] p-1 gap-1 shadow-sm">
               <Button
                 variant={view === 'grid' ? 'default' : 'ghost'}
                 size="icon"
-                className={`rounded-[6px] ${view === 'grid' ? 'bg-[#E6D0D7] text-[#2B2521]' : 'text-[#2B2521]'}`}
+                className={`rounded-[2px] text-[#2B2521] ${view === 'grid' ? 'bg-[#E6D0D7]' : ''}`}
                 onClick={() => setView('grid')}
                 aria-label="Grid View"
               >
@@ -604,7 +604,7 @@ export default function UpdatesPage() {
               <Button
                 variant={view === 'list' ? 'default' : 'ghost'}
                 size="icon"
-                className={`rounded-[6px] ${view === 'list' ? 'bg-[#E6D0D7] text-[#2B2521]' : 'text-[#2B2521]'}`}
+                className={`rounded-[2px] text-[#2B2521] ${view === 'list' ? 'bg-[#E6D0D7]' : ''}`}
                 onClick={() => setView('list')}
                 aria-label="List View"
               >
