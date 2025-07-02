@@ -53,13 +53,14 @@ export async function POST(req: NextRequest) {
     const url = new URL(req.url);
     const refresh = url.searchParams.get('refresh') === 'true';
     const body = await req.text();
-    let lead, user, leadId, triggerEnrichment;
+    let lead, user, leadId, triggerEnrichment, forceRefresh;
     try {
       const parsed = JSON.parse(body);
       lead = parsed.lead;
       user = parsed.user;
       leadId = parsed.leadId;
       triggerEnrichment = parsed.triggerEnrichment;
+      forceRefresh = parsed.forceRefresh;
     } catch (parseError) {
       console.error('Failed to parse JSON body:', parseError, 'Body:', body);
       return NextResponse.json({ error: 'Invalid JSON in request body.' }, { status: 400 });
@@ -135,19 +136,21 @@ export async function POST(req: NextRequest) {
     }
 
     // Check for existing analysis (within 24h)
-    const { data: existing } = await supabase
-      .from('aianalysis')
-      .select('*')
-      .eq('entity_type', 'Lead')
-      .eq('entity_id', lead.id)
-      .eq('analysis_type', 'enrichment')
-      .eq('status', 'success')
-      .order('last_refreshed_at', { ascending: false })
-      .limit(1)
-      .single();
+    if (!forceRefresh) {
+      const { data: existing } = await supabase
+        .from('aianalysis')
+        .select('*')
+        .eq('entity_type', 'Lead')
+        .eq('entity_id', lead.id)
+        .eq('analysis_type', 'enrichment')
+        .eq('status', 'success')
+        .order('last_refreshed_at', { ascending: false })
+        .limit(1)
+        .single();
 
-    if (existing && existing.last_refreshed_at && Date.now() - new Date(existing.last_refreshed_at).getTime() < 24 * 60 * 60 * 1000) {
-      return NextResponse.json(existing.ai_output);
+      if (existing && existing.last_refreshed_at && Date.now() - new Date(existing.last_refreshed_at).getTime() < 24 * 60 * 60 * 1000) {
+        return NextResponse.json(existing.ai_output);
+      }
     }
 
     // Fetch Tavily data
