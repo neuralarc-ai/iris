@@ -73,38 +73,85 @@ async function callGeminiAPI(prompt: string) {
   return generatedContent;
 }
 
-export async function leadEnrichmentFlow({ lead, user, company, tavilySummary, websiteSummary }: { lead: any, user: any, company: any, tavilySummary?: string, websiteSummary?: string }) {
+export async function leadEnrichmentFlow({ lead, user, company, tavilySummary, websiteSummary, companyScrapeData }: { lead: any, user: any, company: any, tavilySummary?: string, websiteSummary?: string, companyScrapeData?: string }) {
   const prompt = `
-You are an expert sales assistant. Your user is ${user.name}.
+You are an expert B2B sales analyst with deep expertise in lead qualification and company-service alignment. Your user is ${user.name} from ${company?.name || 'N/A'}.
 
-Your company information:
+## USER'S COMPANY ANALYSIS:
+**Company Profile:**
 - Name: ${company?.name || 'N/A'}
 - Website: ${company?.website || 'N/A'}
 - Industry: ${company?.industry || 'N/A'}
 - Description: ${company?.description || 'N/A'}
-- Services: ${(company?.services || []).map((s: any) => s.name).join(', ') || 'N/A'}
 
-${tavilySummary ? `Recent news and insights about ${lead.companyName} and ${lead.industry || 'their industry'}:\n${tavilySummary}\n` : ''}
-${websiteSummary ? `Summary of ${lead.companyName}'s website (${lead.website}):\n${websiteSummary}\n` : ''}
+**Services & Solutions:**
+${(company?.services || []).map((s: any, i: number) => `${i+1}. ${s.name}: ${s.description || 'No description'} (Target: ${s.target_market || 'General'})`).join('\n') || 'N/A'}
 
-Analyze the following lead and provide tailored sales assets.
+**Company Website Analysis:**
+${companyScrapeData ? `Website Content Summary: ${companyScrapeData}\n` : ''}
 
-Lead Information:
+## LEAD COMPREHENSIVE PROFILE:
+**Personal Information:**
 - Name: ${lead.personName}
-- Company: ${lead.companyName}
-- Country: ${lead.country || 'N/A'}
-- Industry: ${lead.industry || 'N/A'}
 - Job Title: ${lead.jobTitle || 'N/A'}
+- Email Domain: ${lead.email ? lead.email.split('@')[1] : 'N/A'}
+
+**Company Information:**
+- Company: ${lead.companyName}
+- Industry: ${lead.industry || 'N/A'}
 - Website: ${lead.website || 'N/A'}
+- Country: ${lead.country || 'N/A'}
 
-Based on this, generate the following:
-1.  **Recommendations**: Suggest 3-4 specific services or products that would be a good fit for this lead. Present them as a JSON array of strings.
-2.  **Pitch Notes**: Provide concise, actionable talking points for a sales pitch (no more than 2-3 sentences, max 60 words).
-3.  **Use Case**: Describe a compelling use case for this lead (no more than 2-3 sentences, max 60 words).
-4.  **Lead Score**: Give a single number (0-100) for how strong a fit this lead is for our company, based on all the above.
+## EXTERNAL INTELLIGENCE:
+${tavilySummary ? `**Market Intelligence & News:**\n${tavilySummary}\n` : ''}
+${websiteSummary ? `**Lead's Company Website Analysis:**\n${websiteSummary}\n` : ''}
 
-Return a valid JSON object with keys: recommendations, pitchNotes, useCase, leadScore.
-IMP: give the output in a valid JSON string (it should not be wrapped in markdown, just plain json object) and stick to the schema mentioned here: {"recommendations": string[], "pitchNotes": string, "useCase": string, "leadScore": number}.
+## SCORING METHODOLOGY:
+Analyze the lead using a weighted 100-point scoring system:
+
+**1. Company-Service Alignment (30 points)**
+- Industry Match: How well does the lead's industry align with your services?
+- Company Size Match: Is the lead's company size in your target range?
+- Technology Needs: Do they likely need your specific solutions?
+- Market Segment: Are they in your ideal customer segment?
+
+**2. Authority & Decision-Making Power (25 points)**
+- Job Title Analysis: Is this person likely a decision-maker or influencer?
+- Department Relevance: Are they in a department that would use your services?
+- Seniority Level: Do they have budget authority or significant influence?
+
+**3. Company Quality & Fit (20 points)**
+- Financial Stability: Revenue, funding, growth indicators
+- Company Maturity: Age, market position, growth stage
+- Geographic Alignment: Location advantages/challenges
+
+**4. Engagement & Accessibility (15 points)**
+- Email Domain Quality: Corporate email vs. generic
+- Contact Information Quality: Professional contact details
+- Digital Presence: Professional online presence
+
+**5. Timing & Market Factors (10 points)**
+- Industry Trends: Is their industry growing/investing in your solutions?
+- Company News: Recent developments indicating need for your services
+- Competitive Landscape: How saturated is their market with your competitors?
+
+## DELIVERABLES:
+Based on this comprehensive analysis, provide:
+
+1. **Lead Score**: Single number (0-100) with a one-sentence rationale
+2. **Recommended Services**: 3-4 specific services/products ranked by fit
+3. **Pitch Notes**: 2-3 key talking points tailored to their situation (max 60 words)
+4. **Use Case**: Specific scenario showing value for their company (max 60 words)
+
+Return a valid JSON object with this exact schema:
+{
+  "leadScore": number,
+  "recommendations": string[],
+  "pitchNotes": string,
+  "useCase": string
+}
+
+IMPORTANT: Provide only valid JSON without markdown formatting. Base all analysis on actual data provided, not assumptions.
 `;
 
   try {
