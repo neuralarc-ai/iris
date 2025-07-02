@@ -31,6 +31,8 @@ export default function AccountCard({ account, onNewOpportunity, owner, onAccoun
   const [aiScore, setAiScore] = useState<number | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [aiEnrichment, setAiEnrichment] = useState<any>(null);
+  const [isAiLoading, setIsAiLoading] = useState(false);
 
   // Map fields for runtime compatibility (camelCase preferred, fallback to snake_case)
   const contactPersonName = account.contactPersonName || (account as any).contact_person_name || account.name;
@@ -65,6 +67,25 @@ export default function AccountCard({ account, onNewOpportunity, owner, onAccoun
       setAiScore(data?.match_score ?? null);
     };
     fetchAiScore();
+  }, [account.id]);
+
+  useEffect(() => {
+    setIsAiLoading(true);
+    const fetchAiEnrichment = async () => {
+      const { data } = await supabase
+        .from('aianalysis')
+        .select('ai_output')
+        .eq('entity_type', 'Account')
+        .eq('entity_id', account.id)
+        .eq('analysis_type', 'enrichment')
+        .eq('status', 'success')
+        .order('last_refreshed_at', { ascending: false })
+        .limit(1)
+        .single();
+      setAiEnrichment(data?.ai_output || null);
+      setIsAiLoading(false);
+    };
+    fetchAiEnrichment();
   }, [account.id]);
 
   return (
@@ -124,7 +145,7 @@ export default function AccountCard({ account, onNewOpportunity, owner, onAccoun
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-      <AccountModal accountId={account.id} open={modalOpen} onClose={() => setModalOpen(false)} />
+      <AccountModal accountId={account.id} open={modalOpen} onClose={() => setModalOpen(false)} aiEnrichment={aiEnrichment} isAiLoading={isAiLoading} />
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>

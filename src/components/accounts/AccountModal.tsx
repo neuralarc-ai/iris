@@ -24,9 +24,11 @@ interface AccountModalProps {
   accountId: string;
   open: boolean;
   onClose: () => void;
+  aiEnrichment?: any;
+  isAiLoading?: boolean;
 }
 
-export default function AccountModal({ accountId, open, onClose }: AccountModalProps) {
+export default function AccountModal({ accountId, open, onClose, aiEnrichment, isAiLoading }: AccountModalProps) {
   const { toast } = useToast();
   const [tab, setTab] = useState<'overview' | 'activity' | 'email'>('overview');
   const [account, setAccount] = useState<(Account & {
@@ -37,8 +39,8 @@ export default function AccountModal({ accountId, open, onClose }: AccountModalP
   }) | null>(null);
   const [contact, setContact] = useState<any>(null);
   const [logs, setLogs] = useState<Update[]>([]);
-  const [ai, setAI] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [ai, setAI] = useState<any>(aiEnrichment || null);
+  const [loadingAI, setLoadingAI] = useState<boolean>(isAiLoading || false);
   const [ownerName, setOwnerName] = useState<string | null>(null);
   const [emailTabContent, setEmailTabContent] = useState<string | null>(null);
   const [isGeneratingEmail, setIsGeneratingEmail] = useState(false);
@@ -58,7 +60,7 @@ export default function AccountModal({ accountId, open, onClose }: AccountModalP
 
   useEffect(() => {
     if (!open) return;
-    setIsLoading(true);
+    setLoadingAI(true);
     const fetchData = async () => {
       // Fetch account
       const { data: acc } = await supabase.from('account').select('*').eq('id', accountId).single();
@@ -104,7 +106,7 @@ export default function AccountModal({ accountId, open, onClose }: AccountModalP
       // Fetch users for assignment
       const { data: usersData } = await supabase.from('users').select('id, name, email');
       if (usersData) setUsers(usersData);
-      setIsLoading(false);
+      setLoadingAI(false);
     };
     fetchData();
   }, [accountId, open]);
@@ -259,6 +261,12 @@ export default function AccountModal({ accountId, open, onClose }: AccountModalP
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
+  // If aiEnrichment or isAiLoading props change, update local state
+  useEffect(() => {
+    setAI(aiEnrichment || null);
+    setLoadingAI(isAiLoading || false);
+  }, [aiEnrichment, isAiLoading]);
+
   if (!open) return null;
 
   return (
@@ -335,15 +343,15 @@ export default function AccountModal({ accountId, open, onClose }: AccountModalP
                   <div className="text-xs text-[#998876]">Status</div>
                   <Select value={account?.status || ''} onValueChange={async (val) => {
                     if (!account) return;
-                    setIsLoading(true);
+                    setLoadingAI(true);
                     const status = val as AccountStatus;
                     const { error } = await supabase.from('account').update({ status }).eq('id', account.id);
                     if (!error) {
                       setAccount({ ...account, status });
                     }
-                    setIsLoading(false);
-                  }} disabled={isLoading}>
-                    <SelectTrigger className={`gap-2 w-full border-[#CBCAC5] bg-[#F8F7F3] ${isLoading ? 'opacity-60' : ''}`}>
+                    setLoadingAI(false);
+                  }} disabled={loadingAI}>
+                    <SelectTrigger className={`gap-2 w-full border-[#CBCAC5] bg-[#F8F7F3] ${loadingAI ? 'opacity-60' : ''}`}>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent className="sm:w-fit">
@@ -352,7 +360,7 @@ export default function AccountModal({ accountId, open, onClose }: AccountModalP
                       ))}
                     </SelectContent>
                   </Select>
-                  {isLoading && <span className="ml-2 text-xs text-[#998876]">Updating...</span>}
+                  {loadingAI && <span className="ml-2 text-xs text-[#998876]">Updating...</span>}
                 </div>
               </div>
             </div>
@@ -371,7 +379,7 @@ export default function AccountModal({ accountId, open, onClose }: AccountModalP
             </TabsTrigger>
           </TabsList>
           <div className="bg-white rounded-b-md p-6">
-            {isLoading ? (
+            {loadingAI ? (
               <div className="space-y-6">
                 {/* Overview Skeleton */}
                 <Skeleton className="h-8 w-1/3 rounded-md mb-2" />
@@ -594,6 +602,34 @@ export default function AccountModal({ accountId, open, onClose }: AccountModalP
                         <h4 className="text-lg font-semibold text-[#282828] flex items-center gap-2">
                           <BrainCircuit className="h-5 w-5 text-[#5E6156]" /> AI Recommendations
                         </h4>
+                        <div className="flex items-center gap-2 mb-2">
+                          <p className="text-base font-semibold text-[#282828]">AI Recommendations</p>
+                          <button
+                            className="ml-auto px-2 py-1 text-xs rounded bg-[#E5E3DF] hover:bg-[#d4d2ce] text-[#3987BE] font-medium border border-[#C7C7C7]"
+                            onClick={async () => {
+                              setLoadingAI(true);
+                              try {
+                                const response = await fetch('/api/account-enrichment', {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ accountId: accountId, triggerEnrichment: true, forceRefresh: true }),
+                                });
+                                if (!response.ok) throw new Error('Failed to regenerate AI analysis');
+                                const data = await response.json();
+                                setAI(data);
+                                toast({ title: 'AI analysis regenerated', description: 'Account AI recommendations updated.' });
+                              } catch (e) {
+                                toast({ title: 'Regeneration Failed', description: 'Could not regenerate AI analysis.', variant: 'destructive' });
+                              } finally {
+                                setLoadingAI(false);
+                              }
+                            }}
+                            disabled={loadingAI}
+                            title="Refresh AI analysis"
+                          >
+                            {loadingAI ? 'Regenerating...' : 'Regenerate'}
+                          </button>
+                        </div>
                         {ai ? (
                           <>
                             <div>
@@ -622,7 +658,7 @@ export default function AccountModal({ accountId, open, onClose }: AccountModalP
                 </div>
               </TabsContent>
             )}
-            {isLoading ? (
+            {loadingAI ? (
               <div className="space-y-6">
                 {/* Activity Skeleton */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -737,7 +773,7 @@ export default function AccountModal({ accountId, open, onClose }: AccountModalP
                 </div>
               </TabsContent>
             )}
-            {isLoading ? (
+            {loadingAI ? (
               <div className="space-y-6">
                 {/* Email Skeleton */}
                 <Skeleton className="h-8 w-1/3 rounded-md mb-2" />

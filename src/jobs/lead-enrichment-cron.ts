@@ -109,7 +109,10 @@ async function runLeadEnrichmentCron() {
       return;
     }
     
-    console.log(`📊 Found ${leads.length} leads to process`);
+    // Filter out leads with status 'Converted to Account'
+    const leadsToProcess = leads.filter(lead => lead.status !== 'Converted to Account');
+
+    console.log(`📊 Found ${leadsToProcess.length} leads to process (excluding converted accounts)`);
     
     // Fetch company info
     const { data: company } = await supabase.from('company').select('*, services:company_service(*)').single();
@@ -120,7 +123,7 @@ async function runLeadEnrichmentCron() {
     let processedCount = 0;
     let errorCount = 0;
     
-    for (const lead of leads) {
+    for (const lead of leadsToProcess) {
       try {
         await processLead(lead, user, company);
         processedCount++;
@@ -130,7 +133,7 @@ async function runLeadEnrichmentCron() {
       }
       
       // Wait between leads to avoid rate limits
-      if (leads.indexOf(lead) < leads.length - 1) {
+      if (leadsToProcess.indexOf(lead) < leadsToProcess.length - 1) {
         const delay = getDelayBetweenLeads();
         console.log(`⏳ Waiting ${delay / 1000} seconds before next lead...`);
         await sleep(delay);
