@@ -698,42 +698,34 @@ Best regards,\n${currentUser?.name || '[Your Name]'}\n${userCompany.name}\n${cur
                     <p className="text-lg text-[#5E6156] leading-tight">{lead.companyName || editLead.companyName || 'Company'}</p>
                   </div>
                 </div>
-                <div className="flex gap-4 mr-8">
-                  {users.length > 0 && (
-                    <div className="w-24 flex flex-col">
-                      <div className="text-xs text-[#998876] mb-1">Assigned:</div>
-                      <Select value={assignedUserId || ''} onValueChange={handleAssignUser}>
-                        <SelectTrigger className="w-full border-[#CBCAC5] bg-[#F8F7F3]">
-                          <SelectValue placeholder="Assign to user" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {users.map(user => (
-                            <SelectItem key={user.id} value={user.id}>{user.name || user.email}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
-                  <div className="flex flex-col items-start gap-1 w-24">
-                    <div className="text-xs text-[#998876]">Status</div>
-                    <Select value={lead.status} onValueChange={async (val) => {
-                      if (!lead) return;
-                      setIsUpdatingStatus(true);
-                      const status = val as LeadStatus;
-                      await handleStatusChange(status);
+                <div className="flex items-center gap-2">
+                  <Select value={editStatus} onValueChange={async (val) => {
+                    setEditStatus(val as LeadStatus);
+                    setIsUpdatingStatus(true);
+                    try {
+                      const { error } = await supabase
+                        .from('lead')
+                        .update({ status: val })
+                        .eq('id', lead.id);
+                      if (error) throw error;
+                      toast({ title: 'Status updated', description: `Lead status changed to ${val}.` });
+                      if (onStatusChange) onStatusChange(val as LeadStatus);
+                    } catch (error) {
+                      toast({ title: 'Error', description: error instanceof Error ? error.message : 'Failed to update status.', variant: 'destructive' });
+                    } finally {
                       setIsUpdatingStatus(false);
-                    }} disabled={isUpdatingStatus}>
-                      <SelectTrigger className={`gap-2 w-full border-[#CBCAC5] bg-[#F8F7F3] ${isUpdatingStatus ? 'opacity-60' : ''}`}>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="sm:w-fit">
-                        {["New", "Contacted", "Qualified", "Proposal Sent", "Converted to Account", "Lost"].map(status => (
-                          <SelectItem key={status} value={status} className="w-full">{status}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {isUpdatingStatus && <span className="ml-2 text-xs text-[#998876]">Updating...</span>}
-                  </div>
+                    }
+                  }} disabled={isUpdatingStatus}>
+                    <SelectTrigger className="gap-2 sm:w-fit border-[#E5E3DF] mr-6">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="sm:w-fit">
+                      {["New", "Contacted", "Qualified", "Proposal Sent", "Converted to Account", "Lost", "Rejected"].map(status => (
+                        <SelectItem key={status} value={status} className="w-full">{status}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {isUpdatingStatus && <span className="ml-2 text-xs text-[#998876]">Updating...</span>}
                 </div>
               </div>
             </DialogHeader>
@@ -900,19 +892,9 @@ Best regards,\n${currentUser?.name || '[Your Name]'}\n${userCompany.name}\n${cur
                             className="ml-auto px-2 py-1 text-xs rounded bg-[#E5E3DF] hover:bg-[#d4d2ce] text-[#3987BE] font-medium border border-[#C7C7C7]"
                             onClick={async () => {
                               setIsGeneratingEmail(true);
-                              try {
-                                const response = await fetch('/api/lead-enrichment', {
-                                  method: 'POST',
-                                  headers: { 'Content-Type': 'application/json' },
-                                  body: JSON.stringify({ leadId: lead.id, triggerEnrichment: true, forceRefresh: true }),
-                                });
-                                if (!response.ok) throw new Error('Failed to regenerate AI analysis');
-                                window.location.reload();
-                              } catch (e) {
-                                toast({ title: 'Regeneration Failed', description: 'Could not regenerate AI analysis.', variant: 'destructive' });
-                              } finally {
-                                setIsGeneratingEmail(false);
-                              }
+                              setEmailTabContent(null);
+                              const email = await generateProfessionalEmail();
+                              setEmailTabContent(email);
                             }}
                             disabled={isGeneratingEmail}
                             title="Refresh AI analysis"
