@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
 import HorizontalNav from '@/components/layout/HorizontalNav';
 import { Loader2 } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 export default function AuthenticatedLayout({
   children,
@@ -12,6 +13,13 @@ export default function AuthenticatedLayout({
 }) {
   const { isAuthenticated, isLoading, isCheckingAuth } = useAuth();
   const router = useRouter();
+  const [showContent, setShowContent] = React.useState(false);
+
+  // Trigger content animation after nav animates in
+  React.useEffect(() => {
+    const timer = setTimeout(() => setShowContent(true), 450);
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     if (!isCheckingAuth && !isLoading && !isAuthenticated) {
@@ -30,9 +38,14 @@ export default function AuthenticatedLayout({
   return (
     <div className="flex flex-col min-h-screen bg-background">
       <HorizontalNav />
-      <main className=" overflow-y-auto lg:pt-6">
+      <motion.main
+        className="overflow-y-auto lg:pt-8"
+        initial={{ opacity: 0, y: 16 }}
+        animate={showContent ? { opacity: 1, y: 0 } : {}}
+        transition={{ duration: 0.5, ease: 'easeOut' }}
+      >
         {children}
-      </main>
+      </motion.main>
     </div>
   );
 }

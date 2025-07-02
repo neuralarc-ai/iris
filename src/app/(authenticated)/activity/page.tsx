@@ -645,7 +645,7 @@ export default function UpdatesPage() {
                     const entityKey = getEntityKey(group);
                     // Get entity name/type
                     let entityName = group.entityName;
-                    let entityType = group.entityType;
+                    const entityType = group.entityType;
                     if (entityType === 'lead') {
                       const lead = leads.find(l => l.id === group.entityId);
                       entityName = lead ? (lead.person_name || lead.company_name || lead.email || '') : entityName;

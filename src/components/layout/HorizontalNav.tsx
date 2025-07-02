@@ -27,6 +27,7 @@ import {
   TooltipProvider,
 } from "@/components/ui/tooltip";
 import { supabase } from '@/lib/supabaseClient';
+import { motion } from 'framer-motion';
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -74,7 +75,10 @@ export default function HorizontalNav() {
 
   return (
     <>
-      <header
+      <motion.header
+        initial={{ y: -32, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ duration: 0.45, ease: 'easeOut' }}
         className={cn("z-50 w-full border-b", "bg-transparent text-black")}
         style={{ height: "70px" }}
       >
@@ -163,7 +167,7 @@ export default function HorizontalNav() {
             </Button>
           ))}
         </div>
-      </header>
+      </motion.header>
       <AddAccountDialog
         open={isAddAccountDialogOpen}
         onOpenChange={setIsAddAccountDialogOpen}
