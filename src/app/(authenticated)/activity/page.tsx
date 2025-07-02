@@ -5,7 +5,7 @@ import PageTitle from '@/components/common/PageTitle';
 import UpdateItem from '@/components/activity/UpdateItem';
 import type { Update, UpdateType, Opportunity } from '@/types';
 import { Button } from '@/components/ui/button';
-import { Search, ListFilter, MessageSquare, Grid, List, Eye, MessageCircleMore, Users, Mail } from 'lucide-react';
+import { Search, ListFilter, MessageSquare, Grid, List, Eye, MessageCircleMore, Users, Mail, Plus, ChevronDown, ChevronRight, Info } from 'lucide-react';
 import Image from 'next/image';
 import { Input } from '@/components/ui/input'; 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -13,6 +13,7 @@ import {format, parseISO, isValid} from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Textarea } from '@/components/ui/textarea';
 import AddUpdateDialog from '@/components/activity/AddUpdateDialog';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
@@ -56,6 +57,15 @@ export default function UpdatesPage() {
   const [selectedUpdate, setSelectedUpdate] = useState<Update | null>(null);
   const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
   const [selectedGroupedUpdates, setSelectedGroupedUpdates] = useState<Update[]>([]);
+  
+  // State for activity log form
+  const [newActivityDescription, setNewActivityDescription] = useState('');
+  const [nextActionDate, setNextActionDate] = useState<Date | undefined>(undefined);
+  const [isLoggingActivity, setIsLoggingActivity] = useState(false);
+  const [newActivityType, setNewActivityType] = useState<UpdateType>('General');
+
+  // State for expanded entities in list view
+  const [expandedEntities, setExpandedEntities] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     const fetchUpdatesAndOpportunities = async () => {
@@ -359,6 +369,82 @@ export default function UpdatesPage() {
     }
   };
 
+  // Function to add new activity
+  const addUpdateToSupabase = async (updateData: any): Promise<Update> => {
+    const { data, error } = await supabase
+      .from('update')
+      .insert([updateData])
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    return {
+      id: data.id,
+      type: data.type,
+      content: data.content || '',
+      updatedByUserId: data.updated_by_user_id,
+      date: data.date || data.created_at || new Date().toISOString(),
+      createdAt: data.created_at || new Date().toISOString(),
+      leadId: data.lead_id,
+      opportunityId: data.opportunity_id,
+      accountId: data.account_id,
+      nextActionDate: data.next_action_date,
+    };
+  };
+
+  const handleLogActivity = async () => {
+    if (!newActivityDescription.trim() || !selectedUpdate) return;
+
+    setIsLoggingActivity(true);
+    try {
+      const localUserId = localStorage.getItem('user_id');
+      if (!localUserId) throw new Error('User not authenticated');
+
+      const updateData = {
+        type: newActivityType,
+        content: newActivityDescription.trim(),
+        updated_by_user_id: localUserId,
+        date: new Date().toISOString(),
+        next_action_date: nextActionDate ? nextActionDate.toISOString() : null,
+        lead_id: selectedUpdate.leadId,
+        opportunity_id: selectedUpdate.opportunityId,
+        account_id: selectedUpdate.accountId,
+      };
+
+      const newUpdate = await addUpdateToSupabase(updateData);
+      
+      // Add the new update to the selected grouped updates
+      setSelectedGroupedUpdates(prev => [newUpdate, ...prev]);
+      
+      // Also add to the main updates list
+      setUpdates(prevUpdates => {
+        const updatedList = [newUpdate, ...prevUpdates];
+        return updatedList.sort((a, b) => {
+          const dateComparison = new Date(b.date).getTime() - new Date(a.date).getTime();
+          if (dateComparison !== 0) return dateComparison;
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        });
+      });
+
+      // Reset form
+      setNewActivityDescription('');
+      setNextActionDate(undefined);
+      setNewActivityType('General');
+
+      // Show success message
+      // You can add toast notification here if you have it set up
+    } catch (error) {
+      console.error('Error adding activity:', error);
+      // You can add error toast notification here
+    } finally {
+      setIsLoggingActivity(false);
+    }
+  };
+
+  // Helper to get entity key
+  const getEntityKey = (group: GroupedUpdate) => `${group.entityType}-${group.entityId}`;
+
   if (isLoading) {
     return (
       <div className="max-w-[1440px] px-4 mx-auto w-full space-y-6">
@@ -544,100 +630,118 @@ export default function UpdatesPage() {
           <TooltipProvider delayDuration={0}>
             <div className="overflow-x-auto rounded-[8px] shadow">
               <Table className='bg-white'>
-              <TableHeader>
-                <TableRow className='bg-[#CBCAC5] hover:bg-[#CBCAC5]'>
-                  <TableHead className='text-[#282828] rounded-tl-[8px]'>Entity</TableHead>
-                  <TableHead className='text-[#282828]'>Type</TableHead>
-                  <TableHead className='text-[#282828]'>Content</TableHead>
-                  <TableHead className='text-[#282828]'>Date</TableHead>
-                  <TableHead className='text-[#282828]'>Next Action</TableHead>
-                  <TableHead className='text-[#282828] rounded-tr-[8px]'>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {paginatedIndividualUpdates.map((update) => {
-                  // Get entity name and type
-                  let entityName = '';
-                  let entityType = '';
-                  
-                  if (update.leadId) {
-                    const lead = leads.find(l => l.id === update.leadId);
-                    entityName = lead ? (lead.person_name || lead.company_name || lead.email || '') : `Lead: ${update.leadId}`;
-                    entityType = 'lead';
-                  } else if (update.opportunityId) {
-                    const opp = opportunities.find(o => o.id === update.opportunityId);
-                    entityName = opp ? opp.name : `Opportunity: ${update.opportunityId}`;
-                    entityType = 'opportunity';
-                  } else if (update.accountId) {
-                    const acc = accounts.find(a => a.id === update.accountId);
-                    entityName = acc ? acc.name : `Account: ${update.accountId}`;
-                    entityType = 'account';
-                  }
-                  
-                  return (
-                    <TableRow key={update.id} className="hover:bg-transparent">
-                      <TableCell className="font-semibold text-foreground">
-                        <div>
-                          <div className="capitalize text-sm text-muted-foreground">{entityType}</div>
-                          <div className="truncate max-w-[200px]">{entityName}</div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          update.type === 'Call' ? 'bg-blue-100 text-blue-800' :
-                          update.type === 'Email' ? 'bg-green-100 text-green-800' :
-                          update.type === 'Meeting' ? 'bg-purple-100 text-purple-800' :
-                          'bg-gray-100 text-gray-800'
-                        }`}>
-                          {update.type}
-                        </span>
-                      </TableCell>
-                      <TableCell className="max-w-[300px]">
-                        <div className="truncate" title={update.content}>
-                          {update.content || 'No content'}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {format(new Date(update.date), 'MMM dd, yyyy')}
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {update.nextActionDate ? 
-                          format(new Date(update.nextActionDate), 'MMM dd, yyyy') : 
-                          'N/A'
-                        }
-                      </TableCell>
-                      <TableCell className="flex gap-2">
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button 
-                              variant="outline" 
-                              size="sm" 
-                              className="rounded-[4px] p-2"
-                              onClick={() => {
-                                setSelectedUpdate(update);
-                                // Find all updates for the same entity
-                                const entityUpdates = updates.filter(u => {
-                                  if (update.leadId) return u.leadId === update.leadId;
-                                  if (update.opportunityId) return u.opportunityId === update.opportunityId;
-                                  if (update.accountId) return u.accountId === update.accountId;
-                                  return false;
-                                });
-                                setSelectedGroupedUpdates(entityUpdates);
-                                setIsUpdateModalOpen(true);
-                              }}
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>View Details</TooltipContent>
-                        </Tooltip>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </div>
+                <TableHeader>
+                  <TableRow className='bg-[#CBCAC5] hover:bg-[#CBCAC5]'>
+                    <TableHead className='text-[#282828] rounded-tl-[8px]'>Entity</TableHead>
+                    <TableHead className='text-[#282828]'>Type</TableHead>
+                    <TableHead className='text-[#282828]'>Content</TableHead>
+                    <TableHead className='text-[#282828]'>Date</TableHead>
+                    <TableHead className='text-[#282828]'>Next Action</TableHead>
+                    <TableHead className='text-[#282828] rounded-tr-[8px]'>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {paginatedGroupedUpdates.map((group) => {
+                    const entityKey = getEntityKey(group);
+                    // Get entity name/type
+                    let entityName = group.entityName;
+                    let entityType = group.entityType;
+                    if (entityType === 'lead') {
+                      const lead = leads.find(l => l.id === group.entityId);
+                      entityName = lead ? (lead.person_name || lead.company_name || lead.email || '') : entityName;
+                    } else if (entityType === 'opportunity') {
+                      const opp = opportunities.find(o => o.id === group.entityId);
+                      entityName = opp ? opp.name : entityName;
+                    } else if (entityType === 'account') {
+                      const acc = accounts.find(a => a.id === group.entityId);
+                      entityName = acc ? acc.name : entityName;
+                    }
+                    const isExpanded = !!expandedEntities[entityKey];
+                    return (
+                      <React.Fragment key={entityKey}>
+                        {/* Group header row */}
+                        <TableRow
+                          className={`group cursor-pointer bg-[#F3F4F6] hover:bg-[#E6D0D7] transition-colors ${isExpanded ? 'border-b-0' : ''}`}
+                          onClick={() => setExpandedEntities(prev => ({ ...prev, [entityKey]: !prev[entityKey] }))}
+                          aria-expanded={isExpanded}
+                        >
+                          <TableCell colSpan={6} className="py-3">
+                            <div className="flex items-center gap-3">
+                              <span className={`transition-transform ${isExpanded ? 'rotate-90' : ''}`}>
+                                <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                              </span>
+                              <span className="font-semibold text-[#282828] text-base">{entityType.charAt(0).toUpperCase() + entityType.slice(1)}</span>
+                              <span className="truncate max-w-[300px] text-[#282828] font-medium">{entityName}</span>
+                              <span className="ml-2 px-2 py-1 rounded-full text-xs font-semibold bg-[#E6D0D7] text-[#2B2521]">{group.updates.length} {group.updates.length === 1 ? 'activity' : 'activities'}</span>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                        {/* Child rows: activity logs */}
+                        {isExpanded && (
+                          group.updates.length > 0 ? (
+                            group.updates.map((log, idx) => (
+                              <TableRow key={log.id} className="bg-[#F8F7F3] hover:bg-[#EFEDE7] transition-colors">
+                                <TableCell colSpan={1} className="pl-12 border-l-4 border-[#E6D0D7]">
+                                  <span className="text-xs text-muted-foreground">{idx + 1}</span>
+                                </TableCell>
+                                <TableCell>
+                                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                    log.type === 'Call' ? 'bg-blue-100 text-blue-800' :
+                                    log.type === 'Email' ? 'bg-green-100 text-green-800' :
+                                    log.type === 'Meeting' ? 'bg-purple-100 text-purple-800' :
+                                    'bg-gray-100 text-gray-800'
+                                  }`}>
+                                    {log.type}
+                                  </span>
+                                </TableCell>
+                                <TableCell className="max-w-[300px]">
+                                  <div className="truncate" title={log.content}>
+                                    {log.content || 'No content'}
+                                  </div>
+                                </TableCell>
+                                <TableCell className="text-sm text-muted-foreground">
+                                  {format(new Date(log.date), 'MMM dd, yyyy')}
+                                </TableCell>
+                                <TableCell className="text-sm text-muted-foreground">
+                                  {log.nextActionDate ? format(parseISO(log.nextActionDate), 'MMM dd, yyyy') : '-'}
+                                </TableCell>
+                                <TableCell>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button 
+                                        variant="outline" 
+                                        size="sm" 
+                                        className="rounded-[4px] p-2"
+                                        onClick={e => {
+                                          e.stopPropagation();
+                                          setSelectedUpdate(log);
+                                          setSelectedGroupedUpdates(group.updates);
+                                          setIsUpdateModalOpen(true);
+                                        }}
+                                      >
+                                        <Eye className="h-4 w-4" />
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>View Details</TooltipContent>
+                                  </Tooltip>
+                                </TableCell>
+                              </TableRow>
+                            ))
+                          ) : (
+                            <TableRow className="bg-[#F8F7F3]">
+                              <TableCell colSpan={6} className="pl-12 py-6 text-center text-muted-foreground flex items-center justify-center gap-2">
+                                <Info className="h-5 w-5 text-[#E6D0D7]" />
+                                No activities yet. <span className="underline cursor-pointer" onClick={() => setIsAddUpdateDialogOpen(true)}>Add one!</span>
+                              </TableCell>
+                            </TableRow>
+                          )
+                        )}
+                      </React.Fragment>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
           </TooltipProvider>
         )
       ) : (
@@ -850,15 +954,91 @@ export default function UpdatesPage() {
                     </div>
                   ))}
                 </div>
-                {/* Gradient overlay at the bottom, only if more than one log */}
-                {selectedGroupedUpdates.length > 2 && (
-                  <div className="pointer-events-none absolute left-0 right-0 bottom-0 h-8 bg-gradient-to-b from-transparent to-white/50 to-70%" />
-                )}
-              </div>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+                                 {/* Gradient overlay at the bottom, only if more than one log */}
+                 {selectedGroupedUpdates.length > 2 && (
+                   <div className="pointer-events-none absolute left-0 right-0 bottom-0 h-8 bg-gradient-to-b from-transparent to-white/50 to-70%" />
+                 )}
+               </div>
+             </div>
+
+             {/* Add New Activity Form */}
+             <div className="mt-6 pt-4 border-t border-[#E5E3DF]">
+               <h4 className="text-sm font-semibold text-[#5E6156] mb-3">Add New Activity</h4>
+               <div className="space-y-4">
+                 <div className="flex flex-col md:flex-row gap-3">
+                   <div className="flex-1 min-w-0">
+                     <Label htmlFor="activity-type" className="text-sm font-medium text-[#5E6156] mb-2 block">Activity Type</Label>
+                     <Select value={newActivityType} onValueChange={value => setNewActivityType(value as 'General' | 'Call' | 'Meeting' | 'Email')}>
+                       <SelectTrigger id="activity-type" className="w-full border border-[#CBCAC5] bg-[#F8F7F3] focus:ring-1 focus:ring-[#916D5B] focus:border-[#916D5B] rounded-md">
+                         <SelectValue placeholder="Select activity type" />
+                       </SelectTrigger>
+                       <SelectContent>
+                         <SelectItem value="General">General</SelectItem>
+                         <SelectItem value="Call">Call</SelectItem>
+                         <SelectItem value="Meeting">Meeting</SelectItem>
+                         <SelectItem value="Email">Email</SelectItem>
+                       </SelectContent>
+                     </Select>
+                   </div>
+                   <div className="flex-1 min-w-0">
+                     <Label htmlFor="next-action-date" className="text-sm font-medium text-[#5E6156] mb-2 block">Next Action Date (Optional)</Label>
+                     <Popover>
+                       <PopoverTrigger asChild>
+                         <Input
+                           id="next-action-date"
+                           type="text"
+                           value={nextActionDate ? format(nextActionDate, 'dd/MM/yyyy') : ''}
+                           placeholder="dd/mm/yyyy (optional)"
+                           readOnly
+                           className="cursor-pointer bg-[#F8F7F3] border-[#CBCAC5] focus:ring-1 focus:ring-[#916D5B] focus:border-[#916D5B] rounded-md"
+                         />
+                       </PopoverTrigger>
+                       <PopoverContent align="start" className="p-0 w-auto border-[#CBCAC5] bg-white rounded-md shadow-lg">
+                         <Calendar
+                           mode="single"
+                           selected={nextActionDate}
+                           onSelect={setNextActionDate}
+                           initialFocus
+                         />
+                       </PopoverContent>
+                     </Popover>
+                   </div>
+                 </div>
+                 <div>
+                   <Label htmlFor="activity-content" className="text-sm font-medium text-[#5E6156] mb-2 block">Activity Details</Label>
+                   <Textarea
+                     id="activity-content"
+                     placeholder="Describe the call, meeting, email, or general update..."
+                     value={newActivityDescription}
+                     onChange={(e) => setNewActivityDescription(e.target.value)}
+                     className="min-h-[100px] resize-none border-[#CBCAC5] bg-[#F8F7F3] focus:ring-1 focus:ring-[#916D5B] focus:border-[#916D5B] rounded-md"
+                   />
+                 </div>
+                 <DialogFooter className="pt-4">
+                   <Button 
+                     variant="add" 
+                     className="w-full bg-[#2B2521] text-white hover:bg-[#3a322c] rounded-md"
+                     onClick={handleLogActivity}
+                     disabled={isLoggingActivity || !newActivityDescription.trim()}
+                   >
+                     {isLoggingActivity ? (
+                       <>
+                         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                         Adding Activity...
+                       </>
+                     ) : (
+                       <>
+                         <Plus className="mr-2 h-4 w-4" />
+                         Add Activity
+                       </>
+                     )}
+                   </Button>
+                 </DialogFooter>
+               </div>
+             </div>
+           </div>
+         </DialogContent>
+       </Dialog>
     </div>
   );
 }
