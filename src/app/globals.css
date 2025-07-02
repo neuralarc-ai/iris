@@ -175,3 +175,33 @@
     caret-color: transparent;
   }
 }
+
+/* Custom Scrollbar Styles */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+  background: #FAFAFA;
+}
+::-webkit-scrollbar-thumb {
+  background: #CDCDCD;
+  border-radius: 8px;
+  border: 2px solid #FAFAFA;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #bdbdbd;
+}
+::-webkit-scrollbar-corner {
+  background: #FAFAFA;
+}
+/* Remove up/down arrows (default for most modern browsers) */
+::-webkit-scrollbar-button {
+  display: none;
+  height: 0;
+  width: 0;
+}
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #CDCDCD #FAFAFA;
+}
