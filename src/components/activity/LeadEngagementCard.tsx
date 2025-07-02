@@ -23,13 +23,8 @@ interface LeadEngagementCardProps {
     content: string;
     date: string;
   }>>;
+  segment: 'Hot' | 'Warm' | 'Cold';
 }
-
-const SEGMENTS = [
-  { label: 'Hot', icon: <Flame className="h-4 w-4 text-red-500" /> },
-  { label: 'Warm', icon: <ThumbsUp className="h-4 w-4 text-yellow-500" /> },
-  { label: 'Cold', icon: <Users className="h-4 w-4 text-blue-400" /> },
-];
 
 const getSegment = (score?: number) => {
   if (score === undefined) return 'Cold';
@@ -38,9 +33,8 @@ const getSegment = (score?: number) => {
   return 'Cold';
 };
 
-const LeadEngagementCard: React.FC<LeadEngagementCardProps> = ({ leads = [], aianalysis = {}, updates = {} }) => {
-  const [segment, setSegment] = useState('Hot');
-  // Filter leads by segment
+const LeadEngagementCard: React.FC<LeadEngagementCardProps> = ({ leads = [], aianalysis = {}, updates = {}, segment }) => {
+  // Filter leads by segment prop
   const filteredLeads = leads.filter(lead => getSegment(aianalysis[lead.id]?.match_score) === segment);
   // Sort by match_score desc
   const sortedLeads = [...filteredLeads].sort((a, b) => (aianalysis[b.id]?.match_score ?? 0) - (aianalysis[a.id]?.match_score ?? 0));
@@ -48,21 +42,6 @@ const LeadEngagementCard: React.FC<LeadEngagementCardProps> = ({ leads = [], aia
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Segment Filters */}
-      <div className="flex gap-2 mb-2">
-        {SEGMENTS.map(s => (
-          <Button
-            key={s.label}
-            variant={segment === s.label ? 'default' : 'outline'}
-            size="sm"
-            className={`rounded-full px-4 flex items-center gap-1 ${segment === s.label ? 'bg-[#E6D0D7] text-[#2B2521]' : 'text-[#282828]'}`}
-            onClick={() => setSegment(s.label)}
-          >
-            {s.icon}
-            {s.label}
-          </Button>
-        ))}
-      </div>
       {/* Top Leads */}
       {topLeads.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
@@ -111,26 +90,6 @@ const LeadEngagementCard: React.FC<LeadEngagementCardProps> = ({ leads = [], aia
                     </Button>
                   </div>
                 ) : null}
-                {/* Recent Engagement */}
-                <div className="mt-2">
-                  <span className="text-xs font-semibold text-[#916D5B]">Recent Activity:</span>
-                  {recentUpdates.length === 0 ? (
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
-                      <AlertTriangle className="h-4 w-4 text-yellow-500" />
-                      No recent activity
-                    </div>
-                  ) : (
-                    <ul className="text-xs mt-1 space-y-1">
-                      {recentUpdates.slice(0, 2).map((u, idx) => (
-                        <li key={idx} className="flex gap-2 items-center">
-                          <span className="font-medium">{u.type}:</span>
-                          <span>{u.content}</span>
-                          <span className="ml-auto text-muted-foreground">{new Date(u.date).toLocaleDateString()}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
               </div>
             );
           })}

@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import PageTitle from '@/components/common/PageTitle';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, TrendingUp, Users, Lightbulb, BarChartHorizontalBig, History, Clock } from 'lucide-react';
+import { RefreshCw, TrendingUp, Users, Lightbulb, BarChartHorizontalBig, History, Clock, Flame, ThumbsUp } from 'lucide-react';
 import { aiPoweredOpportunityForecasting } from '@/ai/flows/ai-powered-opportunity-forecasting';
 import { mockOpportunities, mockLeads, getRecentUpdates } from '@/lib/data';
 import type { Opportunity, OpportunityForecast, Update, Account } from '@/types';
@@ -54,6 +54,7 @@ export default function DashboardPage() {
   const [engagementAI, setEngagementAI] = useState<Record<string, any>>({});
   const [engagementUpdates, setEngagementUpdates] = useState<Record<string, any[]>>({});
   const [isLoadingEngagement, setIsLoadingEngagement] = useState(true);
+  const [leadSegment, setLeadSegment] = useState<'Hot' | 'Warm' | 'Cold'>('Hot');
 
   // Fetch current user ID and role on component mount
   useEffect(() => {
@@ -460,13 +461,38 @@ export default function DashboardPage() {
             {/* 3. Lead Engagement */}
             <div className="col-span-2">
               <Card className="border border-[#E5E3DF] bg-white rounded-sm shadow-sm flex flex-col min-h-[402px] h-full">
-                <CardHeader>
-                  <CardTitle className="text-lg flex items-center text-[#282828]">
+                <CardHeader className="flex flex-col gap-2 justify-between">
+                  <div className="flex items-center">
                     <Users className="mr-3 h-5 w-5 text-[#916D5B]" />
-                    Lead Engagement
-                  </CardTitle>
+                    <CardTitle className="text-lg flex items-center text-[#282828]">
+                      Lead Engagement
+                    </CardTitle>
+                  </div>
+                  <div className="flex flex-row gap-2">
+                    <Button
+                      type="button"
+                      onClick={() => setLeadSegment('Hot')}
+                      className={`rounded-full px-4 py-1 shadow-sm max-h-10 transition-colors font-${leadSegment === 'Hot' ? 'semibold' : 'normal'} focus:outline-none border ${leadSegment === 'Hot' ? 'bg-[#D48EA3] hover:bg-[#D48EA3] text-white border-transparent' : 'bg-white text-[#D48EA3] border-[#D48EA3]'}`}
+                    >
+                      <Flame className={`h-4 w-4 ${leadSegment === 'Hot' ? 'text-white' : 'text-[#D48EA3]'}`} /> Hot
+                    </Button>
+                    <Button
+                      type="button"
+                      onClick={() => setLeadSegment('Warm')}
+                      className={`rounded-full px-4 py-1 shadow-sm max-h-10 transition-colors font-${leadSegment === 'Warm' ? 'semibold' : 'normal'} focus:outline-none border ${leadSegment === 'Warm' ? 'bg-[#916D5B] hover:bg-[#916D5B] text-white border-transparent' : 'bg-white text-[#916D5B] border-[#916D5B]'}`}
+                    >
+                      <ThumbsUp className={`h-4 w-4 ${leadSegment === 'Warm' ? 'text-white' : 'text-[#916D5B]'}`} /> Warm
+                    </Button>
+                    <Button
+                      type="button"
+                      onClick={() => setLeadSegment('Cold')}
+                      className={`rounded-full px-4 py-1 shadow-sm max-h-10 transition-colors font-${leadSegment === 'Cold' ? 'semibold' : 'normal'} focus:outline-none border ${leadSegment === 'Cold' ? 'bg-[#3987BE] hover:bg-[#3987BE] text-white border-transparent' : 'bg-white text-[#3987BE] border-[#3987BE]'}`}
+                    >
+                      <Users className={`h-4 w-4 ${leadSegment === 'Cold' ? 'text-white' : 'text-[#3987BE]'}`} /> Cold
+                    </Button>
+                  </div>
                 </CardHeader>
-                <CardContent className="flex-grow flex flex-col gap-4">
+                <CardContent className="relative flex-grow flex flex-col gap-4 overflow-y-scroll max-h-[490px] h-full">
                   {isLoadingEngagement ? (
                     <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
                       <Users className="h-8 w-8 mb-2 animate-pulse" />
@@ -477,9 +503,11 @@ export default function DashboardPage() {
                       leads={engagementLeads}
                       aianalysis={engagementAI}
                       updates={engagementUpdates}
+                      segment={leadSegment}
                     />
                   )}
                 </CardContent>
+                  <div className="pointer-events-none absolute rounded-b-sm left-0 right-0 bottom-0 h-10 bg-gradient-to-b from-transparent to-white to-40%" />
               </Card>
             </div>
 
