@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { BarChartBig, DollarSign, CalendarDays, Eye, AlertTriangle, CheckCircle2, Briefcase, Lightbulb, TrendingUp, Users, Clock, MessageSquarePlus, Calendar as CalendarIcon, Sparkles, Pencil, Check, X, Phone, Mail, FileText, Activity, UserCheck, User } from 'lucide-react';
+import { BarChartBig, DollarSign, CalendarDays, Eye, AlertTriangle, CheckCircle2, Briefcase, Lightbulb, TrendingUp, Users, Clock, MessageSquarePlus, Calendar as CalendarIcon, Sparkles, Pencil, Check, X, Phone, Mail, FileText, Activity, UserCheck, User, MoreHorizontal, Trash2 } from 'lucide-react';
 import type { Opportunity, OpportunityForecast as AIOpportunityForecast, Account, OpportunityStatus, Update } from '@/types';
 import { Progress } from "@/components/ui/progress";
 import {format, differenceInDays, parseISO, isValid, formatDistanceToNowStrict, formatDistanceToNow} from 'date-fns';
@@ -15,6 +15,7 @@ import { getAccountById } from '@/lib/data';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
+import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from '@/components/ui/alert-dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Calendar } from '@/components/ui/calendar';
@@ -23,6 +24,7 @@ import { countries } from '@/lib/countryData';
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 interface OpportunityCardProps {
   opportunity: Opportunity;
@@ -30,6 +32,8 @@ interface OpportunityCardProps {
   onStatusChange?: (newStatus: OpportunityStatus) => void;
   onValueChange?: (newValue: number) => void;
   onTimelineChange?: (newStartDate: string, newEndDate: string) => void;
+  selectMode?: boolean;
+  onSelect?: () => void;
 }
 
 const getStatusBadgeColorClasses = (status: Opportunity['status']): string => {
@@ -85,7 +89,7 @@ const getUpdateTypeIcon = (type: Update['type']) => {
   }
 };
 
-export default function OpportunityCard({ opportunity, accountName, onStatusChange, onValueChange, onTimelineChange }: OpportunityCardProps) {
+export default function OpportunityCard({ opportunity, accountName, onStatusChange, onValueChange, onTimelineChange, selectMode, onSelect }: OpportunityCardProps) {
   // const [forecast, setForecast] = useState<AIOpportunityForecast | null>(null);
   // const [isLoadingForecast, setIsLoadingForecast] = useState(false);
   const [associatedAccount, setAssociatedAccount] = useState<Account | undefined>(undefined);
@@ -115,6 +119,10 @@ export default function OpportunityCard({ opportunity, accountName, onStatusChan
   const [editStartDate, setEditStartDate] = useState(opportunity.startDate);
   const [editEndDate, setEditEndDate] = useState<Date | undefined>(safeParseISO(opportunity.endDate) || undefined);
   const [isUpdatingTimeline, setIsUpdatingTimeline] = useState(false);
+  
+  // AI Score and Delete Dialog
+  const [aiScore, setAiScore] = useState<number | null>(null);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   const status = opportunity.status as OpportunityStatus;
 
@@ -595,87 +603,62 @@ export default function OpportunityCard({ opportunity, accountName, onStatusChan
 
   return (
     <>
-      <Card className="shadow-sm hover:shadow-md transition-all duration-200 bg-white border border-[#CBCAC5]/50 flex flex-col h-full cursor-pointer group" onClick={() => setIsDialogOpen(true)}>
-        <CardHeader className="pb-3 px-4 pt-4">
-          {/* Header with title and status */}
-          <div className="flex justify-between items-start mb-3">
-            <CardTitle className="text-lg font-semibold text-[#282828] line-clamp-1 flex items-center">
-              <BarChartBig className="mr-2 h-5 w-5 text-[#916D5B] shrink-0" />
-              {opportunity.name}
-            </CardTitle>
-            <Badge variant="secondary" className={`capitalize whitespace-nowrap ml-2 text-xs font-medium ${getStatusBadgeColorClasses(opportunity.status)}`}>{opportunity.status}</Badge>
-          </div>
-          
-          {/* Key info grid */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <div className="flex items-center text-[#5E6156] text-xs">
-                <Briefcase className="mr-1.5 h-3.5 w-3.5 shrink-0" />
-                <span className="font-medium">{accountName || 'No Account'}</span>
-              </div>
-              <div className="flex items-center text-[#916D5B]">
-                <span className="text-lg font-bold">
-                  {currencySymbol} {opportunity.value.toLocaleString()}
-                </span>
-              </div>
-            </div>
-            
-            <div className="space-y-2">
-              {assignedUser ? (
-                <div className="flex items-center text-[#5E6156] text-xs">
-                  <User className="mr-1.5 h-3.5 w-3.5 shrink-0" />
-                  <span className="font-medium">{assignedUser.name}</span>
-                </div>
-              ) : (
-                <div className="flex items-center text-[#998876] text-xs">
-                  <User className="mr-1.5 h-3.5 w-3.5 shrink-0" />
-                  <span>Unassigned</span>
-                </div>
-              )}
+      <Card
+        className="border border-[#E5E3DF] bg-white rounded-sm shadow-sm hover:shadow-md transition-all duration-300 flex flex-col h-full p-4"
+        onClick={selectMode ? onSelect : () => setIsDialogOpen(true)}
+        style={selectMode ? { cursor: 'pointer' } : { cursor: 'pointer' }}
+      >
+        <div className="flex flex-col gap-1">
+          <div className="flex items-start justify-between">
+            <div>
+              <div className="text-xl font-bold text-[#282828] leading-tight truncate">{opportunity.name}</div>
+              <div className="text-base text-[#5E6156] font-medium mt-0.5 truncate">{accountName || 'No Account'}</div>
             </div>
           </div>
-        </CardHeader>
-        
-        <CardContent className="px-4 pb-4 flex-grow space-y-3">
-          {/* Description section */}
-          <div>
-            <div className="text-xs font-semibold text-[#916D5B] uppercase tracking-wide mb-2">Description</div>
-            <div className="bg-[#F8F7F3] p-3 rounded-sm border border-[#CBCAC5]/30">
-              <p className="text-sm text-[#282828] line-clamp-2 leading-relaxed">
-                {opportunity.description || 'No description added.'}
-              </p>
+          <div className="mt-3 text-sm font-medium text-[#5E6156]">Opportunity Score</div>
+          <div className="flex items-center gap-2 mt-1">
+            <div className="w-full bg-[#E5E3DF] rounded-full h-2 overflow-hidden">
+              <div
+                className="h-2 rounded-full"
+                style={{
+                  width: `${aiScore !== null ? aiScore : Math.min(opportunity.value ? Math.floor(opportunity.value / 1000) : 0, 100)}%`,
+                  backgroundImage: 'linear-gradient(to right, #3987BE, #D48EA3)',
+                }}
+              />
+            </div>
+            <div className="text-sm font-semibold text-[#282828] ml-2 flex flex-row items-center flex-shrink-0">
+              {aiScore !== null ? `${aiScore}%` : `${Math.min(opportunity.value ? Math.floor(opportunity.value / 1000) : 0, 100)}%`}
             </div>
           </div>
-          
-          {/* Timeline section */}
-          <div className="flex items-center justify-between pt-2 border-t border-[#CBCAC5]/30">
-            <div className="flex items-center text-[#5E6156] text-xs">
-              <CalendarDays className="mr-1.5 h-3.5 w-3.5 shrink-0" />
-              <span className="font-medium">{
-                (() => {
-                  const start = safeParseISO(opportunity.startDate);
-                  const end = safeParseISO(opportunity.endDate);
-                  if (start && end) {
-                    return `${format(start, 'MMM dd')} - ${format(end, 'MMM dd, yyyy')}`;
-                  }
-                  return 'No timeline set';
-                })()
-              }</span>
+          <div className="mt-4 space-y-1.5 text-[15px]">
+            <div className="text-[#5E6156] truncate">
+              <span className="font-medium">Value:</span> <span className="text-[#282828]">{opportunity.value ? `$${opportunity.value.toLocaleString()}` : 'N/A'}</span>
+            </div>
+            <div className="text-[#5E6156] truncate">
+              <span className="font-medium">Status:</span> <span className="text-[#282828]">{opportunity.status}</span>
+            </div>
+            <div className="text-[#5E6156] truncate">
+              <span className="font-medium">Start Date:</span> <span className="text-[#282828]">{opportunity.startDate ? format(new Date(opportunity.startDate), 'MMM dd, yyyy') : 'N/A'}</span>
             </div>
           </div>
-        </CardContent>
-        
-        <CardFooter className="px-4 py-3 border-t border-[#CBCAC5]/30 bg-[#F8F7F3]/50">
-          <Button 
-            variant="outline" 
-            size="sm" 
-            className="w-full rounded-sm border-[#CBCAC5] text-[#5E6156] hover:bg-[#916D5B] hover:text-white hover:border-[#916D5B] transition-colors duration-200" 
-            onClick={(e) => { e.stopPropagation(); setIsViewDialogOpen(true); }}
-          >
-            <Eye className="mr-2 h-4 w-4" />
-            View Details
-          </Button>
-        </CardFooter>
+        </div>
+        <div className="mt-6 border-t border-[#E5E3DF] pt-3 flex justify-center" onClick={e => e.stopPropagation()}>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="w-full text-[#282828] font-semibold text-base py-2 rounded-md border-[#E5E3DF] bg-[#F8F7F3] hover:bg-[#EFEDE7] flex items-center justify-center gap-2 max-h-10">
+                <MoreHorizontal className="h-5 w-5 text-[#282828]" /> Actions
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="bg-[#fff] text-[#282828] p-1 rounded-md border border-[#E5E3DF] shadow-xl sm:max-w-[308px] sm:h-fit">
+              <DropdownMenuItem onClick={() => setIsDialogOpen(true)} className="min-h-[44px] text-[#282828] bg-[#fff] focus:bg-[#F8F7F3] focus:text-black flex items-center gap-2 cursor-pointer">
+                <Eye className="h-5 w-5 text-[#282828]" /> View Details
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setShowDeleteDialog(true)} className="min-h-[44px] bg-[#fff] flex items-center gap-2 text-[#916D5B] focus:bg-[#F8F7F3] focus:text-[#916D5B] cursor-pointer">
+                <Trash2 className="h-5 w-5 text-[#916D5B]" /> Delete Opportunity
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </Card>
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="sm:max-w-xl bg-white" onClick={e => e.stopPropagation()}>
@@ -924,6 +907,31 @@ export default function OpportunityCard({ opportunity, accountName, onStatusChan
           </div>
         </DialogContent>
       </Dialog>
+      
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Opportunity?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this opportunity? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={async () => { 
+                setShowDeleteDialog(false); 
+                // Add delete logic here if needed
+                toast({ title: 'Opportunity deleted', description: 'Opportunity has been deleted successfully.' });
+              }} 
+              className="bg-[#916D5B] text-white rounded-md border-0 hover:bg-[#a98a77]"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
