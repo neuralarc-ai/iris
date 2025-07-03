@@ -263,12 +263,13 @@ export default function DashboardPage() {
           companyName: lead.company_name || '',
           personName: lead.person_name || '',
           email: lead.email || '',
+          status: lead.status || '',
         })));
         // 2. Fetch latest aianalysis for each lead (enrichment, success)
         const leadIds = leadsData.map((l: any) => l.id);
         const aiQuery = supabase
           .from('aianalysis')
-          .select('entity_id, match_score, use_case, pitch_notes, email_template')
+          .select('entity_id, match_score, use_case, pitch_notes, email_template, entity_type')
           .in('entity_id', leadIds)
           .eq('entity_type', 'Lead')
           .eq('analysis_type', 'enrichment')
@@ -377,6 +378,33 @@ export default function DashboardPage() {
       setShowDashboard(false);
     }
   }, [isLoading, isLoadingEngagement]);
+
+  useEffect(() => {
+    // Only auto-switch if currently on Hot, not loading, and Hot is empty but Warm is not
+    if (!isLoadingEngagement && leadSegment === 'Hot') {
+      const getSegment = (score?: number) => {
+        if (score === undefined) return 'Cold';
+        if (score >= 80) return 'Hot';
+        if (score >= 50) return 'Warm';
+        return 'Cold';
+      };
+      const hotLeads = engagementLeads.filter(lead => {
+        const ai = engagementAI[lead.id] || {};
+        if (lead.status === 'Converted to Account') return false;
+        if (ai.entity_type === 'Account') return false;
+        return getSegment(ai.match_score) === 'Hot';
+      });
+      const warmLeads = engagementLeads.filter(lead => {
+        const ai = engagementAI[lead.id] || {};
+        if (lead.status === 'Converted to Account') return false;
+        if (ai.entity_type === 'Account') return false;
+        return getSegment(ai.match_score) === 'Warm';
+      });
+      if (hotLeads.length === 0 && warmLeads.length > 0) {
+        setLeadSegment('Warm');
+      }
+    }
+  }, [isLoadingEngagement, engagementLeads, engagementAI, leadSegment]);
 
   if (!showDashboard) {
     return (
@@ -658,7 +686,7 @@ export default function DashboardPage() {
                   </Button>
                 </div>
               </CardHeader>
-              <CardContent className="relative flex-grow flex flex-col gap-4 overflow-y-scroll max-h-[490px] h-full">
+              <CardContent className="relative flex-grow flex flex-col gap-4 overflow-scroll max-h-[490px] h-full">
                 {isLoadingEngagement ? (
                   <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
                     <Users className="h-8 w-8 mb-2 animate-pulse" />

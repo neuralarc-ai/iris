@@ -50,6 +50,16 @@ const getOpportunityStatusBadgeClasses = (status: string) => {
   }
 };
 
+const getActivityTypeBadgeClasses = (type: Update['type']) => {
+  switch (type) {
+    case 'Call': return 'bg-[#E6F4F1] text-[#1B6B5C] border-none'; // teal
+    case 'Meeting': return 'bg-[#F3E8FF] text-[#7C3AED] border-none'; // purple
+    case 'Email': return 'bg-[#FFF4E6] text-[#B45309] border-none'; // orange
+    case 'General':
+    default: return 'bg-[#F3F4F6] text-[#374151] border-none'; // gray
+  }
+};
+
 export default function UpdateItem({ update, groupedUpdates }: UpdateItemProps) {
   // State for related data
   const [opportunity, setOpportunity] = useState<Opportunity | undefined>(undefined);
@@ -468,9 +478,7 @@ export default function UpdateItem({ update, groupedUpdates }: UpdateItemProps) 
 
   const renderActivityLogItem = (log: Update) => {
     return (
-      <div key={log.id} className={
-        'flex items-start space-x-3 p-3 rounded-r-lg bg-[#9A8A744c] border-l-4 border-muted'
-      }>
+      <div key={log.id} className="flex items-start space-x-3 p-3 rounded-sm bg-[#EFEDE7]">
         <div className="flex-shrink-0 mt-1">
           {getUpdateTypeIcon(log.type)}
         </div>
@@ -484,7 +492,7 @@ export default function UpdateItem({ update, groupedUpdates }: UpdateItemProps) 
             </span>
           </div>
           <div className="flex items-center space-x-2">
-            <Badge variant="outline" className="text-xs">
+            <Badge variant="outline" className={`text-xs ${getActivityTypeBadgeClasses(log.type)}`}>
               {log.type}
             </Badge>
             {log.updatedByUserId && (
@@ -507,12 +515,19 @@ export default function UpdateItem({ update, groupedUpdates }: UpdateItemProps) 
     <>
       {/* Card View */}
       <Card 
-        className="shadow-md hover:shadow-lg transition-shadow duration-300 bg-white flex flex-col h-full cursor-pointer rounded-lg border border-[#E5E3DF] min-h-[320px] max-h-[420px] min-w-[260px] max-w-full p-0 overflow-hidden"
+        className="border border-[#E5E3DF] bg-white rounded-sm shadow-sm hover:shadow-md transition-all duration-300 flex flex-col h-full p-4 cursor-pointer"
         onClick={() => setIsDialogOpen(true)}
       >
-        <CardHeader className="pb-2 pt-4 px-5">
-          {/* Capsules Row: left-aligned at the very top */}
-          <div className="flex justify-start items-center gap-2 w-full mb-2">
+        {/* Top badges and name */}
+        <div className="flex flex-col gap-1">
+          <div className="flex items-start justify-between">
+            <div>
+              <div className="text-xl font-bold text-[#282828] leading-tight truncate max-w-full" style={{overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}}>
+                {opportunity ? opportunity.name : lead ? `${lead.personName} (${lead.companyName})` : account ? account.name : 'Update'}
+              </div>
+            </div>
+          </div>
+          <div className="mt-2 flex flex-row gap-2 items-center">
             <Badge variant="outline" className="text-xs bg-gray-100 text-gray-800 border-gray-300">
               {opportunity ? 'Opportunities' : lead ? 'Leads' : account ? 'Accounts' : 'General'}
             </Badge>
@@ -526,45 +541,28 @@ export default function UpdateItem({ update, groupedUpdates }: UpdateItemProps) 
             )}
             {getStatusBadge && !opportunity && getStatusBadge()}
           </div>
-          {/* Entity Name/Title */}
-          <CardTitle className="text-lg font-headline text-foreground line-clamp-1 flex-1 truncate">
-            {opportunity ? opportunity.name : lead ? `${lead.personName} (${lead.companyName})` : account ? account.name : 'Update'}
-          </CardTitle>
-          <div className="space-y-1">
-            {getValueDisplay()}
-            {getExpectedClose()}
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-3 flex-grow flex flex-col justify-end px-5 pb-2">
-          {/* Recent Activity */}
-          <div className="space-y-2 mt-auto">
+          {/* Recent Activity - always directly below badges */}
+          <div className="space-y-2 mt-4">
             <h4 className="text-xs font-semibold text-muted-foreground">Recent Activity</h4>
-            <div className={`bg-white/30 rounded-[6px] space-y-2 ${activityLogs.length > 2 ? 'max-h-32 overflow-y-auto pr-1' : ''}`}>
-              {activityLogs.slice(0, 2).map((log) => renderActivityLogItem(log))}
-              {activityLogs.length > 2 && (
-                <div className="flex items-center justify-center pt-2 border-t border-muted/30 bg-white sticky bottom-0 left-0 right-0">
-                  <p className="text-xs text-muted-foreground">+{activityLogs.length - 2} more activities</p>
+            <div className="space-y-2">
+              {activityLogs.slice(0, 1).map((log) => renderActivityLogItem(log))}
+            </div>
+            {activityLogs.length > 1 && (
+              <div className="flex items-center justify-center pt-2">
+                <p className="text-xs text-muted-foreground">+{activityLogs.length - 1} more activities</p>
                 </div>
               )}
             </div>
           </div>
-        </CardContent>
-        <CardFooter className="pt-2 px-5 pb-4 border-t mt-auto flex gap-2 bg-white z-10">
-          <TooltipProvider delayDuration={0}>
-            <Tooltip>
-              <TooltipTrigger asChild>
+        {/* Bottom Button */}
+        <CardFooter className="pt-2 px-0 pb-0 border-t mt-auto flex gap-2 bg-white z-10 justify-center">
                 <Button
-                  variant="ghost"
-                  className="h-10 px-4 flex items-center justify-center gap-2 rounded-md bg-[#E6D0D7] text-[#2B2521] hover:bg-[#d1b6c0] shadow-none font-semibold text-base"
+            variant="outline"
+            className="w-full text-[#282828] font-semibold text-base py-2 rounded-md border-[#E5E3DF] bg-[#F8F7F3] hover:bg-[#EFEDE7] flex items-center justify-center gap-2 max-h-10"
                   onClick={e => { e.stopPropagation(); setIsDialogOpen(true); }}
                 >
-                  <Plus className="h-5 w-5" />
-                  Add Activity
+            <Plus className="h-5 w-5" /> Add Activity
                 </Button>
-              </TooltipTrigger>
-              <TooltipContent side="top" align="center">Add Activity</TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
         </CardFooter>
       </Card>
 

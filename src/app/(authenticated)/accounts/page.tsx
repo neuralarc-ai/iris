@@ -18,7 +18,7 @@ import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/comp
 import AddOpportunityDialog from '@/components/opportunities/AddOpportunityDialog';
 import { supabase } from '@/lib/supabaseClient';
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 
 export default function AccountsPage() {
@@ -174,18 +174,31 @@ export default function AccountsPage() {
                   Sort & Filter
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className='w-[150px] rounded-sm h-fit'>
-                <Label htmlFor="status-filter" className="text-[#282828] font-medium px-2 py-1">Status</Label>
-                <Select value={statusFilter} onValueChange={(value: AccountStatus | 'all') => setStatusFilter(value)}>
-                  <SelectTrigger id="status-filter" className="w-full mt-1 border-none text-[#282828]">
-                    <SelectValue placeholder="All Statuses" className="text-[#282828]" />
-                  </SelectTrigger>
-                  <SelectContent className="text-[#282828]">
-                    <SelectItem value="all" className="text-[#282828]">All Statuses</SelectItem>
-                    <SelectItem value="Active" className="text-[#282828]">Active</SelectItem>
-                    <SelectItem value="Inactive" className="text-[#282828]">Inactive</SelectItem>
-                  </SelectContent>
-                </Select>
+              <DropdownMenuContent align="end" className='max-w-[140px] border-[#282828]/30 rounded-sm h-fit bg-white'>
+              <DropdownMenuLabel className='text-[#282828] text-base border-b'>Status</DropdownMenuLabel> 
+                <div className="flex flex-col gap-1 mt-1">
+                  <button
+                    className={`w-full text-left px-3 py-1 rounded hover:bg-[#EFEDE7] text-[#282828] bg-white ${statusFilter === 'all' ? 'bg-[#EFEDE7]' : ''}`}
+                    onClick={() => setStatusFilter('all')}
+                    type="button"
+                  >
+                    All Statuses
+                  </button>
+                  <button
+                    className={`w-full text-left px-3 py-1 rounded hover:bg-[#EFEDE7] text-[#282828] bg-white ${statusFilter === 'Active' ? 'bg-[#EFEDE7]' : ''}`}
+                    onClick={() => setStatusFilter('Active')}
+                    type="button"
+                  >
+                    Active
+                  </button>
+                  <button
+                    className={`w-full text-left px-3 py-1 rounded hover:bg-[#EFEDE7] text-[#282828] bg-white ${statusFilter === 'Inactive' ? 'bg-[#EFEDE7]' : ''}`}
+                    onClick={() => setStatusFilter('Inactive')}
+                    type="button"
+                  >
+                    Inactive
+                  </button>
+                </div>
               </DropdownMenuContent>
             </DropdownMenu>
             <div className="flex items-center border border-[#2B2521]/30 bg-white rounded-[4px] p-1 gap-1">

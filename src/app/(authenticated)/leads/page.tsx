@@ -959,7 +959,7 @@ export default function LeadsPage() {
                     Sort & Filter
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className='w-[150px] rounded-sm h-fit'>
+                <DropdownMenuContent align="end" className='max-w-[140px] rounded-sm h-fit'>
                   <DropdownMenuLabel>Status</DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => setStatusFilter('all')}>
