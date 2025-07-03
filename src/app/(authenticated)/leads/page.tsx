@@ -75,6 +75,26 @@ export default function LeadsPage() {
 
   const [isCompanyProfileDialogOpen, setIsCompanyProfileDialogOpen] = useState(false);
 
+  const [archivedByNames, setArchivedByNames] = useState<Record<string, string>>({});
+
+  // Fetch user names for archivedBy IDs
+  useEffect(() => {
+    const fetchArchivedByNames = async () => {
+      const uniqueIds = Array.from(new Set(archivedLeads.map(l => l.archivedBy).filter(Boolean)));
+      if (uniqueIds.length === 0) {
+        setArchivedByNames({});
+        return;
+      }
+      const { data, error } = await supabase.from('users').select('id, name').in('id', uniqueIds);
+      if (!error && data) {
+        const mapping: Record<string, string> = {};
+        data.forEach((u: any) => { mapping[u.id] = u.name; });
+        setArchivedByNames(mapping);
+      }
+    };
+    fetchArchivedByNames();
+  }, [archivedLeads]);
+
   // LeadCardSkeleton component
   const LeadCardSkeleton = () => (
     <div className="bg-white border border-[#E5E3DF] rounded-lg p-6 hover:shadow-md transition-shadow duration-200 cursor-pointer">
@@ -1915,6 +1935,7 @@ export default function LeadsPage() {
                     <ArchivedLeadCard
                       key={lead.id}
                       lead={lead}
+                      userNamesById={archivedByNames}
                       onRestore={handleRestoreArchivedLead}
                       onDelete={handleDeleteRejectedLead}
                       onUpdate={handleUpdateRejectedLead}

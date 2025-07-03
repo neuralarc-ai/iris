@@ -11,12 +11,13 @@ import { Lead } from '@/types';
 
 interface ArchivedLeadCardProps {
   lead: Lead;
+  userNamesById?: Record<string, string>;
   onRestore?: (leadId: string) => void;
   onDelete?: (leadId: string) => void;
   onUpdate?: (leadId: string, updatedLead: Partial<Lead>) => void;
 }
 
-export default function ArchivedLeadCard({ lead, onRestore, onDelete, onUpdate }: ArchivedLeadCardProps) {
+export default function ArchivedLeadCard({ lead, userNamesById = {}, onRestore, onDelete, onUpdate }: ArchivedLeadCardProps) {
   const [isEditModalOpen, setIsEditModalOpen] = React.useState(false);
   const [isConfirmRestoreOpen, setIsConfirmRestoreOpen] = React.useState(false);
   const [editData, setEditData] = React.useState({
@@ -141,7 +142,7 @@ export default function ArchivedLeadCard({ lead, onRestore, onDelete, onUpdate }
                 </div>
                 {lead.archivedBy && (
                   <div className="flex items-start gap-1.5 text-xs text-orange-600 dark:text-orange-400">
-                    <span className="text-xs">by {lead.archivedBy}</span>
+                    <span className="text-xs">by {userNamesById[lead.archivedBy] || lead.archivedBy}</span>
                   </div>
                 )}
               </div>
