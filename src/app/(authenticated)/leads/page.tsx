@@ -1527,14 +1527,14 @@ export default function LeadsPage() {
             <div className="mt-6">
               {isLoadingLeads ? (
                 // Show skeleton cards during initial loading
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                   {Array.from({ length: 6 }, (_, i) => (
                     <LeadCardSkeleton key={i} />
                   ))}
                 </div>
               ) : filteredLeads.length > 0 ? (
                 view === 'list' ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     {paginatedLeads.map((lead) => (
                       <LeadCard
                         key={lead.id}
@@ -1827,7 +1827,7 @@ export default function LeadsPage() {
           {activeTab === 'rejected' && (
             <div className="mt-6">
               {filteredRejectedLeads.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                   {paginatedRejectedLeads.map((lead) => (
                     <RejectedLeadCard
                       key={lead.id}
@@ -1921,7 +1921,7 @@ export default function LeadsPage() {
           {activeTab === 'archived' && (
             <div className="mt-6">
               {filteredArchivedLeads.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                   {paginatedArchivedLeads.map((lead) => (
                     <ArchivedLeadCard
                       key={lead.id}

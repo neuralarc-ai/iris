@@ -319,25 +319,14 @@ export default function LeadDialog({
     }
   };
 
-  // Handler: Date Select
-  const handleDateSelect = (date: Date | undefined) => {
-    if (!date) {
-      setUpdateDate(undefined);
-      setNextActionDate(undefined);
-      return;
-    }
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const selectedDate = new Date(date);
-    selectedDate.setHours(0, 0, 0, 0);
-    const isFuture = selectedDate > today;
-    if (isFuture) {
-      setNextActionDate(date);
-      setUpdateDate(new Date());
-    } else {
-      setUpdateDate(date);
-      setNextActionDate(undefined);
-    }
+  // Handler: Date Select (for mutually exclusive selection)
+  const handleUpdateDateSelect = (date: Date | undefined) => {
+    setUpdateDate(date);
+    if (date) setNextActionDate(undefined);
+  };
+  const handleNextActionDateSelect = (date: Date | undefined) => {
+    setNextActionDate(date);
+    if (date) setUpdateDate(undefined);
   };
 
   // Handler: Generate Professional Email
@@ -808,15 +797,17 @@ export default function LeadDialog({
                                     value={updateDate ? format(updateDate, 'dd/MM/yyyy') : ''}
                                     placeholder="dd/mm/yyyy"
                                     readOnly
-                                    className="cursor-pointer bg-[#F8F7F3] border-[#CBCAC5] focus:ring-1 focus:ring-[#916D5B] focus:border-[#916D5B] rounded-md disabled:cursor-not-allowed disabled:opacity-50"
+                                    className={`cursor-pointer bg-[#F8F7F3] border-[#CBCAC5] focus:ring-1 focus:ring-[#916D5B] focus:border-[#916D5B] rounded-md disabled:cursor-not-allowed disabled:opacity-50 ${nextActionDate ? 'opacity-60' : ''}`}
+                                    disabled={!!nextActionDate}
                                   />
                                 </PopoverTrigger>
                                 <PopoverContent align="start" className="p-0 w-auto border-[#CBCAC5] bg-white rounded-md shadow-lg">
                                   <Calendar
                                     mode="single"
                                     selected={updateDate}
-                                    onSelect={setUpdateDate}
+                                    onSelect={handleUpdateDateSelect}
                                     initialFocus
+                                    disabled={!!nextActionDate}
                                   />
                                 </PopoverContent>
                               </Popover>
@@ -839,15 +830,17 @@ export default function LeadDialog({
                                     value={nextActionDate ? format(nextActionDate, 'dd/MM/yyyy') : ''}
                                     placeholder="dd/mm/yyyy (optional)"
                                     readOnly
-                                    className="cursor-pointer bg-[#F8F7F3] border-[#CBCAC5] focus:ring-1 focus:ring-[#916D5B] focus:border-[#916D5B] rounded-md disabled:cursor-not-allowed disabled:opacity-50"
+                                    className={`cursor-pointer bg-[#F8F7F3] border-[#CBCAC5] focus:ring-1 focus:ring-[#916D5B] focus:border-[#916D5B] rounded-md disabled:cursor-not-allowed disabled:opacity-50 ${updateDate ? 'opacity-60' : ''}`}
+                                    disabled={!!updateDate}
                                   />
                                 </PopoverTrigger>
                                 <PopoverContent align="start" className="p-0 w-auto border-[#CBCAC5] bg-white rounded-md shadow-lg">
                                   <Calendar
                                     mode="single"
                                     selected={nextActionDate}
-                                    onSelect={setNextActionDate}
+                                    onSelect={handleNextActionDateSelect}
                                     initialFocus
+                                    disabled={!!updateDate}
                                   />
                                 </PopoverContent>
                               </Popover>
@@ -872,7 +865,7 @@ export default function LeadDialog({
                         variant="add"
                         className="w-full bg-[#2B2521] text-white hover:bg-[#3a322c] rounded-md"
                         onClick={handleLogUpdate}
-                        disabled={isLogging || !updateType || !updateContent.trim() || !updateDate}
+                        disabled={isLogging || !updateType || !updateContent.trim() || (!updateDate && !nextActionDate)}
                       >
                         {isLogging ? (
                           <>

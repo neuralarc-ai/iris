@@ -64,6 +64,69 @@ export default function AccountModal({ accountId, open, onClose, aiEnrichment, i
     contactPhone: '',
   });
 
+  // --- Activity Form State ---
+  const [updateType, setUpdateType] = useState('');
+  const [updateContent, setUpdateContent] = useState('');
+  const [updateDate, setUpdateDate] = useState<Date | undefined>(undefined);
+  const [nextActionDate, setNextActionDate] = useState<Date | undefined>(undefined);
+  const [isLogging, setIsLogging] = useState(false);
+
+  // Mutually exclusive handlers
+  const handleUpdateDateSelect = (date: Date | undefined) => {
+    setUpdateDate(date);
+    if (date) setNextActionDate(undefined);
+  };
+  const handleNextActionDateSelect = (date: Date | undefined) => {
+    setNextActionDate(date);
+    if (date) setUpdateDate(undefined);
+  };
+
+  // Handler: Log Update (stub, implement as needed)
+  const handleLogUpdate = async () => {
+    if (!updateType || !updateContent.trim() || (!updateDate && !nextActionDate)) {
+      toast({ title: 'Missing Information', description: 'Please fill in all required fields.', variant: 'destructive' });
+      return;
+    }
+    setIsLogging(true);
+    try {
+      const currentUserId = localStorage.getItem('user_id');
+      if (!currentUserId) throw new Error('User not authenticated');
+      const { data, error } = await supabase.from('update').insert([
+        {
+          type: updateType,
+          content: updateContent.trim(),
+          updated_by_user_id: currentUserId,
+          date: updateDate ? updateDate.toISOString() : null,
+          next_action_date: nextActionDate ? nextActionDate.toISOString() : null,
+          account_id: accountId,
+        }
+      ]).select().single();
+      if (error || !data) throw error || new Error('Failed to log update');
+      const newUpdate: Update = {
+        id: data.id,
+        type: data.type,
+        content: data.content || '',
+        updatedByUserId: data.updated_by_user_id,
+        date: data.date || data.created_at || new Date().toISOString(),
+        createdAt: data.created_at || new Date().toISOString(),
+        leadId: data.lead_id,
+        opportunityId: data.opportunity_id,
+        accountId: data.account_id,
+        nextActionDate: data.next_action_date,
+      };
+      setLogs(prev => [newUpdate, ...prev]);
+      setUpdateType('');
+      setUpdateContent('');
+      setUpdateDate(undefined);
+      setNextActionDate(undefined);
+      toast({ title: 'Activity Logged', description: 'Your update has been successfully logged.', className: 'bg-green-100 dark:bg-green-900 border-green-500' });
+    } catch (error) {
+      toast({ title: 'Logging Failed', description: error instanceof Error ? error.message : 'Could not log update.', variant: 'destructive' });
+    } finally {
+      setIsLogging(false);
+    }
+  };
+
   useEffect(() => {
     if (!open) return;
     (async () => {
@@ -700,7 +763,7 @@ export default function AccountModal({ accountId, open, onClose, aiEnrichment, i
                     <div className="flex flex-col md:flex-row gap-3">
                       <div className="flex-1 min-w-0">
                         <Label htmlFor="update-type" className="text-sm font-medium text-[#5E6156] mb-2 block">Activity Type</Label>
-                        <Select value={''} onValueChange={() => {}}>
+                        <Select value={updateType} onValueChange={setUpdateType}>
                           <SelectTrigger id="update-type" className="w-full border border-[#CBCAC5] bg-[#F8F7F3] focus:ring-1 focus:ring-[#916D5B] focus:border-[#916D5B] rounded-md">
                             <SelectValue placeholder="Select activity type" />
                           </SelectTrigger>
@@ -718,14 +781,36 @@ export default function AccountModal({ accountId, open, onClose, aiEnrichment, i
                             <Input
                               id="update-date"
                               type="text"
-                              value={''}
+                              value={updateDate ? format(updateDate, 'dd/MM/yyyy') : ''}
                               placeholder="dd/mm/yyyy"
                               readOnly
-                              className="cursor-pointer bg-[#F8F7F3] border-[#CBCAC5] focus:ring-1 focus:ring-[#916D5B] focus:border-[#916D5B] rounded-md disabled:cursor-not-allowed disabled:opacity-50"
+                              className={`cursor-pointer bg-[#F8F7F3] border-[#CBCAC5] focus:ring-1 focus:ring-[#916D5B] focus:border-[#916D5B] rounded-md disabled:cursor-not-allowed disabled:opacity-50 ${nextActionDate ? 'opacity-60' : ''}`}
+                              disabled={!!nextActionDate}
                             />
                           </PopoverTrigger>
                           <PopoverContent align="start" className="p-0 w-auto border-[#CBCAC5] bg-white rounded-md shadow-lg">
-                            <Calendar mode="single" selected={undefined} onSelect={() => {}} initialFocus />
+                            <Calendar mode="single" selected={updateDate} onSelect={handleUpdateDateSelect} initialFocus disabled={!!nextActionDate} />
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                    </div>
+                    <div className="flex flex-col md:flex-row gap-3">
+                      <div className="flex-1 min-w-0">
+                        <Label htmlFor="next-action-date" className="text-sm font-medium text-[#5E6156] mb-2 block">Next Action Date (Optional)</Label>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Input
+                              id="next-action-date"
+                              type="text"
+                              value={nextActionDate ? format(nextActionDate, 'dd/MM/yyyy') : ''}
+                              placeholder="dd/mm/yyyy (optional)"
+                              readOnly
+                              className={`cursor-pointer bg-[#F8F7F3] border-[#CBCAC5] focus:ring-1 focus:ring-[#916D5B] focus:border-[#916D5B] rounded-md disabled:cursor-not-allowed disabled:opacity-50 ${updateDate ? 'opacity-60' : ''}`}
+                              disabled={!!updateDate}
+                            />
+                          </PopoverTrigger>
+                          <PopoverContent align="start" className="p-0 w-auto border-[#CBCAC5] bg-white rounded-md shadow-lg">
+                            <Calendar mode="single" selected={nextActionDate} onSelect={handleNextActionDateSelect} initialFocus disabled={!!updateDate} />
                           </PopoverContent>
                         </Popover>
                       </div>
@@ -734,8 +819,8 @@ export default function AccountModal({ accountId, open, onClose, aiEnrichment, i
                       <Label htmlFor="update-content" className="text-sm font-medium text-[#5E6156] mb-2 block">Activity Details</Label>
                       <Textarea
                         id="update-content"
-                        value={''}
-                        onChange={() => {}}
+                        value={updateContent}
+                        onChange={e => setUpdateContent(e.target.value)}
                         placeholder="Describe the call, meeting, email, or general update..."
                         className="min-h-[100px] resize-none border-[#CBCAC5] bg-[#F8F7F3] focus:ring-1 focus:ring-[#916D5B] focus:border-[#916D5B] rounded-md"
                       />
@@ -745,11 +830,20 @@ export default function AccountModal({ accountId, open, onClose, aiEnrichment, i
                         type="button"
                         variant="add"
                         className="w-full bg-[#2B2521] text-white hover:bg-[#3a322c] rounded-md"
-                        onClick={() => {}}
-                        disabled={true}
+                        onClick={handleLogUpdate}
+                        disabled={isLogging || !updateType || !updateContent.trim() || (!updateDate && !nextActionDate)}
                       >
-                        <Activity className="mr-2 h-4 w-4" />
-                        Add Activity
+                        {isLogging ? (
+                          <>
+                            <Activity className="mr-2 h-4 w-4 animate-spin" />
+                            Adding Activity...
+                          </>
+                        ) : (
+                          <>
+                            <Activity className="mr-2 h-4 w-4" />
+                            Add Activity
+                          </>
+                        )}
                       </Button>
                     </DialogFooter>
                   </form>
