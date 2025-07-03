@@ -444,73 +444,6 @@ export default function UpdateItem({ update, groupedUpdates }: UpdateItemProps) 
     return null;
   };
 
-  const getHeaderTitle = () => {
-    if (opportunity) {
-      return (
-        <span className="font-semibold flex flex-col">
-          <span>{opportunity.name}</span>
-          <div className="flex items-center gap-2 mt-1">
-            <Badge variant="outline" className="text-xs bg-gray-100 text-gray-800 border-gray-300">
-              Opportunities
-            </Badge>
-            {totalUpdates > 1 && (
-              <Badge variant="secondary" className="whitespace-nowrap" style={{ backgroundColor: '#916D5B', color: '#fff', border: 'none' }}>
-                {totalUpdates} updates
-              </Badge>
-            )}
-          </div>
-        </span>
-      );
-    } else if (lead) {
-      return (
-        <span className="font-semibold flex flex-col">
-          <span>{lead.personName} ({lead.companyName})</span>
-          <div className="flex items-center gap-2 mt-1">
-            <Badge variant="outline" className="text-xs bg-gray-100 text-gray-800 border-gray-300">
-              Leads
-            </Badge>
-            {totalUpdates > 1 && (
-              <Badge variant="secondary" className="whitespace-nowrap" style={{ backgroundColor: '#916D5B', color: '#fff', border: 'none' }}>
-                {totalUpdates} updates
-              </Badge>
-            )}
-          </div>
-        </span>
-      );
-    } else if (account) {
-      return (
-        <span className="font-semibold flex flex-col">
-          <span>{account.name}</span>
-          <div className="flex items-center gap-2 mt-1">
-            <Badge variant="outline" className="text-xs bg-gray-100 text-gray-800 border-gray-300">
-              Accounts
-            </Badge>
-            {totalUpdates > 1 && (
-              <Badge variant="secondary" className="whitespace-nowrap" style={{ backgroundColor: '#916D5B', color: '#fff', border: 'none' }}>
-                {totalUpdates} updates
-              </Badge>
-            )}
-          </div>
-        </span>
-      );
-    }
-    return (
-      <span className="font-semibold flex flex-col">
-        <span>Update</span>
-        <div className="flex items-center gap-2 mt-1">
-          <Badge variant="outline" className="text-xs bg-gray-100 text-gray-800 border-gray-300">
-            General
-          </Badge>
-          {totalUpdates > 1 && (
-            <Badge variant="secondary" className="whitespace-nowrap" style={{ backgroundColor: '#916D5B', color: '#fff', border: 'none' }}>
-              {totalUpdates} updates
-            </Badge>
-          )}
-        </div>
-      </span>
-    );
-  };
-
   const getValueDisplay = () => {
     if (opportunity) {
       return (
@@ -574,75 +507,59 @@ export default function UpdateItem({ update, groupedUpdates }: UpdateItemProps) 
     <>
       {/* Card View */}
       <Card 
-        className="shadow-md hover:shadow-lg transition-shadow duration-300 bg-white flex flex-col h-full cursor-pointer"
+        className="shadow-md hover:shadow-lg transition-shadow duration-300 bg-white flex flex-col h-full cursor-pointer rounded-lg border border-[#E5E3DF] min-h-[320px] max-h-[420px] min-w-[260px] max-w-full p-0 overflow-hidden"
         onClick={() => setIsDialogOpen(true)}
       >
-      <CardHeader className="pb-3">
-          <div className="flex justify-between items-start mb-2">
-            <CardTitle className="text-lg font-headline text-foreground line-clamp-1">
-              {getHeaderTitle()}
-            </CardTitle>
-            {opportunity && (
-              <Badge variant="secondary" className={`capitalize whitespace-nowrap ml-2 border ${getOpportunityStatusBadgeClasses(opportunity.status)}`}>
-                {opportunity.status}
+        <CardHeader className="pb-2 pt-4 px-5">
+          {/* Capsules Row: left-aligned at the very top */}
+          <div className="flex justify-start items-center gap-2 w-full mb-2">
+            <Badge variant="outline" className="text-xs bg-gray-100 text-gray-800 border-gray-300">
+              {opportunity ? 'Opportunities' : lead ? 'Leads' : account ? 'Accounts' : 'General'}
+            </Badge>
+            {totalUpdates > 1 && (
+              <Badge variant="secondary" className="whitespace-nowrap" style={{ backgroundColor: '#916D5B', color: '#fff', border: 'none' }}>
+                {totalUpdates} updates
               </Badge>
+            )}
+            {opportunity && (
+              <Badge variant="secondary" className={`capitalize whitespace-nowrap ml-2 border ${getOpportunityStatusBadgeClasses(opportunity.status)}`}>{opportunity.status}</Badge>
             )}
             {getStatusBadge && !opportunity && getStatusBadge()}
           </div>
-
+          {/* Entity Name/Title */}
+          <CardTitle className="text-lg font-headline text-foreground line-clamp-1 flex-1 truncate">
+            {opportunity ? opportunity.name : lead ? `${lead.personName} (${lead.companyName})` : account ? account.name : 'Update'}
+          </CardTitle>
           <div className="space-y-1">
             {getValueDisplay()}
             {getExpectedClose()}
           </div>
         </CardHeader>
-
-        <CardContent className="space-y-3 flex-grow">
-          {/* Description */}
-          <div className="space-y-2">
-            <h4 className="text-sm font-semibold text-foreground">Description</h4>
-            <div className="bg-[#F8F7F3] p-3 rounded-[4px] border border-[#E5E3DF] h-20">
-              <p className="text-sm text-[#282828] line-clamp-3">
-                {opportunity?.description || lead?.companyName || lead?.personName || lead?.email || account?.description || 'No description available.'}
-              </p>
-            </div>
-          </div>
-
-          {/* Activity Log (max 2 items) */}
-          <div className="space-y-2">
-            <h4 className="text-sm font-semibold text-foreground">Recent Activity</h4>
-            <div className="bg-white/30  rounded-[4px] space-y-2">
+        <CardContent className="space-y-3 flex-grow flex flex-col justify-end px-5 pb-2">
+          {/* Recent Activity */}
+          <div className="space-y-2 mt-auto">
+            <h4 className="text-xs font-semibold text-muted-foreground">Recent Activity</h4>
+            <div className={`bg-white/30 rounded-[6px] space-y-2 ${activityLogs.length > 2 ? 'max-h-32 overflow-y-auto pr-1' : ''}`}>
               {activityLogs.slice(0, 2).map((log) => renderActivityLogItem(log))}
               {activityLogs.length > 2 && (
-                <div className="flex items-center justify-center pt-2 border-t border-muted/30">
-                  <p className="text-xs text-muted-foreground">
-                    +{activityLogs.length - 2} more activities
-                  </p>
+                <div className="flex items-center justify-center pt-2 border-t border-muted/30 bg-white sticky bottom-0 left-0 right-0">
+                  <p className="text-xs text-muted-foreground">+{activityLogs.length - 2} more activities</p>
                 </div>
               )}
             </div>
           </div>
         </CardContent>
-
-        <CardFooter className="pt-4 border-t mt-auto flex gap-2">
-          <Button variant="outline" size="sm" asChild className="mr-auto rounded-[2px]" onClick={(e) => { e.stopPropagation(); setIsDialogOpen(true); }}>
-            <div>
-              <Eye className="mr-2 h-4 w-4" />
-              View
-            </div>
-          </Button>
+        <CardFooter className="pt-2 px-5 pb-4 border-t mt-auto flex gap-2 bg-white z-10">
           <TooltipProvider delayDuration={0}>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button 
-                  size="sm" 
-                  variant="add" 
-                  className="rounded-[2px] p-2"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setIsDialogOpen(true);
-                  }}
+                <Button
+                  variant="ghost"
+                  className="h-10 px-4 flex items-center justify-center gap-2 rounded-md bg-[#E6D0D7] text-[#2B2521] hover:bg-[#d1b6c0] shadow-none font-semibold text-base"
+                  onClick={e => { e.stopPropagation(); setIsDialogOpen(true); }}
                 >
-                  <Plus className="h-4 w-4" />
+                  <Plus className="h-5 w-5" />
+                  Add Activity
                 </Button>
               </TooltipTrigger>
               <TooltipContent side="top" align="center">Add Activity</TooltipContent>
@@ -677,146 +594,17 @@ export default function UpdateItem({ update, groupedUpdates }: UpdateItemProps) 
                 </div>
                 <div className="bg-[#F3F4F6] p-4 rounded-lg flex flex-col items-center justify-center min-h-[56px]">
                   <div className="text-sm font-medium text-[#6B7280]">Status</div>
-                  <span className={`mt-2 rounded-full px-4 py-1 text-base font-semibold capitalize border ${getOpportunityStatusBadgeClasses(opportunity.status)}`}>
-                    {opportunity.status}
-                  </span>
-                </div>
-                <div className="bg-[#F3F4F6] p-4 rounded-lg flex flex-col items-center justify-center min-h-[56px]">
-                  <div className="text-sm font-medium text-[#6B7280]">Expected Close</div>
-                  <div className="text-lg font-semibold mt-1">{format(parseISO(opportunity.endDate), 'MMM dd, yyyy')}</div>
+                  <span className={`mt-2 rounded-full px-4 py-1 text-base font-semibold capitalize border ${getOpportunityStatusBadgeClasses(opportunity.status)}`}>{opportunity.status}</span>
                 </div>
               </div>
             )}
-
-            {/* Full Description */}
-            <div>
-              <h4 className="text-sm font-semibold text-[#5E6156] mb-2">Description</h4>
-              <div className="bg-[#F8F7F3] p-4 rounded-lg border border-[#E5E3DF] h-24">
-                <p className="text-sm text-[#282828]">
-                  {opportunity?.description || lead?.companyName || lead?.personName || lead?.email || account?.description || 'No description available.'}
-                </p>
-              </div>
-            </div>
-
-            {/* All Activity Logs */}
-            <div className="mt-4">
-              <div className="text-xs font-semibold text-[#5E6156] uppercase tracking-wide mb-3">Activity Updates</div>
-              <div className="relative">
-                <div className="space-y-2 max-h-36 overflow-y-auto pr-1">
-                  {activityLogs.map((log, idx) => (
-                    <div key={log.id} className="flex items-start space-x-3 p-3 rounded-lg bg-[#F8F7F3] border border-[#E5E3DF] hover:bg-[#EFEDE7] transition-colors">
-                      <div className="flex-shrink-0 mt-1">
-                        {getUpdateTypeIcon(log.type)}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between mb-1">
-                          <p className="text-sm font-medium text-[#282828] line-clamp-2">
-                            {log.content}
-                          </p>
-                          <span className="text-xs text-[#998876] ml-2 font-medium">
-                            {format(new Date(log.date), 'MMM dd')}
-                          </span>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <Badge variant="outline" className="text-xs bg-white border-[#CBCAC5] text-[#5E6156] font-medium">{log.type}</Badge>
-                          {log.updatedByUserId && (
-                            <span className="text-xs text-[#998876] font-medium">
-                              by {allUsers[log.updatedByUserId]?.name || user?.name || 'Unknown'}
-                            </span>
-                          )}
-                          {log.nextActionDate && (
-                            <span className="text-xs text-[#4B7B9D] font-medium">
-                              Next: {format(parseISO(log.nextActionDate), 'MMM dd, yyyy')}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                {/* Gradient overlay at the bottom, only if more than one log */}
-                {activityLogs.length > 2 && (
-                  <div className="pointer-events-none absolute left-0 right-0 bottom-0 h-8 bg-gradient-to-b from-transparent to-white/50 to-70%" />
-                )}
-              </div>
-            </div>
-
-            {/* Add New Activity Form */}
-            <div className="mt-6 pt-4 border-t border-[#E5E3DF]">
-              <h4 className="text-sm font-semibold text-[#5E6156] mb-3">Add New Activity</h4>
-              <div className="space-y-4">
-                <div className="flex flex-col md:flex-row gap-3">
-                  <div className="flex-1 min-w-0">
-                    <Label htmlFor="activity-type" className="text-sm font-medium text-[#5E6156] mb-2 block">Activity Type</Label>
-                    <Select value={newActivityType} onValueChange={value => setNewActivityType(value as 'General' | 'Call' | 'Meeting' | 'Email')}>
-                      <SelectTrigger id="activity-type" className="w-full border border-[#CBCAC5] bg-[#F8F7F3] focus:ring-1 focus:ring-[#916D5B] focus:border-[#916D5B] rounded-md">
-                        <SelectValue placeholder="Select activity type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="General">General</SelectItem>
-                        <SelectItem value="Call">Call</SelectItem>
-                        <SelectItem value="Meeting">Meeting</SelectItem>
-                        <SelectItem value="Email">Email</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <Label htmlFor="next-action-date" className="text-sm font-medium text-[#5E6156] mb-2 block">Next Action Date (Optional)</Label>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Input
-                          id="next-action-date"
-                          type="text"
-                          value={nextActionDate ? format(nextActionDate, 'dd/MM/yyyy') : ''}
-                          placeholder="dd/mm/yyyy (optional)"
-                          readOnly
-                          className="cursor-pointer bg-[#F8F7F3] border-[#CBCAC5] focus:ring-1 focus:ring-[#916D5B] focus:border-[#916D5B] rounded-md"
-                        />
-                      </PopoverTrigger>
-                      <PopoverContent align="start" className="p-0 w-auto border-[#CBCAC5] bg-white rounded-md shadow-lg">
-                        <Calendar
-                          mode="single"
-                          selected={nextActionDate}
-                          onSelect={setNextActionDate}
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-                </div>
-                <div>
-                  <Label htmlFor="activity-content" className="text-sm font-medium text-[#5E6156] mb-2 block">Activity Details</Label>
-                  <Textarea
-                    id="activity-content"
-                    placeholder="Describe the call, meeting, email, or general update..."
-                    value={newActivityDescription}
-                    onChange={(e) => setNewActivityDescription(e.target.value)}
-                    className="min-h-[100px] resize-none border-[#CBCAC5] bg-[#F8F7F3] focus:ring-1 focus:ring-[#916D5B] focus:border-[#916D5B] rounded-md"
-                  />
-                </div>
-                <DialogFooter className="pt-4">
-                  <Button 
-                    variant="add" 
-                    className="w-full bg-[#2B2521] text-white hover:bg-[#3a322c] rounded-md"
-                    onClick={handleLogActivity}
-                    disabled={isLoggingActivity || !newActivityDescription.trim()}
-                  >
-                    {isLoggingActivity ? (
-                      <>
-                        <LoadingSpinner size={16} className="mr-2" />
-                        Adding Activity...
-                      </>
-                    ) : (
-                      <>
-                        <Plus className="mr-2 h-4 w-4" />
-                        Add Activity
-                      </>
-                    )}
-                  </Button>
-                </DialogFooter>
-              </div>
-            </div>
           </div>
+
+          <DialogFooter>
+            <Button type="submit" onClick={handleLogActivity}>
+              Log Activity
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </>
