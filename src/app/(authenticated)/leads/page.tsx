@@ -4,9 +4,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import PageTitle from '@/components/common/PageTitle';
 import LeadCard from '@/components/leads/LeadCard';
 import RejectedLeadCard from '@/components/leads/RejectedLeadCard';
+import ArchivedLeadCard from '@/components/leads/ArchivedLeadCard';
 import type { Lead, LeadStatus } from '@/types';
 import { Button } from '@/components/ui/button';
-import { Search, ListFilter, List, Grid, Trash2, CheckSquare, UploadCloud, X, Users, AlertTriangle, Loader2, PlusCircle } from 'lucide-react';
+import { Search, ListFilter, List, Grid, Trash2, CheckSquare, UploadCloud, X, Users, AlertTriangle, Loader2, PlusCircle, Archive } from 'lucide-react';
 import Image from 'next/image';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -21,6 +22,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/supabaseClient';
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
+import { archiveLeads, archiveLead, restoreLead } from '@/lib/archive';
 import { Skeleton } from '@/components/ui/skeleton';
 import CompanyProfileDialog from '@/components/layout/CompanyProfileDialog';
 import {
@@ -37,6 +39,7 @@ const leadStatusOptions: LeadStatus[] = ["New", "Contacted", "Qualified", "Propo
 export default function LeadsPage() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [rejectedLeads, setRejectedLeads] = useState<Lead[]>([]);
+  const [archivedLeads, setArchivedLeads] = useState<Lead[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<LeadStatus | 'all'>('all');
   const [isAddLeadDialogOpen, setIsAddLeadDialogOpen] = useState(false);
@@ -50,7 +53,7 @@ export default function LeadsPage() {
   const [dragActive, setDragActive] = useState(false);
   const [selectMode, setSelectMode] = useState(false);
   const [selectedLeads, setSelectedLeads] = useState<string[]>([]);
-  const [activeTab, setActiveTab] = useState<'leads' | 'rejected'>('leads');
+  const [activeTab, setActiveTab] = useState<'leads' | 'rejected' | 'archived'>('leads');
   const [users, setUsers] = useState<any[]>([]);
   const [role, setRole] = useState<string>('user');
   const [userId, setUserId] = useState<string>('');
@@ -64,6 +67,7 @@ export default function LeadsPage() {
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [currentRejectedPage, setCurrentRejectedPage] = useState(1);
+  const [currentArchivedPage, setCurrentArchivedPage] = useState(1);
   const ITEMS_PER_PAGE = 16;
 
   const [leadEnrichments, setLeadEnrichments] = useState<Record<string, { leadScore?: number; recommendations?: string[]; pitchNotes?: string; useCase?: string } | undefined>>({});
@@ -111,8 +115,8 @@ export default function LeadsPage() {
       // Fetch users for assigned to
       const { data: usersData } = await supabase.from('users').select('id, name');
       setUsers(usersData || []);
-      // Fetch leads
-      let query = supabase.from('lead').select('*').order('updated_at', { ascending: false });
+      // Fetch active leads
+      let query = supabase.from('lead').select('*').eq('is_archived', false).order('updated_at', { ascending: false });
       if (userData?.role !== 'admin') {
         query = query.eq('owner_id', localUserId);
       }
@@ -141,6 +145,40 @@ export default function LeadsPage() {
         setLeads(transformedLeads.filter((lead: any) => lead.status !== 'Converted to Account'));
       } else {
         setLeads([]);
+      }
+
+      // Fetch archived leads
+      let archivedQuery = supabase.from('lead').select('*').eq('is_archived', true).order('archived_at', { ascending: false });
+      if (userData?.role !== 'admin') {
+        archivedQuery = archivedQuery.eq('owner_id', localUserId);
+      }
+      const { data: archivedData, error: archivedError } = await archivedQuery;
+      if (!archivedError && archivedData) {
+        const transformedArchivedLeads = archivedData.map((lead: any) => ({
+          id: lead.id,
+          companyName: lead.company_name || '',
+          personName: lead.person_name || '',
+          phone: lead.phone || '',
+          email: lead.email || '',
+          linkedinProfileUrl: lead.linkedin_profile_url || '',
+          country: lead.country || '',
+          website: lead.website || '',
+          status: lead.status || 'New',
+          opportunityIds: [],
+          updateIds: [],
+          createdAt: lead.created_at || new Date().toISOString(),
+          updatedAt: lead.updated_at || new Date().toISOString(),
+          assignedUserId: lead.owner_id || '',
+          rejectionReasons: [],
+          industry: lead.industry || '',
+          jobTitle: lead.job_title || '',
+          isArchived: true,
+          archivedAt: lead.archived_at,
+          archivedBy: lead.archived_by,
+        }));
+        setArchivedLeads(transformedArchivedLeads);
+      } else {
+        setArchivedLeads([]);
       }
       setIsLoadingLeads(false);
     };
@@ -185,6 +223,20 @@ export default function LeadsPage() {
   const endRejectedIndex = startRejectedIndex + ITEMS_PER_PAGE;
   const paginatedRejectedLeads = filteredRejectedLeads.slice(startRejectedIndex, endRejectedIndex);
 
+  // Filter archived leads based on search term
+  const filteredArchivedLeads = archivedLeads.filter(lead =>
+    lead.companyName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    lead.personName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    lead.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (lead.country && lead.country.toLowerCase().includes(searchTerm.toLowerCase()))
+  );
+
+  // Pagination logic for archived leads
+  const totalArchivedPages = Math.ceil(filteredArchivedLeads.length / ITEMS_PER_PAGE);
+  const startArchivedIndex = (currentArchivedPage - 1) * ITEMS_PER_PAGE;
+  const endArchivedIndex = startArchivedIndex + ITEMS_PER_PAGE;
+  const paginatedArchivedLeads = filteredArchivedLeads.slice(startArchivedIndex, endArchivedIndex);
+
   // Reset to first page when filters change
   useEffect(() => {
     setCurrentPage(1);
@@ -192,6 +244,10 @@ export default function LeadsPage() {
 
   useEffect(() => {
     setCurrentRejectedPage(1);
+  }, [searchTerm]);
+
+  useEffect(() => {
+    setCurrentArchivedPage(1);
   }, [searchTerm]);
 
   // Pagination functions
@@ -224,6 +280,22 @@ export default function LeadsPage() {
   const goToPreviousRejectedPage = () => {
     if (currentRejectedPage > 1) {
       setCurrentRejectedPage(currentRejectedPage - 1);
+    }
+  };
+
+  const goToArchivedPage = (page: number) => {
+    setCurrentArchivedPage(page);
+  };
+
+  const goToNextArchivedPage = () => {
+    if (currentArchivedPage < totalArchivedPages) {
+      setCurrentArchivedPage(currentArchivedPage + 1);
+    }
+  };
+
+  const goToPreviousArchivedPage = () => {
+    if (currentArchivedPage > 1) {
+      setCurrentArchivedPage(currentArchivedPage - 1);
     }
   };
 
@@ -715,23 +787,18 @@ export default function LeadsPage() {
     }
   };
 
-  const handleBulkDelete = async () => {
+  const handleBulkArchive = async () => {
     if (selectedLeads.length === 0) {
-      toast({ title: "Error", description: "Please select at least one lead to delete.", variant: "destructive" });
+      toast({ title: "Error", description: "Please select at least one lead to archive.", variant: "destructive" });
       return;
     }
 
     setIsBulkDeleting(true);
     try {
-      // Delete all selected leads from Supabase
-      const { error } = await supabase
-        .from('lead')
-        .delete()
-        .in('id', selectedLeads);
-
-      if (error) {
-        throw error;
-      }
+      const currentUserId = localStorage.getItem('user_id');
+      if (!currentUserId) throw new Error('User not authenticated');
+      
+      await archiveLeads(selectedLeads, currentUserId);
 
       // Update local state
       setLeads(prevLeads => 
@@ -739,8 +806,8 @@ export default function LeadsPage() {
       );
 
       toast({
-        title: "Bulk Delete Successful",
-        description: `${selectedLeads.length} lead${selectedLeads.length === 1 ? '' : 's'} deleted successfully.`,
+        title: "Bulk Archive Successful",
+        description: `${selectedLeads.length} lead${selectedLeads.length === 1 ? '' : 's'} and all related activity logs moved to archive.`,
         variant: "destructive"
       });
 
@@ -749,8 +816,8 @@ export default function LeadsPage() {
       setSelectMode(false);
       setIsBulkDeleteDialogOpen(false);
     } catch (error) {
-      console.error("Bulk delete failed:", error);
-      toast({ title: "Error", description: "Failed to delete leads. Please try again.", variant: "destructive" });
+      console.error("Bulk archive failed:", error);
+      toast({ title: "Error", description: "Failed to archive leads. Please try again.", variant: "destructive" });
     } finally {
       setIsBulkDeleting(false);
     }
@@ -883,6 +950,31 @@ export default function LeadsPage() {
       description: 'The rejected lead has been updated successfully.',
       className: "bg-blue-100 dark:bg-blue-900 border-blue-500"
     });
+  };
+
+  const handleRestoreArchivedLead = async (archivedLeadId: string) => {
+    try {
+      const currentUserId = localStorage.getItem('user_id');
+      if (!currentUserId) throw new Error('User not authenticated');
+      
+      await restoreLead(archivedLeadId, currentUserId);
+      
+      // Remove from archived leads
+      setArchivedLeads(prev => prev.filter(lead => lead.id !== archivedLeadId));
+      
+      toast({
+        title: 'Lead Restored',
+        description: 'The archived lead has been restored successfully.',
+        className: "bg-green-100 dark:bg-green-900 border-green-500"
+      });
+    } catch (error) {
+      console.error('Failed to restore lead:', error);
+      toast({
+        title: 'Restore Failed',
+        description: 'Failed to restore lead. Please try again.',
+        variant: "destructive"
+      });
+    }
   };
 
   // Add the useEffect here, after paginatedLeads is defined
@@ -1054,8 +1146,8 @@ export default function LeadsPage() {
         </CardContent>
       </Card>
 
-      {/* Tab Navigation - Only show when there are rejected leads */}
-      {rejectedLeads.length > 0 && (
+      {/* Tab Navigation - Show when there are rejected leads or archived leads */}
+      {(rejectedLeads.length > 0 || archivedLeads.length > 0) && (
         <div className="flex items-center space-x-1 border-b border-gray-200 dark:border-gray-700 mb-6">
           <button
             onClick={() => setActiveTab('leads')}
@@ -1096,11 +1188,31 @@ export default function LeadsPage() {
               </span>
             </span>
           </button>
+          
+          <button
+            onClick={() => setActiveTab('archived')}
+            className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-all duration-200 ${
+              activeTab === 'archived'
+                ? 'bg-white dark:bg-gray-800 text-orange-600 border-b-2 border-orange-600'
+                : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800'
+            }`}
+          >
+            <span className="flex items-center gap-2">
+              Archived
+              <span className={`px-2 py-0.5 text-xs rounded-full ${
+                activeTab === 'archived'
+                  ? 'bg-orange-600 text-white'
+                  : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
+              }`}>
+                {filteredArchivedLeads.length}
+              </span>
+            </span>
+          </button>
         </div>
       )}
 
-      {/* Content - Show leads directly when no rejected leads, or in tabs when there are rejected leads */}
-      {rejectedLeads.length === 0 ? (
+      {/* Content - Show leads directly when no rejected leads or archived leads, or in tabs when there are rejected leads or archived leads */}
+      {(rejectedLeads.length === 0 && archivedLeads.length === 0) ? (
         /* No rejected leads - show leads directly */
         <div className="mt-6">
       {isLoadingLeads ? (
@@ -1270,17 +1382,37 @@ export default function LeadsPage() {
                                   </AlertDialogTrigger>
                                   <AlertDialogContent>
                                     <AlertDialogHeader>
-                                      <AlertDialogTitle>Delete Lead?</AlertDialogTitle>
+                                      <AlertDialogTitle>Archive Lead?</AlertDialogTitle>
                                       <AlertDialogDescription>
-                                        Are you sure you want to delete this lead? This action cannot be undone.
+                                        Are you sure you want to archive this lead? It will be moved to the archive section and can be restored later.
                                       </AlertDialogDescription>
                                     </AlertDialogHeader>
                                     <AlertDialogFooter>
                                       <AlertDialogCancel>Cancel</AlertDialogCancel>
                                       <AlertDialogAction 
-                                        onClick={(e) => { 
+                                        onClick={async (e) => { 
                                           e.stopPropagation(); 
-                                          setLeads(prev => prev.filter(l => l.id !== lead.id)); 
+                                          try {
+                                            const currentUserId = localStorage.getItem('user_id');
+                                            if (!currentUserId) throw new Error('User not authenticated');
+                                            
+                                            await archiveLead(lead.id, currentUserId);
+
+                                            toast({
+                                              title: "Lead Archived",
+                                              description: `${lead.companyName} and all related activity logs have been moved to archive.`,
+                                              variant: "destructive"
+                                            });
+
+                                            setLeads(prev => prev.filter(l => l.id !== lead.id));
+                                          } catch (error) {
+                                            console.error('Lead archiving failed:', error);
+                                            toast({ 
+                                              title: "Archiving Failed", 
+                                              description: error instanceof Error ? error.message : "Could not archive lead.", 
+                                              variant: "destructive" 
+                                            });
+                                          }
                                         }} 
                                         className="bg-[#916D5B] text-white rounded-md border-0 hover:bg-[#a98a77]"
                                       >
@@ -1505,16 +1637,16 @@ export default function LeadsPage() {
                                             >
                                               <CheckSquare className="h-3.5 w-3.5" />
                                             </Button>
-                                          </AlertDialogTrigger>
-                                          <AlertDialogContent>
-                                            <AlertDialogHeader>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
                                               <AlertDialogTitle>Convert Lead to Account?</AlertDialogTitle>
-                                              <AlertDialogDescription>
+                                    <AlertDialogDescription>
                                                 Are you sure you want to convert this lead to an account? This action cannot be undone and the lead will be moved to your accounts list.
-                                              </AlertDialogDescription>
-                                            </AlertDialogHeader>
-                                            <AlertDialogFooter>
-                                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
                                               <AlertDialogAction 
                                                 onClick={(e) => { 
                                                   e.stopPropagation(); 
@@ -1552,17 +1684,37 @@ export default function LeadsPage() {
                                 </AlertDialogTrigger>
                                 <AlertDialogContent>
                                   <AlertDialogHeader>
-                                    <AlertDialogTitle>Delete Lead?</AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                      Are you sure you want to delete this lead? This action cannot be undone.
-                                    </AlertDialogDescription>
+                                    <AlertDialogTitle>Archive Lead?</AlertDialogTitle>
+                                                                          <AlertDialogDescription>
+                                        Are you sure you want to archive this lead? It will be moved to the archive section and can be restored later.
+                                      </AlertDialogDescription>
                                   </AlertDialogHeader>
                                   <AlertDialogFooter>
                                     <AlertDialogCancel>Cancel</AlertDialogCancel>
                                               <AlertDialogAction 
-                                                onClick={(e) => { 
+                                                onClick={async (e) => { 
                                                   e.stopPropagation(); 
+                                                  try {
+                                                    const currentUserId = localStorage.getItem('user_id');
+                                                    if (!currentUserId) throw new Error('User not authenticated');
+                                                    
+                                                    await archiveLead(lead.id, currentUserId);
+
+                                                    toast({
+                                                      title: "Lead Archived",
+                                                      description: `${lead.companyName} and all related activity logs have been moved to archive.`,
+                                                      variant: "destructive"
+                                                    });
+
                                       setLeads(prev => prev.filter(l => l.id !== lead.id));
+                                                  } catch (error) {
+                                                    console.error('Lead archiving failed:', error);
+                                                    toast({ 
+                                                      title: "Archiving Failed", 
+                                                      description: error instanceof Error ? error.message : "Could not archive lead.", 
+                                                      variant: "destructive" 
+                                                    });
+                                                  }
                                                 }} 
                                                 className="bg-[#916D5B] text-white rounded-md border-0 hover:bg-[#a98a77]"
                                               >
@@ -1756,6 +1908,100 @@ export default function LeadsPage() {
               )}
             </div>
           )}
+
+          {/* Archived Leads Tab Content */}
+          {activeTab === 'archived' && (
+            <div className="mt-6">
+              {filteredArchivedLeads.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {paginatedArchivedLeads.map((lead) => (
+                    <ArchivedLeadCard
+                      key={lead.id}
+                      lead={lead}
+                      onRestore={handleRestoreArchivedLead}
+                      onDelete={handleDeleteRejectedLead}
+                      onUpdate={handleUpdateRejectedLead}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-16">
+                  <Archive className="mx-auto h-16 w-16 text-muted-foreground/50 mb-6" />
+                  <p className="text-xl font-semibold text-foreground mb-2">No Archived Leads</p>
+                  <p className="text-muted-foreground">No leads have been archived yet.</p>
+                </div>
+              )}
+              
+              {/* Pagination for archived leads */}
+              {filteredArchivedLeads.length > ITEMS_PER_PAGE && (
+                <div className="mt-6 flex justify-center">
+                  <Pagination>
+                    <PaginationContent>
+                      <PaginationItem>
+                        <PaginationPrevious 
+                          onClick={goToPreviousArchivedPage}
+                          className={currentArchivedPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                        />
+                      </PaginationItem>
+                      
+                      {/* First page */}
+                      {currentArchivedPage > 3 && (
+                        <>
+                          <PaginationItem>
+                            <PaginationLink onClick={() => goToArchivedPage(1)}>1</PaginationLink>
+                          </PaginationItem>
+                          {currentArchivedPage > 4 && (
+                            <PaginationItem>
+                              <PaginationEllipsis />
+                            </PaginationItem>
+                          )}
+                        </>
+                      )}
+                      
+                      {/* Page numbers around current page */}
+                      {Array.from({ length: Math.min(5, totalArchivedPages) }, (_, i) => {
+                        const pageNum = Math.max(1, Math.min(totalArchivedPages - 4, currentArchivedPage - 2)) + i;
+                        if (pageNum <= totalArchivedPages) {
+                          return (
+                            <PaginationItem key={pageNum}>
+                              <PaginationLink 
+                                onClick={() => goToArchivedPage(pageNum)}
+                                isActive={currentArchivedPage === pageNum}
+                              >
+                                {pageNum}
+                              </PaginationLink>
+                            </PaginationItem>
+                          );
+                        }
+                        return null;
+                      })}
+                      
+                      {/* Last page */}
+                      {currentArchivedPage < totalArchivedPages - 2 && (
+                        <>
+                          {currentArchivedPage < totalArchivedPages - 3 && (
+                            <PaginationItem>
+                              <PaginationEllipsis />
+                            </PaginationItem>
+                          )}
+                          <PaginationItem>
+                            <PaginationLink onClick={() => goToArchivedPage(totalArchivedPages)}>{totalArchivedPages}</PaginationLink>
+                          </PaginationItem>
+                        </>
+                      )}
+                      
+                      <PaginationItem>
+                        <PaginationNext 
+                          onClick={goToNextArchivedPage}
+                          className={currentArchivedPage === totalArchivedPages ? "pointer-events-none opacity-50" : "cursor-pointer bg-[#E6D2C9]"}
+                        />
+                      </PaginationItem>
+                    </PaginationContent>
+                  </Pagination>
+                </div>
+              )}
+            </div>
+          )}
         </>
       )}
       <AddLeadDialog
@@ -1901,10 +2147,10 @@ export default function LeadsPage() {
       <Dialog open={isBulkDeleteDialogOpen} onOpenChange={setIsBulkDeleteDialogOpen}>
         <DialogContent className="max-w-md bg-white">
           <DialogHeader>
-            <DialogTitle>Bulk Delete Leads</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to delete {selectedLeads.length} selected lead{selectedLeads.length === 1 ? '' : 's'}? This action cannot be undone.
-            </DialogDescription>
+                            <DialogTitle>Bulk Archive Leads</DialogTitle>
+                          <DialogDescription>
+                Are you sure you want to archive {selectedLeads.length} selected lead{selectedLeads.length === 1 ? '' : 's'}? They will be moved to the archive section and can be restored later.
+              </DialogDescription>
           </DialogHeader>
           <div className="py-4">
             <p className="text-sm text-muted-foreground">
@@ -1918,7 +2164,7 @@ export default function LeadsPage() {
             <Button 
               variant="destructive" 
               disabled={isBulkDeleting} 
-              onClick={handleBulkDelete}
+                              onClick={handleBulkArchive}
             >
               {isBulkDeleting ? (
                 <>
@@ -1926,7 +2172,7 @@ export default function LeadsPage() {
                   Deleting...
                 </>
               ) : (
-                `Delete ${selectedLeads.length} Lead${selectedLeads.length === 1 ? '' : 's'}`
+                `Archive ${selectedLeads.length} Lead${selectedLeads.length === 1 ? '' : 's'}`
               )}
             </Button>
           </DialogFooter>
@@ -1935,7 +2181,6 @@ export default function LeadsPage() {
       <CompanyProfileDialog
         open={isCompanyProfileDialogOpen}
         onOpenChange={setIsCompanyProfileDialogOpen}
-        isEditable={true}
         onImportLeadsFile={(file) => {
           setIsCompanyProfileDialogOpen(false);
           setIsImportDialogOpen(false); // Ensure only one import dialog is open

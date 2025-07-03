@@ -6,13 +6,13 @@ import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/supabaseClient';
 import { useToast } from '@/hooks/use-toast';
-import { Building2, Box, Upload, ArrowLeft, ArrowRight } from 'lucide-react';
+import { Building2, Box, Upload, ArrowLeft, ArrowRight, Pencil, Check, X } from 'lucide-react';
 
 const industryOptions = [
   'SaaS', 'Consulting', 'Finance', 'Healthcare', 'Education', 'Manufacturing', 'Retail', 'Technology', 'Other'
 ];
 
-export default function CompanyProfileDialog({ open, onOpenChange, isEditable = false, onImportLeadsFile }: { open: boolean; onOpenChange: (v: boolean) => void; isEditable?: boolean; onImportLeadsFile?: (file: File) => void }) {
+export default function CompanyProfileDialog({ open, onOpenChange, onImportLeadsFile }: { open: boolean; onOpenChange: (v: boolean) => void; onImportLeadsFile?: (file: File) => void }) {
   const { toast } = useToast();
   const [step, setStep] = useState(1);
   const [companyName, setCompanyName] = useState('');
@@ -30,9 +30,19 @@ export default function CompanyProfileDialog({ open, onOpenChange, isEditable = 
     description: '',
     targetMarket: ''
   });
+  const [isEditing, setIsEditing] = useState(false);
+  const [userRole, setUserRole] = useState<string | null>(null);
 
   // File input ref for import step
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  // Add a derived boolean to indicate if company info exists
+  const hasCompanyInfo = Boolean(companyId);
+
+  // When dialog opens and company info exists, always set step to 1
+  useEffect(() => {
+    if (open && hasCompanyInfo) setStep(1);
+  }, [open, hasCompanyInfo]);
 
   useEffect(() => {
     if (open) {
@@ -41,6 +51,21 @@ export default function CompanyProfileDialog({ open, onOpenChange, isEditable = 
     if (!open) setStep(1);
     // eslint-disable-next-line
   }, [open]);
+
+  // Fetch user role on mount
+  useEffect(() => {
+    const fetchRole = async () => {
+      const userId = localStorage.getItem('user_id');
+      if (!userId) return;
+      const { data, error } = await supabase
+        .from('users')
+        .select('role')
+        .eq('id', userId)
+        .single();
+      if (!error && data) setUserRole(data.role);
+    };
+    fetchRole();
+  }, []);
 
   const fetchCompany = async () => {
     const { data, error } = await supabase.from('company').select('*').single();
@@ -51,6 +76,9 @@ export default function CompanyProfileDialog({ open, onOpenChange, isEditable = 
       setIndustry(data.industry || '');
       setCompanyDescription(data.description || '');
       fetchServices(data.id);
+      setIsEditing(false);
+    } else {
+      setIsEditing(true);
     }
   };
 
@@ -114,6 +142,7 @@ export default function CompanyProfileDialog({ open, onOpenChange, isEditable = 
         }
       }
       toast({ title: 'Success', description: 'Company profile saved.', className: 'bg-green-100 dark:bg-green-900 border-green-500' });
+      setIsEditing(false);
       onOpenChange(false);
     } catch (e) {
       toast({ title: 'Error', description: 'Failed to save company profile.', variant: 'destructive' });
@@ -141,55 +170,130 @@ export default function CompanyProfileDialog({ open, onOpenChange, isEditable = 
     if (file) handleFile(file);
   };
 
+  // Add a function to reset fields to their last saved values
+  const handleCancelEdit = () => {
+    fetchCompany(); // refetches and resets all fields
+    setIsEditing(false);
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl w-full rounded-xl bg-white max-h-[900px] flex flex-col p-0 overflow-hidden">
-        {/* Visually hidden DialogTitle for accessibility */}
         <DialogTitle className="sr-only">Company Profile Setup</DialogTitle>
-        {/* Stepper and Title Area */}
         <div className="flex flex-col px-8 pt-8 pb-2">
-          <div className="flex items-center gap-4 mb-4">
-            {/* Stepper Indicator */}
-            <div className="flex items-center gap-2">
-              <span className={`rounded-full w-8 h-8 flex items-center justify-center border-2 ${step === 1 ? 'border-[#282828] bg-[#282828] text-white' : 'border-[#E0E0E0] bg-white text-[#B0B0B0]'}`}>
-                <Building2 className="w-5 h-5" />
-              </span>
-              <div className={`h-1 w-8 ${step === 2 ? 'bg-[#282828]' : 'bg-[#E0E0E0]'}`}></div>
-              <span className={`rounded-full w-8 h-8 flex items-center justify-center border-2 ${step === 2 ? 'border-[#282828] bg-[#282828] text-white' : 'border-[#E0E0E0] bg-white text-[#B0B0B0]'}`}>
-                <Upload className="w-5 h-5" />
-              </span>
+          <div className="mb-2 flex flex-col gap-0">
+            <div className="text-xl font-semibold leading-tight flex items-center">
+              Company Profile
+              {companyId && !isEditing && userRole === 'admin' && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="ml-1"
+                  onClick={() => setIsEditing(true)}
+                >
+                  <Pencil className="h-5 w-5 text-[#998876]" />
+                </Button>
+              )}
+              {companyId && isEditing && userRole === 'admin' && (
+                <>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="ml-1"
+                    onClick={handleSave}
+                    disabled={isSaving}
+                  >
+                    <Check className="h-5 w-5 text-[#97A487]" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="ml-1"
+                    onClick={handleCancelEdit}
+                    disabled={isSaving}
+                  >
+                    <X className="h-5 w-5 text-[#916D5B]" />
+                  </Button>
+                </>
+              )}
             </div>
+            <div className="text-sm text-[#5E6156] leading-tight mt-1">Configure your company details for personalized insights</div>
           </div>
-          {/* Step Title and Subtitle (always same line height and spacing) */}
-          {step === 1 ? (
-            <div className="mb-2">
-              <div className="text-xl font-semibold leading-tight">Company Profile</div>
-              <div className="text-sm text-[#5E6156] leading-tight">Configure your company details for personalized insights</div>
-            </div>
-          ) : (
-            <div className="mb-2">
-              <div className="text-xl font-semibold leading-tight">Import Leads</div>
-              <div className="text-sm text-[#5E6156] leading-tight">Start by importing your first leads</div>
+          {(!hasCompanyInfo) && (
+            <div className="flex items-center gap-4 mb-4">
+              {/* Stepper Indicator */}
+              <div className="flex items-center gap-2">
+                <span className={`rounded-full w-8 h-8 flex items-center justify-center border-2 ${step === 1 ? 'border-[#282828] bg-[#282828] text-white' : 'border-[#E0E0E0] bg-white text-[#B0B0B0]'}`}> <Building2 className="w-5 h-5" /> </span>
+                <div className={`h-1 w-8 ${step === 2 ? 'bg-[#282828]' : 'bg-[#E0E0E0]'}`}></div>
+                <span className={`rounded-full w-8 h-8 flex items-center justify-center border-2 ${step === 2 ? 'border-[#282828] bg-[#282828] text-white' : 'border-[#E0E0E0] bg-white text-[#B0B0B0]'}`}> <Upload className="w-5 h-5" /> </span>
+              </div>
             </div>
           )}
         </div>
-        {/* Main Content Area */}
         <div className="flex-1 overflow-y-auto px-8 pb-4">
-          {step === 1 ? (
+          {(!hasCompanyInfo && step === 2) ? (
+            <form className="space-y-4" onSubmit={e => { e.preventDefault(); handleSave(); }}>
+              <div className="bg-[#F8F7F3] p-6 rounded-xl">
+                <div className="mb-4">
+                  <p className="font-semibold text-[#282828] text-base mb-1">Import Your Leads</p>
+                  <p className="text-sm text-[#5E6156]">Start building relationships by importing your existing leads with AI-powered enhancement.</p>
+                </div>
+                <div className="flex flex-col gap-4">
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-[#282828] text-base">File Upload</span>
+                    <Button type="button" variant="outline" className="rounded-lg px-4 py-2 font-medium text-base border-[#E0E0E0] text-[#282828] max-h-12 max-w-fit">Download Template</Button>
+                  </div>
+                  <div
+                    className="bg-white border-2 border-dashed border-[#E0E0E0] rounded-xl flex flex-col items-center justify-center py-10 mb-2 cursor-pointer"
+                    onDragOver={e => e.preventDefault()}
+                    onDrop={handleDrop}
+                    onClick={() => fileInputRef.current?.click()}
+                    tabIndex={0}
+                    role="button"
+                    aria-label="Upload file"
+                  >
+                    <Upload className="w-10 h-10 text-[#B0B0B0] mb-2" />
+                    <span className="text-base font-medium text-[#282828]">Drop your files here</span>
+                    <span className="text-sm text-[#5E6156]">or click to browse</span>
+                    <span className="text-xs text-[#B0B0B0] mt-2">Supports CSV, Excel (.xlsx/.xls), and Google Sheets</span>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel"
+                      className="hidden"
+                      onChange={handleFileInputChange}
+                    />
+                  </div>
+                </div>
+              </div>
+              <DialogFooter className="flex flex-row sm:justify-between w-full items-center mb-0">
+                <div className="flex-1 flex justify-start">
+                  <Button type="button" variant="outline" className="sm:max-w-fit sm:w-fit max-h-12 px-2 flex items-center gap-1" onClick={() => setStep(1)} disabled={!isEditing}>
+                    <ArrowLeft className="w-4 h-4" /> Back
+                  </Button>
+                </div>
+                <div className="flex-1 flex justify-end">
+                  <Button type="submit" className="sm:max-w-fit sm:w-fit max-h-12 px-2 bg-[#282828] text-white hover:bg-[#3a322c] rounded-md flex items-center gap-1" disabled={!isEditing || isSaving}>
+                    Finish <ArrowRight className="w-4 h-4" />
+                  </Button>
+                </div>
+              </DialogFooter>
+            </form>
+          ) : (
             <form className="space-y-4" noValidate onSubmit={e => { e.preventDefault(); setStep(2); }}>
               <div className="bg-[#F8F7F3] border border-[#E0E0E0] rounded-xl p-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium mb-1">Company Name *</label>
-                    <Input value={companyName} onChange={e => setCompanyName(e.target.value)} placeholder="Enter your company name" required readOnly={!isEditable} />
+                    <Input value={companyName} onChange={e => setCompanyName(e.target.value)} placeholder="Enter your company name" required readOnly={!isEditing} />
                   </div>
                   <div>
                     <label className="block text-sm font-medium mb-1">Website URL *</label>
-                    <Input value={website} onChange={e => setWebsite(e.target.value)} placeholder="https://yourcompany.com" required readOnly={!isEditable} />
+                    <Input value={website} onChange={e => setWebsite(e.target.value)} placeholder="https://yourcompany.com" required readOnly={!isEditing} />
                   </div>
                   <div className="sm:col-span-2">
                     <label className="block text-sm font-medium mb-1">Industry *</label>
-                    <Select value={industry} onValueChange={setIndustry} disabled={!isEditable}>
+                    <Select value={industry} onValueChange={setIndustry} disabled={!isEditing}>
                       <SelectTrigger className="w-full">
                         <SelectValue placeholder="Select your industry" />
                       </SelectTrigger>
@@ -202,18 +306,17 @@ export default function CompanyProfileDialog({ open, onOpenChange, isEditable = 
                   </div>
                   <div className="sm:col-span-2">
                     <label className="block text-sm font-medium mb-1">Company Description *</label>
-                    <Textarea value={companyDescription} onChange={e => setCompanyDescription(e.target.value)} placeholder="Describe your company's products, services, and value proposition..." required className="resize-none min-h-[100px]" readOnly={!isEditable} />
+                    <Textarea value={companyDescription} onChange={e => setCompanyDescription(e.target.value)} placeholder="Describe your company's products, services, and value proposition..." required className="resize-none min-h-[100px]" readOnly={!isEditing} />
                   </div>
                 </div>
               </div>
-              {/* Services & Products Card (editable in step 1 if isEditable) */}
               <div className="bg-[#F8F7F3] border border-[#E0E0E0] rounded-xl mt-6 p-4 shadow-sm">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
                     <Box className="w-6 h-6 text-[#282828]" />
                     <span className="text-lg font-semibold text-[#282828]">Services & Products</span>
                   </div>
-                  <Button type="button" variant="outline" className="rounded-lg px-4 py-2 font-medium text-base border-[#E0E0E0] text-[#282828] max-h-12 max-w-fit" onClick={() => setShowAddService(true)} disabled={!isEditable}>
+                  <Button type="button" variant="outline" className="rounded-lg px-4 py-2 font-medium text-base border-[#E0E0E0] text-[#282828] max-h-12 max-w-fit" onClick={() => setShowAddService(true)} disabled={!isEditing}>
                     + Add Service
                   </Button>
                 </div>
@@ -268,7 +371,7 @@ export default function CompanyProfileDialog({ open, onOpenChange, isEditable = 
                         <div className="flex items-center gap-2 mb-1">
                           <span className="font-bold text-lg text-[#282828]">{s.name}</span>
                           <span className="bg-[#F8F7F3] text-[#282828] text-xs font-semibold rounded-full px-3 py-1 capitalize max-h-6 flex items-center">{s.category}</span>
-                          <button type="button" className="ml-auto text-xl text-[#282828] hover:text-red-500 max-h-6" onClick={() => handleRemoveService(s.name)} disabled={!isEditable}>
+                          <button type="button" className="ml-auto text-xl text-[#282828] hover:text-red-500 max-h-6" onClick={() => handleRemoveService(s.name)} disabled={!isEditing}>
                             ×
                           </button>
                         </div>
@@ -289,56 +392,8 @@ export default function CompanyProfileDialog({ open, onOpenChange, isEditable = 
                   <Button type="button" variant="ghost" className="self-center text-[#282828] text-sm font-medium cursor-pointer hover:underline" onClick={() => onOpenChange(false)}>
                     Skip for Now
                   </Button>
-                  <Button type="submit" className="sm:max-w-fit sm:w-fit max-h-12 px-2 bg-[#282828] text-white hover:bg-[#3a322c] rounded-md flex items-center gap-1" disabled={Number(step) === 2 || !isEditable}>
+                  <Button type="submit" className="sm:max-w-fit sm:w-fit max-h-12 px-2 bg-[#282828] text-white hover:bg-[#3a322c] rounded-md flex items-center gap-1" disabled={Number(step) === 2 || !isEditing}>
                     Next <ArrowRight className="w-4 h-4" />
-                  </Button>
-                </div>
-              </DialogFooter>
-            </form>
-          ) : (
-            <form className="space-y-4" onSubmit={e => { e.preventDefault(); handleSave(); }}>
-              <div className="bg-[#F8F7F3] p-6 rounded-xl">
-                <div className="mb-4">
-                  <p className="font-semibold text-[#282828] text-base mb-1">Import Your Leads</p>
-                  <p className="text-sm text-[#5E6156]">Start building relationships by importing your existing leads with AI-powered enhancement.</p>
-                </div>
-                <div className="flex flex-col gap-4">
-                  <div className="flex items-center justify-between">
-                    <span className="font-semibold text-[#282828] text-base">File Upload</span>
-                    <Button type="button" variant="outline" className="rounded-lg px-4 py-2 font-medium text-base border-[#E0E0E0] text-[#282828] max-h-12 max-w-fit">Download Template</Button>
-                  </div>
-                  <div
-                    className="bg-white border-2 border-dashed border-[#E0E0E0] rounded-xl flex flex-col items-center justify-center py-10 mb-2 cursor-pointer"
-                    onDragOver={e => e.preventDefault()}
-                    onDrop={handleDrop}
-                    onClick={() => fileInputRef.current?.click()}
-                    tabIndex={0}
-                    role="button"
-                    aria-label="Upload file"
-                  >
-                    <Upload className="w-10 h-10 text-[#B0B0B0] mb-2" />
-                    <span className="text-base font-medium text-[#282828]">Drop your files here</span>
-                    <span className="text-sm text-[#5E6156]">or click to browse</span>
-                    <span className="text-xs text-[#B0B0B0] mt-2">Supports CSV, Excel (.xlsx/.xls), and Google Sheets</span>
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel"
-                      className="hidden"
-                      onChange={handleFileInputChange}
-                    />
-                  </div>
-                </div>
-              </div>
-              <DialogFooter className="flex flex-row sm:justify-between w-full items-center mb-0">
-                <div className="flex-1 flex justify-start">
-                  <Button type="button" variant="outline" className="sm:max-w-fit sm:w-fit max-h-12 px-2 flex items-center gap-1" onClick={() => setStep(1)} disabled={!isEditable}>
-                    <ArrowLeft className="w-4 h-4" /> Back
-                  </Button>
-                </div>
-                <div className="flex-1 flex justify-end">
-                  <Button type="submit" className="sm:max-w-fit sm:w-fit max-h-12 px-2 bg-[#282828] text-white hover:bg-[#3a322c] rounded-md flex items-center gap-1" disabled={!isEditable || isSaving}>
-                    Finish <ArrowRight className="w-4 h-4" />
                   </Button>
                 </div>
               </DialogFooter>

@@ -6,7 +6,7 @@ import AccountCard from '@/components/accounts/AccountCard';
 import { mockAccounts as initialMockAccounts } from '@/lib/data';
 import type { Account, AccountType, AccountStatus } from '@/types';
 import { Button } from '@/components/ui/button';
-import { Search, ListFilter, List, Grid, Eye, PlusCircle, Loader2 } from 'lucide-react';
+import { Search, ListFilter, List, Grid, Eye, PlusCircle, Loader2, Archive } from 'lucide-react';
 import Image from 'next/image';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -17,12 +17,14 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
 import AddOpportunityDialog from '@/components/opportunities/AddOpportunityDialog';
 import { supabase } from '@/lib/supabaseClient';
+import { restoreAccount } from '@/lib/archive';
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 
 export default function AccountsPage() {
   const [accounts, setAccounts] = useState<Account[]>([]);
+  const [archivedAccounts, setArchivedAccounts] = useState<Account[]>([]);
   const [owners, setOwners] = useState<Record<string, { name: string; email: string }>>({});
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<AccountStatus | 'all'>('all');
@@ -31,9 +33,11 @@ export default function AccountsPage() {
   const [isAddOpportunityDialogOpen, setIsAddOpportunityDialogOpen] = useState(false);
   const [opportunityAccountId, setOpportunityAccountId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<'accounts' | 'archived'>('accounts');
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
+  const [currentArchivedPage, setCurrentArchivedPage] = useState(1);
   const ITEMS_PER_PAGE = 12;
 
   useEffect(() => {
@@ -42,8 +46,8 @@ export default function AccountsPage() {
       const localUserId = localStorage.getItem('user_id');
       // Fetch user role
       const { data: userData } = await supabase.from('users').select('role').eq('id', localUserId).single();
-      // Fetch accounts
-      let query = supabase.from('account').select('*').order('updated_at', { ascending: false });
+      // Fetch active accounts
+      let query = supabase.from('account').select('*').eq('is_archived', false).order('updated_at', { ascending: false });
       if (userData?.role !== 'admin') {
         query = query.eq('owner_id', localUserId);
       }
@@ -66,6 +70,18 @@ export default function AccountsPage() {
         setAccounts([]);
         setOwners({});
       }
+
+      // Fetch archived accounts
+      let archivedQuery = supabase.from('account').select('*').eq('is_archived', true).order('archived_at', { ascending: false });
+      if (userData?.role !== 'admin') {
+        archivedQuery = archivedQuery.eq('owner_id', localUserId);
+      }
+      const { data: archivedData, error: archivedError } = await archivedQuery;
+      if (!archivedError && archivedData) {
+        setArchivedAccounts(archivedData);
+      } else {
+        setArchivedAccounts([]);
+      }
       setIsLoading(false);
     };
     fetchAccounts();
@@ -77,11 +93,24 @@ export default function AccountsPage() {
     return matchesSearch && matchesStatus;
   }).sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
 
-  // Pagination logic
+  // Filter archived accounts
+  const filteredArchivedAccounts = archivedAccounts.filter(account => {
+    const matchesSearch = account.name.toLowerCase().includes(searchTerm.toLowerCase()) || (account.contactEmail && account.contactEmail.toLowerCase().includes(searchTerm.toLowerCase()));
+    const matchesStatus = statusFilter === 'all' || account.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  }).sort((a, b) => new Date((a as any).archived_at || b.updatedAt).getTime() - new Date((b as any).archived_at || a.updatedAt).getTime());
+
+  // Pagination logic for active accounts
   const totalPages = Math.ceil(filteredAccounts.length / ITEMS_PER_PAGE);
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
   const endIndex = startIndex + ITEMS_PER_PAGE;
   const paginatedAccounts = filteredAccounts.slice(startIndex, endIndex);
+
+  // Pagination logic for archived accounts
+  const totalArchivedPages = Math.ceil(filteredArchivedAccounts.length / ITEMS_PER_PAGE);
+  const startArchivedIndex = (currentArchivedPage - 1) * ITEMS_PER_PAGE;
+  const endArchivedIndex = startArchivedIndex + ITEMS_PER_PAGE;
+  const paginatedArchivedAccounts = filteredArchivedAccounts.slice(startArchivedIndex, endArchivedIndex);
 
   // Reset to first page when filters change
   useEffect(() => {
@@ -102,6 +131,22 @@ export default function AccountsPage() {
   const goToPreviousPage = () => {
     if (currentPage > 1) {
       setCurrentPage(currentPage - 1);
+    }
+  };
+
+  const goToArchivedPage = (page: number) => {
+    setCurrentArchivedPage(page);
+  };
+
+  const goToNextArchivedPage = () => {
+    if (currentArchivedPage < totalArchivedPages) {
+      setCurrentArchivedPage(currentArchivedPage + 1);
+    }
+  };
+
+  const goToPreviousArchivedPage = () => {
+    if (currentArchivedPage > 1) {
+      setCurrentArchivedPage(currentArchivedPage - 1);
     }
   };
 
@@ -132,6 +177,31 @@ export default function AccountsPage() {
       }
       return [updatedAccount, ...prevAccounts];
     });
+  };
+
+  const handleRestoreArchivedAccount = async (accountId: string) => {
+    try {
+      const currentUserId = localStorage.getItem('user_id');
+      if (!currentUserId) throw new Error('User not authenticated');
+      
+      await restoreAccount(accountId, currentUserId);
+      
+      // Remove from archived accounts
+      setArchivedAccounts(prev => prev.filter(acc => acc.id !== accountId));
+      
+      // Refresh the accounts list to include the restored account
+      const { data: restoredAccount } = await supabase
+        .from('account')
+        .select('*')
+        .eq('id', accountId)
+        .single();
+      
+      if (restoredAccount) {
+        setAccounts(prev => [restoredAccount, ...prev]);
+      }
+    } catch (error) {
+      console.error('Failed to restore account:', error);
+    }
   };
 
   if (isLoading) {
@@ -225,7 +295,55 @@ export default function AccountsPage() {
         </CardHeader>
       </Card>
 
-      {filteredAccounts.length > 0 ? (
+      {/* Tab Navigation - Show when there are archived accounts */}
+      {archivedAccounts.length > 0 && (
+        <div className="flex items-center space-x-1 border-b border-gray-200 dark:border-gray-700 mb-6">
+          <button
+            onClick={() => setActiveTab('accounts')}
+            className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-all duration-200 ${
+              activeTab === 'accounts'
+                ? 'bg-white dark:bg-gray-800 text-primary border-b-2 border-primary'
+                : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800'
+            }`}
+          >
+            <span className="flex items-center gap-2">
+              Active
+              <span className={`px-2 py-0.5 text-xs rounded-full ${
+                activeTab === 'accounts'
+                  ? 'bg-primary text-white'
+                  : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
+              }`}>
+                {filteredAccounts.length}
+              </span>
+            </span>
+          </button>
+          
+          <button
+            onClick={() => setActiveTab('archived')}
+            className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-all duration-200 ${
+              activeTab === 'archived'
+                ? 'bg-white dark:bg-gray-800 text-orange-600 border-b-2 border-orange-600'
+                : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800'
+            }`}
+          >
+            <span className="flex items-center gap-2">
+              Archived
+              <span className={`px-2 py-0.5 text-xs rounded-full ${
+                activeTab === 'archived'
+                  ? 'bg-orange-600 text-white'
+                  : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
+              }`}>
+                {filteredArchivedAccounts.length}
+              </span>
+            </span>
+          </button>
+        </div>
+      )}
+
+      {/* Active Accounts Tab Content */}
+      {activeTab === 'accounts' && (
+        <>
+          {filteredAccounts.length > 0 ? (
         view === 'list' ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 pb-8">
             {paginatedAccounts.map((account) => (
@@ -366,6 +484,160 @@ export default function AccountsPage() {
           </Pagination>
         </div>
       )}
+        </>
+      )}
+
+      {/* Archived Accounts Tab Content */}
+      {activeTab === 'archived' && (
+        <div className="mt-6">
+          {filteredArchivedAccounts.length > 0 ? (
+            view === 'list' ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 pb-8">
+                {paginatedArchivedAccounts.map((account) => (
+                  <AccountCard
+                    key={account.id}
+                    account={account}
+                    owner={owners[(account as any).owner_id]?.name || '-'}
+                    onAccountDeleted={handleRestoreArchivedAccount}
+                    onAccountUpdated={handleAccountUpdated}
+                    onNewOpportunity={() => {
+                      setOpportunityAccountId(account.id);
+                      setIsAddOpportunityDialogOpen(true);
+                    }}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="overflow-x-auto rounded-[8px] shadow">
+                <Table className='bg-white'>
+                  <TableHeader>
+                    <TableRow className='bg-[#CBCAC5] hover:bg-[#CBCAC5]'>
+                      <TableHead className='text-[#282828] rounded-tl-[8px]'>Name</TableHead>
+                      <TableHead className='text-[#282828]'>Contact</TableHead>
+                      <TableHead className='text-[#282828]'>Email</TableHead>
+                      <TableHead className='text-[#282828]'>Type</TableHead>
+                      <TableHead className='text-[#282828]'>Status</TableHead>
+                      <TableHead className='text-[#282828]'>Assigned To</TableHead>
+                      <TableHead className='text-[#282828] rounded-tr-[8px]'>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {paginatedArchivedAccounts.map((account) => (
+                      <TableRow key={account.id} className="hover:bg-transparent">
+                        <TableCell className="font-semibold text-foreground">{account.name}</TableCell>
+                        <TableCell>{account.contactPersonName || '-'}</TableCell>
+                        <TableCell>{account.contactEmail}</TableCell>
+                        <TableCell>{account.type}</TableCell>
+                        <TableCell>{account.status}</TableCell>
+                        <TableCell>{owners[(account as any).owner_id]?.name || '-'}</TableCell>
+                        <TableCell className="flex gap-2">
+                          <TooltipProvider delayDuration={0}>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button variant="outline" size="sm" asChild className="rounded-[4px] p-2"><a href={`/accounts?id=${account.id}#details`}><Eye className="h-4 w-4" /></a></Button>
+                              </TooltipTrigger>
+                              <TooltipContent>View Details</TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button 
+                                  size="sm" 
+                                  variant="add" 
+                                  className="rounded-[4px] p-2"
+                                  onClick={() => handleRestoreArchivedAccount(account.id)}
+                                >
+                                  <PlusCircle className="h-4 w-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Restore Account</TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )
+          ) : (
+            <div className="text-center py-16">
+              <Archive className="mx-auto h-16 w-16 text-muted-foreground/50 mb-6" />
+              <p className="text-xl font-semibold text-foreground mb-2">No Archived Accounts</p>
+              <p className="text-muted-foreground">No accounts have been archived yet.</p>
+            </div>
+          )}
+          
+          {/* Pagination for archived accounts */}
+          {filteredArchivedAccounts.length > ITEMS_PER_PAGE && (
+            <div className="mt-6 flex justify-center">
+              <Pagination>
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious 
+                      onClick={goToPreviousArchivedPage}
+                      className={currentArchivedPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                    />
+                  </PaginationItem>
+                  
+                  {/* First page */}
+                  {currentArchivedPage > 3 && (
+                    <>
+                      <PaginationItem>
+                        <PaginationLink onClick={() => goToArchivedPage(1)}>1</PaginationLink>
+                      </PaginationItem>
+                      {currentArchivedPage > 4 && (
+                        <PaginationItem>
+                          <PaginationEllipsis />
+                        </PaginationItem>
+                      )}
+                    </>
+                  )}
+                  
+                  {/* Page numbers around current page */}
+                  {Array.from({ length: Math.min(5, totalArchivedPages) }, (_, i) => {
+                    const pageNum = Math.max(1, Math.min(totalArchivedPages - 4, currentArchivedPage - 2)) + i;
+                    if (pageNum <= totalArchivedPages) {
+                      return (
+                        <PaginationItem key={pageNum}>
+                          <PaginationLink 
+                            onClick={() => goToArchivedPage(pageNum)}
+                            isActive={currentArchivedPage === pageNum}
+                          >
+                            {pageNum}
+                          </PaginationLink>
+                        </PaginationItem>
+                      );
+                    }
+                    return null;
+                  })}
+                  
+                  {/* Last page */}
+                  {currentArchivedPage < totalArchivedPages - 2 && (
+                    <>
+                      {currentArchivedPage < totalArchivedPages - 3 && (
+                        <PaginationItem>
+                          <PaginationEllipsis />
+                        </PaginationItem>
+                      )}
+                      <PaginationItem>
+                        <PaginationLink onClick={() => goToArchivedPage(totalArchivedPages)}>{totalArchivedPages}</PaginationLink>
+                      </PaginationItem>
+                    </>
+                  )}
+                  
+                  <PaginationItem>
+                    <PaginationNext 
+                      onClick={goToNextArchivedPage}
+                      className={currentArchivedPage === totalArchivedPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
+            </div>
+          )}
+        </div>
+      )}
+      
       <AddAccountDialog
         open={isAddAccountDialogOpen}
         onOpenChange={setIsAddAccountDialogOpen}

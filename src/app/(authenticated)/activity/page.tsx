@@ -490,10 +490,10 @@ export default function UpdatesPage() {
                   Sort & Filter
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-[200px] rounded-sm h-fit">
+              <DropdownMenuContent align="end" className=" bg-white max-w-[140px] border-[#282828]/20 rounded-sm h-fit">
                 <Label htmlFor="entity-filter" className="text-[#282828] font-medium px-2 py-1">Entity Type</Label>
                 <Select value={entityTypeFilter} onValueChange={(value: 'all' | 'lead' | 'opportunity' | 'account') => setEntityTypeFilter(value)}>
-                  <SelectTrigger id="entity-filter" className="w-full mt-1 border-none text-[#282828]">
+                  <SelectTrigger id="entity-filter" className="w-full mt-1 mb-2 border-none bg-[#EFEDE7] text-[#282828]">
                     <SelectValue placeholder="All Entities" className="text-[#282828]" />
                   </SelectTrigger>
                   <SelectContent className="text-[#282828]">
@@ -506,7 +506,7 @@ export default function UpdatesPage() {
                 
                 <Label htmlFor="type-filter" className="text-[#282828] font-medium px-2 py-1 mt-2">Type</Label>
                 <Select value={typeFilter} onValueChange={(value: UpdateType | 'all') => setTypeFilter(value)}>
-                  <SelectTrigger id="type-filter" className="w-full mt-1 border-none text-[#282828]">
+                  <SelectTrigger id="type-filter" className="w-full mt-1 mb-2 border-none bg-[#EFEDE7] text-[#282828]">
                     <SelectValue placeholder="All Types" className="text-[#282828]" />
                   </SelectTrigger>
                   <SelectContent className="text-[#282828]">
@@ -521,7 +521,7 @@ export default function UpdatesPage() {
                   <>
                     <Label htmlFor="opportunity-filter" className="text-[#282828] font-medium px-2 py-1 mt-2">Opportunity</Label>
                     <Select value={opportunityFilter} onValueChange={(value: string | 'all') => setOpportunityFilter(value)}>
-                      <SelectTrigger id="opportunity-filter" className="w-full mt-1 border-none text-[#282828]">
+                      <SelectTrigger id="opportunity-filter" className="w-full mt-1 mb-2 border-none text-[#282828]">
                         <SelectValue placeholder="All Opportunities" className="text-[#282828]" />
                       </SelectTrigger>
                       <SelectContent className="text-[#282828]">
@@ -538,7 +538,7 @@ export default function UpdatesPage() {
                   <>
                     <Label htmlFor="lead-filter" className="text-[#282828] font-medium px-2 py-1 mt-2">Lead</Label>
                     <Select value={leadFilter} onValueChange={(value: string | 'all') => setLeadFilter(value)}>
-                      <SelectTrigger id="lead-filter" className="w-full mt-1 border-none text-[#282828]">
+                      <SelectTrigger id="lead-filter" className="w-full mt-1 mb-2 border-none text-[#282828] bg-[#EFEDE7]">
                         <SelectValue placeholder="All Leads" className="text-[#282828]" />
                       </SelectTrigger>
                       <SelectContent className="text-[#282828]">
@@ -555,7 +555,7 @@ export default function UpdatesPage() {
                   <>
                     <Label htmlFor="account-filter" className="text-[#282828] font-medium px-2 py-1 mt-2">Account</Label>
                     <Select value={accountFilter} onValueChange={(value: string | 'all') => setAccountFilter(value)}>
-                      <SelectTrigger id="account-filter" className="w-full mt-1 border-none text-[#282828]">
+                      <SelectTrigger id="account-filter" className="w-full mt-1 mb-2 border-none text-[#282828] bg-[#EFEDE7]">
                         <SelectValue placeholder="All Accounts" className="text-[#282828]" />
                       </SelectTrigger>
                       <SelectContent className="text-[#282828]">
@@ -577,7 +577,7 @@ export default function UpdatesPage() {
                       readOnly
                       value={dateFilter ? format(parseISO(dateFilter), 'MMM dd, yyyy') : ''}
                       placeholder="Select date"
-                      className="w-full mt-1 cursor-pointer bg-white border-none text-[#282828]"
+                      className="w-full cursor-pointer mb-1 bg-[#EFEDE7] border-none text-[#282828]"
                     />
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="start">
@@ -595,7 +595,7 @@ export default function UpdatesPage() {
               <Button
                 variant={view === 'grid' ? 'default' : 'ghost'}
                 size="icon"
-                className={`rounded-[2px] text-[#2B2521] ${view === 'grid' ? 'bg-[#E6D0D7]' : ''}`}
+                className={`rounded-[2px] text-[#2B2521] ${view === 'grid' ? 'text-white' : ''}`}
                 onClick={() => setView('grid')}
                 aria-label="Grid View"
               >
@@ -604,7 +604,7 @@ export default function UpdatesPage() {
               <Button
                 variant={view === 'list' ? 'default' : 'ghost'}
                 size="icon"
-                className={`rounded-[2px] text-[#2B2521] ${view === 'list' ? 'bg-[#E6D0D7]' : ''}`}
+                className={`rounded-[2px] text-[#2B2521] ${view === 'list' ? 'text-white' : ''}`}
                 onClick={() => setView('list')}
                 aria-label="List View"
               >
