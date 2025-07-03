@@ -29,7 +29,7 @@ interface LeadDialogProps {
   onActivityLogged?: (leadId: string, activity: Update) => void;
   users?: Array<{ id: string; name: string; email: string }>;
   role?: string;
-  enrichmentData?: { leadScore?: number; recommendations?: string[]; pitchNotes?: string; useCase?: string };
+  enrichmentData?: { leadScore?: number; recommendations?: string[]; pitchNotes?: string; useCase?: string; emailTemplate?: string };
   isEnrichmentLoading?: boolean;
 }
 
@@ -406,10 +406,14 @@ export default function LeadDialog({
   };
 
   useEffect(() => {
-    if (activeTab === 'email' && emailTabContent === null && !isGeneratingEmail) {
-      generateProfessionalEmail().then(setEmailTabContent);
+    if (activeTab === 'email' && !isGeneratingEmail) {
+      if (enrichmentData && enrichmentData.emailTemplate) {
+        setEmailTabContent(enrichmentData.emailTemplate);
+      } else if (emailTabContent === null) {
+        generateProfessionalEmail().then(setEmailTabContent);
+      }
     }
-  }, [activeTab]);
+  }, [activeTab, enrichmentData?.emailTemplate]);
 
   useEffect(() => {
     if (open && enrichmentData?.leadScore === undefined && !isEnrichingLead && !isEnrichmentLoading) {

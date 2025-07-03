@@ -559,15 +559,15 @@ Best regards,\n${currentUser?.name || '[Your Name]'}\n${userCompany.name}\n${cur
 
   // Generate email only on first visit or on explicit regeneration
   React.useEffect(() => {
-    if (activeTab === 'email' && emailTabContent === null && !isGeneratingEmail) {
+    if (activeTab === 'email' && !isGeneratingEmail) {
       if (enrichmentData && enrichmentData.emailTemplate) {
         setEmailTabContent(enrichmentData.emailTemplate);
-      } else {
+      } else if (emailTabContent === null) {
         generateProfessionalEmail().then(setEmailTabContent);
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab]);
+  }, [activeTab, enrichmentData?.emailTemplate]);
 
   // Trigger enrichment when dialog opens and no lead score exists
   React.useEffect(() => {
