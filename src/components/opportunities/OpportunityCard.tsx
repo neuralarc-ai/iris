@@ -876,8 +876,8 @@ export default function OpportunityCard({
       >
         <div className="flex flex-col gap-1">
           <div className="flex items-start justify-between">
-            <div>
-              <div className="text-xl font-bold text-[#282828] leading-tight truncate">
+            <div className="overflow-hidden">
+              <div className="text-xl font-bold text-[#282828] leading-tight truncate overflow-hidden">
               {opportunity.name}
           </div>
               <div className="text-base text-[#5E6156] font-medium mt-0.5 truncate">

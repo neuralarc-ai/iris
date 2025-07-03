@@ -959,17 +959,27 @@ export default function LeadsPage() {
                     Sort & Filter
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className='max-w-[140px] rounded-sm h-fit'>
-                  <DropdownMenuLabel>Status</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => setStatusFilter('all')}>
-                    All Statuses
-                  </DropdownMenuItem>
+                <DropdownMenuContent align="end" className='max-w-[160px] border-[#282828]/30 rounded-sm h-fit bg-white'>
+                  <DropdownMenuLabel className='text-[#282828] text-base border-b'>Status</DropdownMenuLabel>
+                  <div className="flex flex-col gap-1 mt-1">
+                    <button
+                      className={`w-full text-left px-3 py-1 rounded hover:bg-[#EFEDE7] text-[#282828] bg-white ${statusFilter === 'all' ? 'bg-[#EFEDE7]' : ''}`}
+                      onClick={() => setStatusFilter('all')}
+                      type="button"
+                    >
+                      All Statuses
+                    </button>
                     {leadStatusOptions.map(status => (
-                    <DropdownMenuItem key={status} onClick={() => setStatusFilter(status)}>
-                      {status}
-                    </DropdownMenuItem>
-                  ))}
+                      <button
+                        key={status}
+                        className={`w-full text-left px-3 py-1 rounded hover:bg-[#EFEDE7] text-[#282828] bg-white ${statusFilter === status ? 'bg-[#EFEDE7]' : ''}`}
+                        onClick={() => setStatusFilter(status)}
+                        type="button"
+                      >
+                        {status}
+                      </button>
+                    ))}
+                  </div>
                 </DropdownMenuContent>
               </DropdownMenu>
               <div className="flex items-center border border-[#2B2521]/30 bg-white rounded-[4px] p-1 gap-1">

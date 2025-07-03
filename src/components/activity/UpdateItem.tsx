@@ -477,35 +477,35 @@ export default function UpdateItem({ update, groupedUpdates }: UpdateItemProps) 
   };
 
   const renderActivityLogItem = (log: Update) => {
+    const logDate = log.date ? parseISO(log.date) : new Date();
+    const userName = log.updatedByUserId ? (allUsers[log.updatedByUserId]?.name || user?.name || 'Unknown') : 'Unknown';
+
     return (
-      <div key={log.id} className="flex items-start space-x-3 p-3 rounded-sm bg-[#EFEDE7]">
-        <div className="flex-shrink-0 mt-1">
+      <div key={log.id} className="bg-white border border-gray-200/80 rounded-lg p-3 flex items-start gap-3 transition-colors hover:bg-gray-50/50">
+        <div className="flex-shrink-0 h-8 w-8 rounded-full bg-[#F8F7F3] flex items-center justify-center mt-0.5 self-start">
           {getUpdateTypeIcon(log.type)}
         </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between mb-1">
-            <p className="text-sm font-medium text-foreground line-clamp-2">
-              {log.content}
-            </p>
-            <span className="text-xs text-muted-foreground ml-2">
-              {format(parseISO(log.date), 'MMM dd')}
+        <div className="flex-1 min-w-0 flex flex-col justify-start">
+          <p className="text-sm text-[#282828] leading-snug line-clamp-1 overflow-hidden text-ellipsis">
+            {log.content}
+          </p>
+          <div className="flex items-center flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground mt-1.5">
+            <span className="font-medium text-[#5E6156]">
+              {userName}
             </span>
+            <span className="text-gray-400">&bull;</span>
+            <span>{format(logDate, 'MMM dd, yyyy')}</span>
           </div>
-          <div className="flex items-center space-x-2">
-            <Badge variant="outline" className={`text-xs ${getActivityTypeBadgeClasses(log.type)}`}>
-              {log.type}
-            </Badge>
-            {log.updatedByUserId && (
-              <span className="text-xs text-muted-foreground">
-                by {allUsers[log.updatedByUserId]?.name || user?.name || 'Unknown'}
-              </span>
-            )}
-            {log.nextActionDate && (
-              <span className="text-xs text-blue-600 font-medium">
-                Next: {format(parseISO(log.nextActionDate), 'MMM dd, yyyy')}
-              </span>
-            )}
+          <div className="mt-2">
+            <Badge variant="outline" className={`text-xs ${getActivityTypeBadgeClasses(log.type)}`}>{log.type}</Badge>
           </div>
+          {log.nextActionDate && (
+            <div className="mt-2 bg-[#F8F7F3] border-l-2 border-[#916D5B] px-3 py-1.5 rounded-r-md">
+              <p className="text-xs font-semibold text-[#5E6156]">
+                Next Action: <span className="font-normal text-[#282828]">{format(parseISO(log.nextActionDate), 'MMM dd, yyyy')}</span>
+              </p>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -521,7 +521,7 @@ export default function UpdateItem({ update, groupedUpdates }: UpdateItemProps) 
         {/* Top badges and name */}
         <div className="flex flex-col gap-1">
           <div className="flex items-start justify-between">
-            <div>
+            <div className='overflow-hidden'>
               <div className="text-xl font-bold text-[#282828] leading-tight truncate max-w-full" style={{overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}}>
                 {opportunity ? opportunity.name : lead ? `${lead.personName} (${lead.companyName})` : account ? account.name : 'Update'}
               </div>
@@ -532,28 +532,27 @@ export default function UpdateItem({ update, groupedUpdates }: UpdateItemProps) 
               {opportunity ? 'Opportunities' : lead ? 'Leads' : account ? 'Accounts' : 'General'}
             </Badge>
             {totalUpdates > 1 && (
-              <Badge variant="secondary" className="whitespace-nowrap" style={{ backgroundColor: '#916D5B', color: '#fff', border: 'none' }}>
+              <Badge variant="secondary" className="whitespace-nowrap" style={{ backgroundColor: '#D48EA3', color: '#fff', border: 'none' }}>
                 {totalUpdates} updates
               </Badge>
             )}
             {opportunity && (
-              <Badge variant="secondary" className={`capitalize whitespace-nowrap ml-2 border ${getOpportunityStatusBadgeClasses(opportunity.status)}`}>{opportunity.status}</Badge>
+              <Badge variant="secondary" className={`capitalize whitespace-nowrap border ${getOpportunityStatusBadgeClasses(opportunity.status)}`}>{opportunity.status}</Badge>
             )}
             {getStatusBadge && !opportunity && getStatusBadge()}
           </div>
           {/* Recent Activity - always directly below badges */}
-          <div className="space-y-2 mt-4">
-            <h4 className="text-xs font-semibold text-muted-foreground">Recent Activity</h4>
+          <div className="space-y-2 my-2">
             <div className="space-y-2">
               {activityLogs.slice(0, 1).map((log) => renderActivityLogItem(log))}
             </div>
             {activityLogs.length > 1 && (
-              <div className="flex items-center justify-center pt-2">
-                <p className="text-xs text-muted-foreground">+{activityLogs.length - 1} more activities</p>
-                </div>
-              )}
-            </div>
+              <div className="text-center pt-1">
+                <p className="text-xs text-muted-foreground/80 hover:text-muted-foreground cursor-pointer">View {activityLogs.length - 1} more activities</p>
+              </div>
+            )}
           </div>
+        </div>
         {/* Bottom Button */}
         <CardFooter className="pt-2 px-0 pb-0 border-t mt-auto flex gap-2 bg-white z-10 justify-center">
                 <Button
