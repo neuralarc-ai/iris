@@ -24,9 +24,12 @@ interface AccountModalProps {
   accountId: string;
   open: boolean;
   onClose: () => void;
+  aiEnrichment?: any;
+  isAiLoading?: boolean;
+  onEnrichmentComplete?: () => void;
 }
 
-export default function AccountModal({ accountId, open, onClose }: AccountModalProps) {
+export default function AccountModal({ accountId, open, onClose, aiEnrichment, isAiLoading, onEnrichmentComplete }: AccountModalProps) {
   const { toast } = useToast();
   const [tab, setTab] = useState<'overview' | 'activity' | 'email'>('overview');
   const [account, setAccount] = useState<(Account & {
@@ -37,8 +40,8 @@ export default function AccountModal({ accountId, open, onClose }: AccountModalP
   }) | null>(null);
   const [contact, setContact] = useState<any>(null);
   const [logs, setLogs] = useState<Update[]>([]);
-  const [ai, setAI] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [ai, setAI] = useState<any>(aiEnrichment || null);
+  const [loadingAI, setLoadingAI] = useState<boolean>(isAiLoading || false);
   const [ownerName, setOwnerName] = useState<string | null>(null);
   const [emailTabContent, setEmailTabContent] = useState<string | null>(null);
   const [isGeneratingEmail, setIsGeneratingEmail] = useState(false);
@@ -58,11 +61,9 @@ export default function AccountModal({ accountId, open, onClose }: AccountModalP
 
   useEffect(() => {
     if (!open) return;
-    setIsLoading(true);
-    const fetchData = async () => {
+    (async () => {
       // Fetch account
       const { data: acc } = await supabase.from('account').select('*').eq('id', accountId).single();
-      // Map DB fields to camelCase
       if (acc) {
         setAccount({
           ...acc,
@@ -98,15 +99,10 @@ export default function AccountModal({ accountId, open, onClose }: AccountModalP
         accountId: log.account_id,
         nextActionDate: log.next_action_date,
       })));
-      // Fetch AI recommendations (replace with your real AI call)
-      const { data: aiData } = await supabase.from('aianalysis').select('*').eq('entity_id', accountId).eq('entity_type', 'Account').order('created_at', { ascending: false }).limit(1).single();
-      setAI(aiData);
       // Fetch users for assignment
       const { data: usersData } = await supabase.from('users').select('id, name, email');
       if (usersData) setUsers(usersData);
-      setIsLoading(false);
-    };
-    fetchData();
+    })();
   }, [accountId, open]);
 
   useEffect(() => {
@@ -204,19 +200,24 @@ export default function AccountModal({ accountId, open, onClose }: AccountModalP
   // Email generation logic
   const generateProfessionalEmail = async () => {
     setIsGeneratingEmail(true);
-    // Compose recommended services string
+    // If AI-generated email template is present, use it
+    if (ai?.emailTemplate) {
+      setIsGeneratingEmail(false);
+      return ai.emailTemplate;
+    }
+    // Fallback: Compose recommended services string
     const services = (ai?.recommended_services || ai?.recommendations)?.length
       ? (ai.recommended_services || ai.recommendations).map((s: string) => `- ${s}`).join('\n')
       : '- AI-powered CRM\n- Sales Forecasting\n- Automated Reporting';
     // Simulate API call delay
     return new Promise<string>((resolve) => {
       setTimeout(() => {
-        resolve(`Subject: Unlock Your Sales Potential at ${account?.name}
-\nHi ${account?.contactPersonName},
-\nI hope this message finds you well. My name is ${currentUser?.name || '[Your Name]'} from ${userCompany.name}. I wanted to introduce you to our platform, designed to help companies like ${account?.name} streamline sales processes, gain actionable insights, and boost conversions.
+        resolve(`Subject: Unlock Your Sales Potential at ${account?.name || ''}
+\nHi ${account?.contactPersonName || ''},
+\nI hope this message finds you well. My name is ${currentUser?.name || ''} from ${userCompany.name}. I wanted to introduce you to our platform, designed to help companies like ${account?.name || ''} streamline sales processes, gain actionable insights, and boost conversions.
 \nOur solution offers:\n${services}
-\nI'd love to schedule a quick call to discuss how we can help ${account?.name} achieve its sales goals. Please let me know your availability, or feel free to reply directly to this email.
-\nBest regards,\n${currentUser?.name || '[Your Name]'}\n${userCompany.name}\n${currentUser?.email || '[Your Email]'}\n${userCompany.website}`);
+\nI'd love to schedule a quick call to discuss how we can help ${account?.name || ''} achieve its sales goals. Please let me know your availability, or feel free to reply directly to this email.
+\nBest regards,\n${currentUser?.name || ''}\n${userCompany.name}\n${currentUser?.email || ''}\n${userCompany.website}`);
         setIsGeneratingEmail(false);
       }, 1200);
     });
@@ -257,6 +258,41 @@ export default function AccountModal({ accountId, open, onClose }: AccountModalP
       generateProfessionalEmail().then(setEmailTabContent);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  // If aiEnrichment or isAiLoading props change, update local state
+  useEffect(() => {
+    setAI(aiEnrichment || null);
+    setLoadingAI(isAiLoading || false);
+  }, [aiEnrichment, isAiLoading]);
+
+  // Replace the enrichment fetch logic with this useEffect:
+  useEffect(() => {
+    if (open && !ai && !loadingAI) {
+      setLoadingAI(true);
+      (async () => {
+        try {
+          const response = await fetch('/api/account-enrichment', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ accountId, triggerEnrichment: true }),
+          });
+          if (!response.ok) {
+            const errorData = await response.json();
+            toast({ title: 'AI Enrichment Failed', description: errorData.error || 'Could not enrich account. Please try again.', variant: 'destructive' });
+            setLoadingAI(false);
+            return;
+          }
+          const data = await response.json();
+          setAI(data.ai_output || data);
+          setLoadingAI(false);
+          if (onEnrichmentComplete) onEnrichmentComplete();
+        } catch (e) {
+          toast({ title: 'AI Enrichment Failed', description: 'Could not enrich account. Please try again.', variant: 'destructive' });
+          setLoadingAI(false);
+        }
+      })();
+    }
   }, [open]);
 
   if (!open) return null;
@@ -335,15 +371,15 @@ export default function AccountModal({ accountId, open, onClose }: AccountModalP
                   <div className="text-xs text-[#998876]">Status</div>
                   <Select value={account?.status || ''} onValueChange={async (val) => {
                     if (!account) return;
-                    setIsLoading(true);
+                    setLoadingAI(true);
                     const status = val as AccountStatus;
                     const { error } = await supabase.from('account').update({ status }).eq('id', account.id);
                     if (!error) {
                       setAccount({ ...account, status });
                     }
-                    setIsLoading(false);
-                  }} disabled={isLoading}>
-                    <SelectTrigger className={`gap-2 w-full border-[#CBCAC5] bg-[#F8F7F3] ${isLoading ? 'opacity-60' : ''}`}>
+                    setLoadingAI(false);
+                  }} disabled={loadingAI}>
+                    <SelectTrigger className={`gap-2 w-full border-[#CBCAC5] bg-[#F8F7F3] ${loadingAI ? 'opacity-60' : ''}`}>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent className="sm:w-fit">
@@ -352,7 +388,7 @@ export default function AccountModal({ accountId, open, onClose }: AccountModalP
                       ))}
                     </SelectContent>
                   </Select>
-                  {isLoading && <span className="ml-2 text-xs text-[#998876]">Updating...</span>}
+                  {loadingAI && <span className="ml-2 text-xs text-[#998876]">Updating...</span>}
                 </div>
               </div>
             </div>
@@ -371,7 +407,7 @@ export default function AccountModal({ accountId, open, onClose }: AccountModalP
             </TabsTrigger>
           </TabsList>
           <div className="bg-white rounded-b-md p-6">
-            {isLoading ? (
+            {loadingAI ? (
               <div className="space-y-6">
                 {/* Overview Skeleton */}
                 <Skeleton className="h-8 w-1/3 rounded-md mb-2" />
@@ -584,16 +620,48 @@ export default function AccountModal({ accountId, open, onClose }: AccountModalP
                       <div className="mb-2">
                         <div className="flex items-center justify-between text-xs mb-1">
                           <span>Account Score</span>
-                          <span className="font-semibold">{ai?.score || 'N/A'}/100</span>
+                          <span className="font-semibold">{ai?.accountScore ?? ai?.score ?? 'N/A'}/100</span>
                         </div>
                         <div className="w-full bg-[#E5E3DF] rounded-full h-2 overflow-hidden">
-                          <div className="h-2 rounded-full" style={{ width: `${ai?.score || 0}%`, backgroundImage: 'linear-gradient(to right, #3987BE, #D48EA3)' }} />
+                          <div className="h-2 rounded-full" style={{ width: `${ai?.accountScore ?? ai?.score ?? 0}%`, backgroundImage: 'linear-gradient(to right, #3987BE, #D48EA3)' }} />
                         </div>
                       </div>
                       <div className="mt-6 space-y-4">
                         <h4 className="text-lg font-semibold text-[#282828] flex items-center gap-2">
                           <BrainCircuit className="h-5 w-5 text-[#5E6156]" /> AI Recommendations
                         </h4>
+                        <div className="flex items-center gap-2 mb-2">
+                          <p className="text-base font-semibold text-[#282828]">AI Recommendations</p>
+                          <button
+                            className="ml-auto px-2 py-1 text-xs rounded bg-[#E5E3DF] hover:bg-[#d4d2ce] text-[#3987BE] font-medium border border-[#C7C7C7]"
+                            onClick={async () => {
+                              setLoadingAI(true);
+                              try {
+                                const response = await fetch('/api/account-enrichment', {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ accountId, triggerEnrichment: true, forceRefresh: true }),
+                                });
+                                if (!response.ok) {
+                                  const errorData = await response.json();
+                                  toast({ title: 'Regeneration Failed', description: errorData.error || 'Could not regenerate AI analysis.', variant: 'destructive' });
+                                  setLoadingAI(false);
+                                  return;
+                                }
+                                const data = await response.json();
+                                setAI(data.ai_output || data);
+                                if (onEnrichmentComplete) onEnrichmentComplete();
+                              } catch (e) {
+                                toast({ title: 'Regeneration Failed', description: 'Could not regenerate AI analysis.', variant: 'destructive' });
+                              }
+                              setLoadingAI(false);
+                            }}
+                            disabled={loadingAI}
+                            title="Refresh AI analysis"
+                          >
+                            {loadingAI ? 'Regenerating...' : 'Regenerate'}
+                          </button>
+                        </div>
                         {ai ? (
                           <>
                             <div>
@@ -622,7 +690,7 @@ export default function AccountModal({ accountId, open, onClose }: AccountModalP
                 </div>
               </TabsContent>
             )}
-            {isLoading ? (
+            {loadingAI ? (
               <div className="space-y-6">
                 {/* Activity Skeleton */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -737,7 +805,7 @@ export default function AccountModal({ accountId, open, onClose }: AccountModalP
                 </div>
               </TabsContent>
             )}
-            {isLoading ? (
+            {loadingAI ? (
               <div className="space-y-6">
                 {/* Email Skeleton */}
                 <Skeleton className="h-8 w-1/3 rounded-md mb-2" />

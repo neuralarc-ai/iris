@@ -1,50 +1,37 @@
 import { z } from 'zod';
 import { getRetryConfig, CRON_CONFIG } from '@/lib/cron-config';
 
-export const leadEnrichmentSchema = z.object({
+export const accountEnrichmentSchema = z.object({
   recommendations: z.array(z.string()),
   pitchNotes: z.string(),
   useCase: z.string(),
-  leadScore: z.number().min(0).max(100),
+  accountScore: z.number().min(0).max(100),
+  emailTemplate: z.string(),
 });
 
-// Utility function for delays
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-// Retry function with exponential backoff
-async function retryWithBackoff<T>(
-  fn: () => Promise<T>,
-  maxRetries: number = getRetryConfig().maxRetries,
-  baseDelay: number = getRetryConfig().baseDelay
-): Promise<T> {
+async function retryWithBackoff<T>(fn: () => Promise<T>, maxRetries: number = getRetryConfig().maxRetries, baseDelay: number = getRetryConfig().baseDelay): Promise<T> {
   let lastError: Error;
-  
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
       return await fn();
     } catch (error: any) {
       lastError = error;
-      
-      // If it's a rate limit error and we haven't exceeded max retries
       if (error.message?.includes('Too Many Requests') && attempt < maxRetries) {
-        const delay = baseDelay * Math.pow(2, attempt); // Exponential backoff: 5s, 10s, 20s
+        const delay = baseDelay * Math.pow(2, attempt);
         console.log(`Rate limited, retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries + 1})`);
         await sleep(delay);
         continue;
       }
-      
-      // For other errors or max retries exceeded, throw immediately
       throw error;
     }
   }
-  
   throw lastError!;
 }
 
-// Gemini fallback function
 async function callGeminiAPI(prompt: string) {
-  // Respect Gemini's per-minute rate limit (max 60/minute)
-  await sleep(1200); // 1.2s delay between requests
+  await sleep(1200);
   const response = await fetch(
     'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + process.env.GEMINI_API_KEY,
     {
@@ -52,9 +39,7 @@ async function callGeminiAPI(prompt: string) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        generationConfig: {
-          response_mime_type: 'application/json',
-        },
+        generationConfig: { response_mime_type: 'application/json' },
       }),
     }
   );
@@ -65,7 +50,6 @@ async function callGeminiAPI(prompt: string) {
   const data = await response.json();
   let generatedContent;
   try {
-    // Gemini's response: candidates[0].content.parts[0].text (should be JSON string)
     generatedContent = JSON.parse(data.candidates?.[0]?.content?.parts?.[0]?.text || '{}');
   } catch (e) {
     throw new Error('Gemini response was not valid JSON.');
@@ -73,9 +57,9 @@ async function callGeminiAPI(prompt: string) {
   return generatedContent;
 }
 
-export async function leadEnrichmentFlow({ lead, user, company, tavilySummary, websiteSummary, companyScrapeData }: { lead: any, user: any, company: any, tavilySummary?: string, websiteSummary?: string, companyScrapeData?: string }) {
+export async function accountEnrichmentFlow({ account, user, company, tavilySummary, websiteSummary, companyScrapeData }: { account: any, user: any, company: any, tavilySummary?: string, websiteSummary?: string, companyScrapeData?: string }) {
   const prompt = `
-You are an expert B2B sales analyst with deep expertise in lead qualification and company-service alignment. Your user is ${user.name} from ${company?.name || 'N/A'}.
+You are an expert B2B sales analyst with deep expertise in account qualification and company-service alignment. Your user is ${user.name} from ${company?.name || 'N/A'}.
 
 **COMMUNICATION & FORMATTING REQUIREMENTS:**
 - Use the highest standards of formal written English in all responses.
@@ -99,33 +83,33 @@ ${(company?.services || []).map((s: any, i: number) => `${i+1}. ${s.name}: ${s.d
 **Company Website Analysis:**
 ${companyScrapeData ? `Website Content Summary: ${companyScrapeData}\n` : ''}
 
-## LEAD COMPREHENSIVE PROFILE:
-**Personal Information:**
-- Name: ${lead.personName}
-- Job Title: ${lead.jobTitle || 'N/A'}
-- Email Domain: ${lead.email ? lead.email.split('@')[1] : 'N/A'}
-
-**Company Information:**
-- Company: ${lead.companyName}
-- Industry: ${lead.industry || 'N/A'}
-- Website: ${lead.website || 'N/A'}
-- Country: ${lead.country || 'N/A'}
+## ACCOUNT PROFILE:
+- Name: ${account.name}
+- Type: ${account.type || 'N/A'}
+- Status: ${account.status || 'N/A'}
+- Industry: ${account.industry || 'N/A'}
+- Website: ${account.website || 'N/A'}
+- Contact Person: ${account.contact_person_name || 'N/A'}
+- Contact Email: ${account.contact_email || 'N/A'}
+- Contact Phone: ${account.contact_phone || 'N/A'}
+- Description: ${account.description || 'N/A'}
+- Country: ${account.country || 'N/A'}
 
 ## EXTERNAL INTELLIGENCE:
 ${tavilySummary ? `**Market Intelligence & News:**\n${tavilySummary}\n` : ''}
-${websiteSummary ? `**Lead's Company Website Analysis:**\n${websiteSummary}\n` : ''}
+${websiteSummary ? `**Account Website Analysis:**\n${websiteSummary}\n` : ''}
 
 ## SCORING METHODOLOGY:
-Analyze the lead using a weighted 100-point scoring system:
+Analyze the account using a weighted 100-point scoring system:
 
 **1. Company-Service Alignment (30 points)**
-- Industry Match: How well does the lead's industry align with your services?
-- Company Size Match: Is the lead's company size in your target range?
+- Industry Match: How well does the account's industry align with your services?
+- Company Size Match: Is the account in your target range?
 - Technology Needs: Do they likely need your specific solutions?
 - Market Segment: Are they in your ideal customer segment?
 
-**2. Authority & Decision-Making Power (25 points)**
-- Job Title Analysis: Is this person likely a decision-maker or influencer?
+**2. Decision-Making Power (25 points)**
+- Contact Role: Is the contact person a decision-maker or influencer?
 - Department Relevance: Are they in a department that would use your services?
 - Seniority Level: Do they have budget authority or significant influence?
 
@@ -147,17 +131,19 @@ Analyze the lead using a weighted 100-point scoring system:
 ## DELIVERABLES:
 Based on this comprehensive analysis, provide:
 
-1. **Lead Score**: Single number (0-100) with a one-sentence rationale
-2. **Recommended Services**: Suggest 3-4 specific services or products that would be a good fit for this lead.
+1. **Account Score**: Single number (0-100) with a one-sentence rationale
+2. **Recommended Services**: Suggest 3-4 specific services or products that would be a good fit for this account.
 3. **Pitch Notes**: Provide concise, actionable talking points for a sales pitch (no more than 2-3 sentences, max 60 words).
-4. **Use Case**: Describe a compelling use case for this lead (no more than 2-3 sentences, max 60 words).
+4. **Use Case**: Describe a compelling use case for this account (no more than 2-3 sentences, max 60 words).
+5. **Email Template**: Write a personalized, ready-to-send cold outreach email to the account's main contact, referencing their company, your company, and the recommended services. Use a professional, friendly tone. Use all available data. Do not use placeholders like [Your Name] or [Company Name]; fill with real data or leave blank if not available.
 
 Return a valid JSON object with this exact schema:
 {
-  "leadScore": number,
+  "accountScore": number,
   "recommendations": string[],
   "pitchNotes": string,
-  "useCase": string
+  "useCase": string,
+  "emailTemplate": string
 }
 
 IMPORTANT: Provide only valid JSON without markdown formatting. Base all analysis on actual data provided, not assumptions.
@@ -198,7 +184,6 @@ IMPORTANT: Provide only valid JSON without markdown formatting. Base all analysi
       return generatedContent;
     });
   } catch (error: any) {
-    // If OpenRouter fails with a 429, fallback to Gemini
     if (error.message?.includes('429') || error.message?.toLowerCase().includes('rate limit')) {
       console.warn('OpenRouter rate limit hit, falling back to Gemini...');
       return await callGeminiAPI(prompt);

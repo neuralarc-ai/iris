@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { leadEnrichmentFlow } from '@/ai/flows/lead-enrichment';
+import { accountEnrichmentFlow } from '@/ai/flows/account-enrichment';
 import { createClient } from '@supabase/supabase-js';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -35,30 +35,15 @@ async function fetchWebsiteSummary(url: string) {
   return data.summary || '';
 }
 
-// Helper to enqueue a job
-async function enqueueLeadAnalysisJob(leadId: string) {
-  await supabase.from('lead_analysis_job').insert([
-    {
-      id: uuidv4(),
-      lead_id: leadId,
-      status: 'pending',
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    },
-  ]);
-}
-
 export async function POST(req: NextRequest) {
   try {
-    const url = new URL(req.url);
-    const refresh = url.searchParams.get('refresh') === 'true';
     const body = await req.text();
-    let lead, user, leadId, triggerEnrichment, forceRefresh;
+    let account, user, accountId, triggerEnrichment, forceRefresh;
     try {
       const parsed = JSON.parse(body);
-      lead = parsed.lead;
+      account = parsed.account;
       user = parsed.user;
-      leadId = parsed.leadId;
+      accountId = parsed.accountId;
       triggerEnrichment = parsed.triggerEnrichment;
       forceRefresh = parsed.forceRefresh;
     } catch (parseError) {
@@ -74,46 +59,40 @@ export async function POST(req: NextRequest) {
     // Fetch company data
     const { data: company } = await supabase.from('company').select('*, services:company_service(*)').single();
 
-    // If triggerEnrichment is requested, fetch lead data and process
-    if (triggerEnrichment && leadId) {
-      // Fetch lead data from database
-      const { data: leadData, error: leadError } = await supabase
-        .from('lead')
+    // If triggerEnrichment is requested, fetch account data and process
+    if (triggerEnrichment && accountId) {
+      // Fetch account data from database
+      const { data: accountData, error: accountError } = await supabase
+        .from('account')
         .select('*')
-        .eq('id', leadId)
+        .eq('id', accountId)
         .single();
 
-      if (leadError || !leadData) {
-        return NextResponse.json({ error: 'Lead not found.' }, { status: 404 });
+      if (accountError || !accountData) {
+        return NextResponse.json({ error: 'Account not found.' }, { status: 404 });
       }
 
       // Fetch user data
-      const userId = leadData.owner_id;
+      const userId = accountData.owner_id;
       const { data: userData } = await supabase
         .from('users')
         .select('*')
         .eq('id', userId)
         .single();
 
-      // Transform lead data to match expected format
-      lead = {
-        id: leadData.id,
-        companyName: leadData.company_name || '',
-        personName: leadData.person_name || '',
-        email: leadData.email || '',
-        phone: leadData.phone || '',
-        linkedinProfileUrl: leadData.linkedin_profile_url || '',
-        country: leadData.country || '',
-        website: leadData.website || '',
-        industry: leadData.industry || '',
-        jobTitle: leadData.job_title || '',
-        status: leadData.status || 'New',
-        createdAt: leadData.created_at || new Date().toISOString(),
-        updatedAt: leadData.updated_at || new Date().toISOString(),
-        assignedUserId: leadData.owner_id || '',
-        opportunityIds: [],
-        updateIds: [],
-        rejectionReasons: [],
+      // Transform account data to match expected format
+      account = {
+        id: accountData.id,
+        name: accountData.name || '',
+        type: accountData.type || '',
+        status: accountData.status || '',
+        description: accountData.description || '',
+        contact_email: accountData.contact_email || '',
+        industry: accountData.industry || '',
+        contact_person_name: accountData.contact_person_name || '',
+        contact_phone: accountData.contact_phone || '',
+        website: accountData.website || '',
+        country: accountData.country || '',
       };
 
       // If no user data found, try to get an admin user as fallback
@@ -129,19 +108,13 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // If refresh is requested, enqueue a job and return
-    if (refresh) {
-      await enqueueLeadAnalysisJob(lead.id);
-      return NextResponse.json({ message: 'Refresh job enqueued.' });
-    }
-
     // Check for existing analysis (within 24h)
     if (!forceRefresh) {
       const { data: existing } = await supabase
         .from('aianalysis')
         .select('*')
-        .eq('entity_type', 'Lead')
-        .eq('entity_id', lead.id)
+        .eq('entity_type', 'Account')
+        .eq('entity_id', account.id)
         .eq('analysis_type', 'enrichment')
         .eq('status', 'success')
         .order('last_refreshed_at', { ascending: false })
@@ -154,40 +127,41 @@ export async function POST(req: NextRequest) {
     }
 
     // Fetch Tavily data
-    const companyNews = await fetchTavilySummary(`${lead.companyName} ${lead.industry} news 2024`);
-    const industryTrends = await fetchTavilySummary(`${lead.industry} technology trends 2024`);
-    const painPoints = await fetchTavilySummary(`${lead.industry} challenges pain points 2024`);
+    const companyNews = await fetchTavilySummary(`${account.name} ${account.industry} news 2024`);
+    const industryTrends = await fetchTavilySummary(`${account.industry} technology trends 2024`);
+    const painPoints = await fetchTavilySummary(`${account.industry} challenges pain points 2024`);
     const tavilySummary = `Company News: ${companyNews}\nIndustry Trends: ${industryTrends}\nPain Points: ${painPoints}`;
-    const websiteSummary = await fetchWebsiteSummary(lead.website || company?.website || '');
+    const websiteSummary = await fetchWebsiteSummary(account.website || company?.website || '');
 
     // Generate AI analysis
     let aiResult;
     try {
-      aiResult = await leadEnrichmentFlow({ lead, user, company, tavilySummary, websiteSummary });
+      aiResult = await accountEnrichmentFlow({ account, user, company, tavilySummary, websiteSummary });
     } catch (error) {
       console.error('AI enrichment failed:', error);
       return NextResponse.json({ error: 'AI enrichment failed due to insufficient data or an AI error.' }, { status: 500 });
     }
     // Validate AI result
-    if (!aiResult || !aiResult.recommendations || !aiResult.pitchNotes || !aiResult.useCase) {
+    if (!aiResult || !aiResult.recommendations || !aiResult.pitchNotes || !aiResult.useCase || !aiResult.emailTemplate) {
       return NextResponse.json({ error: 'AI enrichment returned incomplete data.' }, { status: 500 });
     }
-    // Add a small random factor to the lead score for realism
+    // Add a small random factor to the account score for realism
     const randomDelta = Math.floor(Math.random() * 7) - 3; // -3 to +3
-    aiResult.leadScore = Math.max(0, Math.min(100, aiResult.leadScore + randomDelta));
+    aiResult.accountScore = Math.max(0, Math.min(100, aiResult.accountScore + randomDelta));
 
     // Store in aianalysis
     await supabase.from('aianalysis').insert([
       {
         id: uuidv4(),
-        entity_type: 'Lead',
-        entity_id: lead.id,
+        entity_type: 'Account',
+        entity_id: account.id,
         analysis_type: 'enrichment',
         content: aiResult.pitchNotes,
-        match_score: aiResult.leadScore,
+        match_score: aiResult.accountScore,
         recommended_services: aiResult.recommendations,
         use_case: aiResult.useCase,
         pitch_notes: aiResult.pitchNotes,
+        email_template: aiResult.emailTemplate,
         ai_output: aiResult,
         status: 'success',
         last_refreshed_at: new Date().toISOString(),
