@@ -23,6 +23,9 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import LeadDialog from '@/components/leads/LeadDialog';
+import AccountModal from '@/components/accounts/AccountModal';
+import OpportunityDialog from '@/components/opportunities/OpportunityDialog';
 
 // Interface for grouped updates
 interface GroupedUpdate {
@@ -66,6 +69,12 @@ export default function UpdatesPage() {
 
   // State for expanded entities in list view
   const [expandedEntities, setExpandedEntities] = useState<Record<string, boolean>>({});
+
+  // Dialog state for entity dialogs
+  const [entityDialog, setEntityDialog] = useState<{
+    type: 'lead' | 'account' | 'opportunity' | null;
+    id: string | null;
+  }>({ type: null, id: null });
 
   useEffect(() => {
     const fetchUpdatesAndOpportunities = async () => {
@@ -445,6 +454,16 @@ export default function UpdatesPage() {
   // Helper to get entity key
   const getEntityKey = (group: GroupedUpdate) => `${group.entityType}-${group.entityId}`;
 
+  // Handler to open the correct dialog
+  const handleEntityDialogOpen = (entityType: 'lead' | 'account' | 'opportunity', entityId: string) => {
+    setEntityDialog({ type: entityType, id: entityId });
+  };
+
+  // Handler to close dialog
+  const handleEntityDialogClose = () => {
+    setEntityDialog({ type: null, id: null });
+  };
+
   if (isLoading) {
     return (
       <div className="max-w-[1440px] px-4 mx-auto w-full space-y-6">
@@ -619,11 +638,15 @@ export default function UpdatesPage() {
         view === 'grid' ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 pb-8">
             {paginatedGroupedUpdates.map((groupedUpdate) => (
-              <UpdateItem 
-                key={`${groupedUpdate.entityType}-${groupedUpdate.entityId}`} 
-                update={groupedUpdate.latestUpdate}
-                groupedUpdates={groupedUpdate.updates}
-              />
+              <div key={`${groupedUpdate.entityType}-${groupedUpdate.entityId}`}
+                onClick={() => handleEntityDialogOpen(groupedUpdate.entityType, groupedUpdate.entityId)}
+                className="cursor-pointer"
+              >
+                <UpdateItem 
+                  update={groupedUpdate.latestUpdate}
+                  groupedUpdates={groupedUpdate.updates}
+                />
+              </div>
             ))}
           </div>
         ) : (
@@ -659,10 +682,9 @@ export default function UpdatesPage() {
                     const isExpanded = !!expandedEntities[entityKey];
                     return (
                       <React.Fragment key={entityKey}>
-                        {/* Group header row */}
                         <TableRow
                           className={`group cursor-pointer bg-[#F3F4F6] hover:bg-[#E6D0D7] transition-colors ${isExpanded ? 'border-b-0' : ''}`}
-                          onClick={() => setExpandedEntities(prev => ({ ...prev, [entityKey]: !prev[entityKey] }))}
+                          onClick={() => handleEntityDialogOpen(group.entityType, group.entityId)}
                           aria-expanded={isExpanded}
                         >
                           <TableCell colSpan={6} className="py-3">
@@ -826,219 +848,249 @@ export default function UpdatesPage() {
         onUpdateAdded={handleUpdateAdded}
       />
       
-            {/* Update Details Modal */}
-      <Dialog open={isUpdateModalOpen} onOpenChange={(open) => {
-        setIsUpdateModalOpen(open);
-        if (!open) {
-          setSelectedUpdate(null);
-          setSelectedGroupedUpdates([]);
-        }
-      }}>
-        <DialogContent className="sm:max-w-xl bg-white border border-[#CBCAC5] rounded-lg" onClick={e => e.stopPropagation()}>
-          <DialogHeader className="pb-3 border-b border-[#E5E3DF]">
-            <div className="flex items-center gap-2">
-              <DialogTitle className="text-xl font-semibold text-[#282828]">
-                {(() => {
-                  if (selectedUpdate?.leadId) {
-                    const lead = leads.find(l => l.id === selectedUpdate.leadId);
-                    return lead ? (lead.person_name || lead.company_name || lead.email || 'Lead') : 'Lead';
-                  } else if (selectedUpdate?.opportunityId) {
-                    const opp = opportunities.find(o => o.id === selectedUpdate.opportunityId);
-                    return opp ? opp.name : 'Opportunity';
-                  } else if (selectedUpdate?.accountId) {
-                    const acc = accounts.find(a => a.id === selectedUpdate.accountId);
-                    return acc ? acc.name : 'Account';
-                  }
-                  return 'Update';
-                })()}
-              </DialogTitle>
-              {selectedGroupedUpdates.length > 1 && (
-                <Badge variant="secondary" className="ml-2" style={{ backgroundColor: '#916D5B', color: '#fff', border: 'none' }}>
-                  {selectedGroupedUpdates.length} updates
-                </Badge>
-              )}
-            </div>
-          </DialogHeader>
-
-          <div className="flex-1 overflow-y-auto space-y-6">
-            {/* Details Section */}
-            {selectedUpdate?.opportunityId && (() => {
-              const opp = opportunities.find(o => o.id === selectedUpdate.opportunityId);
-              if (!opp) return null;
-              
-              return (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                  <div className="bg-[#F3F4F6] p-4 rounded-lg flex flex-col items-center justify-center min-h-[56px]">
-                    <div className="text-sm font-medium text-[#6B7280]">Value</div>
-                    <div className="text-2xl font-bold text-[#5E6156] mt-1">${opp.value.toLocaleString()}</div>
-                  </div>
-                  <div className="bg-[#F3F4F6] p-4 rounded-lg flex flex-col items-center justify-center min-h-[56px]">
-                    <div className="text-sm font-medium text-[#6B7280]">Status</div>
-                    <span className={`mt-2 rounded-full px-4 py-1 text-base font-semibold capitalize border ${
-                      opp.status === 'Scope Of Work' ? 'bg-sky-500/20 text-sky-700 border-sky-500/30' :
-                      opp.status === 'Proposal' ? 'bg-blue-500/20 text-blue-700 border-blue-500/30' :
-                      opp.status === 'Negotiation' ? 'bg-amber-500/20 text-amber-700 border-amber-500/30' :
-                      opp.status === 'Win' ? 'bg-green-500/20 text-green-700 border-green-500/30' :
-                      opp.status === 'Loss' ? 'bg-red-500/20 text-red-700 border-red-500/30' :
-                      opp.status === 'On Hold' ? 'bg-slate-500/20 text-slate-700 border-slate-500/30' :
-                      'bg-gray-500/20 text-gray-700 border-gray-500/30'
-                    }`}>
-                      {opp.status}
-                    </span>
-                  </div>
-                  <div className="bg-[#F3F4F6] p-4 rounded-lg flex flex-col items-center justify-center min-h-[56px]">
-                    <div className="text-sm font-medium text-[#6B7280]">Expected Close</div>
-                    <div className="text-lg font-semibold mt-1">{format(parseISO(opp.endDate), 'MMM dd, yyyy')}</div>
-                  </div>
-                </div>
-              );
-            })()}
-
-            {/* Full Description */}
-            <div>
-              <h4 className="text-sm font-semibold text-[#5E6156] mb-2">Description</h4>
-              <div className="bg-[#F8F7F3] p-4 rounded-lg border border-[#E5E3DF] h-24">
-                <p className="text-sm text-[#282828]">
+      {/* Update Details Modal */}
+      {(!entityDialog.type && isUpdateModalOpen) && (
+        <Dialog open={isUpdateModalOpen} onOpenChange={(open) => {
+          setIsUpdateModalOpen(open);
+          if (!open) {
+            setSelectedUpdate(null);
+            setSelectedGroupedUpdates([]);
+          }
+        }}>
+          <DialogContent className="sm:max-w-xl bg-white border border-[#CBCAC5] rounded-lg" onClick={e => e.stopPropagation()}>
+            <DialogHeader className="pb-3 border-b border-[#E5E3DF]">
+              <div className="flex items-center gap-2">
+                <DialogTitle className="text-xl font-semibold text-[#282828]">
                   {(() => {
-                    if (selectedUpdate?.opportunityId) {
-                      const opp = opportunities.find(o => o.id === selectedUpdate.opportunityId);
-                      return opp?.description || 'No description available.';
-                    } else if (selectedUpdate?.leadId) {
+                    if (selectedUpdate?.leadId) {
                       const lead = leads.find(l => l.id === selectedUpdate.leadId);
-                      return lead ? (lead.person_name || lead.company_name || lead.email || 'No description available.') : 'No description available.';
+                      return lead ? (lead.person_name || lead.company_name || lead.email || 'Lead') : 'Lead';
+                    } else if (selectedUpdate?.opportunityId) {
+                      const opp = opportunities.find(o => o.id === selectedUpdate.opportunityId);
+                      return opp ? opp.name : 'Opportunity';
                     } else if (selectedUpdate?.accountId) {
                       const acc = accounts.find(a => a.id === selectedUpdate.accountId);
-                      return acc?.description || 'No description available.';
+                      return acc ? acc.name : 'Account';
                     }
-                    return 'No description available.';
+                    return 'Update';
                   })()}
-                </p>
+                </DialogTitle>
+                {selectedGroupedUpdates.length > 1 && (
+                  <Badge variant="secondary" className="ml-2" style={{ backgroundColor: '#916D5B', color: '#fff', border: 'none' }}>
+                    {selectedGroupedUpdates.length} updates
+                  </Badge>
+                )}
+              </div>
+            </DialogHeader>
+
+            <div className="flex-1 overflow-y-auto space-y-6">
+              {/* Details Section */}
+              {selectedUpdate?.opportunityId && (() => {
+                const opp = opportunities.find(o => o.id === selectedUpdate.opportunityId);
+                if (!opp) return null;
+                
+                return (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                    <div className="bg-[#F3F4F6] p-4 rounded-lg flex flex-col items-center justify-center min-h-[56px]">
+                      <div className="text-sm font-medium text-[#6B7280]">Value</div>
+                      <div className="text-2xl font-bold text-[#5E6156] mt-1">${opp.value.toLocaleString()}</div>
+                    </div>
+                    <div className="bg-[#F3F4F6] p-4 rounded-lg flex flex-col items-center justify-center min-h-[56px]">
+                      <div className="text-sm font-medium text-[#6B7280]">Status</div>
+                      <span className={`mt-2 rounded-full px-4 py-1 text-base font-semibold capitalize border ${
+                        opp.status === 'Scope Of Work' ? 'bg-sky-500/20 text-sky-700 border-sky-500/30' :
+                        opp.status === 'Proposal' ? 'bg-blue-500/20 text-blue-700 border-blue-500/30' :
+                        opp.status === 'Negotiation' ? 'bg-amber-500/20 text-amber-700 border-amber-500/30' :
+                        opp.status === 'Win' ? 'bg-green-500/20 text-green-700 border-green-500/30' :
+                        opp.status === 'Loss' ? 'bg-red-500/20 text-red-700 border-red-500/30' :
+                        opp.status === 'On Hold' ? 'bg-slate-500/20 text-slate-700 border-slate-500/30' :
+                        'bg-gray-500/20 text-gray-700 border-gray-500/30'
+                      }`}>
+                        {opp.status}
+                      </span>
+                    </div>
+                    <div className="bg-[#F3F4F6] p-4 rounded-lg flex flex-col items-center justify-center min-h-[56px]">
+                      <div className="text-sm font-medium text-[#6B7280]">Expected Close</div>
+                      <div className="text-lg font-semibold mt-1">{format(parseISO(opp.endDate), 'MMM dd, yyyy')}</div>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Full Description */}
+              <div>
+                <h4 className="text-sm font-semibold text-[#5E6156] mb-2">Description</h4>
+                <div className="bg-[#F8F7F3] p-4 rounded-lg border border-[#E5E3DF] h-24">
+                  <p className="text-sm text-[#282828]">
+                    {(() => {
+                      if (selectedUpdate?.opportunityId) {
+                        const opp = opportunities.find(o => o.id === selectedUpdate.opportunityId);
+                        return opp?.description || 'No description available.';
+                      } else if (selectedUpdate?.leadId) {
+                        const lead = leads.find(l => l.id === selectedUpdate.leadId);
+                        return lead ? (lead.person_name || lead.company_name || lead.email || 'No description available.') : 'No description available.';
+                      } else if (selectedUpdate?.accountId) {
+                        const acc = accounts.find(a => a.id === selectedUpdate.accountId);
+                        return acc?.description || 'No description available.';
+                      }
+                      return 'No description available.';
+                    })()}
+                  </p>
+                </div>
+              </div>
+
+              {/* All Activity Logs */}
+              <div className="mt-4">
+                <div className="text-xs font-semibold text-[#5E6156] uppercase tracking-wide mb-3">Activity Updates</div>
+                <div className="relative">
+                  <div className="space-y-2 max-h-36 overflow-y-auto pr-1">
+                    {selectedGroupedUpdates.map((log) => (
+                      <div key={log.id} className="flex items-start space-x-3 p-3 rounded-lg bg-[#F8F7F3] border border-[#E5E3DF] hover:bg-[#EFEDE7] transition-colors">
+                        <div className="flex-shrink-0 mt-1">
+                          {(() => {
+                            switch (log.type) {
+                              case 'Call': return <MessageCircleMore className="h-4 w-4" style={{ color: '#2B2521' }} />;
+                              case 'Meeting': return <Users className="h-4 w-4" style={{ color: '#2B2521' }} />;
+                              case 'Email': return <Mail className="h-4 w-4" style={{ color: '#2B2521' }} />;
+                              default: return <MessageSquare className="h-4 w-4" style={{ color: '#2B2521' }} />;
+                            }
+                          })()}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between mb-1">
+                            <p className="text-sm font-medium text-[#282828] line-clamp-2">
+                              {log.content}
+                            </p>
+                            <span className="text-xs text-[#998876] ml-2 font-medium">
+                              {format(new Date(log.date), 'MMM dd')}
+                            </span>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <Badge variant="outline" className="text-xs bg-white border-[#CBCAC5] text-[#5E6156] font-medium">{log.type}</Badge>
+                            {log.nextActionDate && (
+                              <span className="text-xs text-[#4B7B9D] font-medium">
+                                Next: {format(parseISO(log.nextActionDate), 'MMM dd, yyyy')}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  {/* Gradient overlay at the bottom, only if more than one log */}
+                  {selectedGroupedUpdates.length > 2 && (
+                    <div className="pointer-events-none absolute left-0 right-0 bottom-0 h-8 bg-gradient-to-b from-transparent to-white/50 to-70%" />
+                  )}
+                </div>
+              </div>
+
+              {/* Add New Activity Form */}
+              <div className="mt-6 pt-4 border-t border-[#E5E3DF]">
+                <h4 className="text-sm font-semibold text-[#5E6156] mb-3">Add New Activity</h4>
+                <div className="space-y-4">
+                  <div className="flex flex-col md:flex-row gap-3">
+                    <div className="flex-1 min-w-0">
+                      <Label htmlFor="activity-type" className="text-sm font-medium text-[#5E6156] mb-2 block">Activity Type</Label>
+                      <Select value={newActivityType} onValueChange={value => setNewActivityType(value as 'General' | 'Call' | 'Meeting' | 'Email')}>
+                        <SelectTrigger id="activity-type" className="w-full border border-[#CBCAC5] bg-[#F8F7F3] focus:ring-1 focus:ring-[#916D5B] focus:border-[#916D5B] rounded-md">
+                          <SelectValue placeholder="Select activity type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="General">General</SelectItem>
+                          <SelectItem value="Call">Call</SelectItem>
+                          <SelectItem value="Meeting">Meeting</SelectItem>
+                          <SelectItem value="Email">Email</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <Label htmlFor="next-action-date" className="text-sm font-medium text-[#5E6156] mb-2 block">Next Action Date (Optional)</Label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Input
+                            id="next-action-date"
+                            type="text"
+                            value={nextActionDate ? format(nextActionDate, 'dd/MM/yyyy') : ''}
+                            placeholder="dd/mm/yyyy (optional)"
+                            readOnly
+                            className="cursor-pointer bg-[#F8F7F3] border-[#CBCAC5] focus:ring-1 focus:ring-[#916D5B] focus:border-[#916D5B] rounded-md"
+                          />
+                        </PopoverTrigger>
+                        <PopoverContent align="start" className="p-0 w-auto border-[#CBCAC5] bg-white rounded-md shadow-lg">
+                          <Calendar
+                            mode="single"
+                            selected={nextActionDate}
+                            onSelect={setNextActionDate}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                  </div>
+                  <div>
+                    <Label htmlFor="activity-content" className="text-sm font-medium text-[#5E6156] mb-2 block">Activity Details</Label>
+                    <Textarea
+                      id="activity-content"
+                      placeholder="Describe the call, meeting, email, or general update..."
+                      value={newActivityDescription}
+                      onChange={(e) => setNewActivityDescription(e.target.value)}
+                      className="min-h-[100px] resize-none border-[#CBCAC5] bg-[#F8F7F3] focus:ring-1 focus:ring-[#916D5B] focus:border-[#916D5B] rounded-md"
+                    />
+                  </div>
+                  <DialogFooter className="pt-4">
+                    <Button 
+                      variant="add" 
+                      className="w-full bg-[#2B2521] text-white hover:bg-[#3a322c] rounded-md"
+                      onClick={handleLogActivity}
+                      disabled={isLoggingActivity || !newActivityDescription.trim()}
+                    >
+                      {isLoggingActivity ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                          Adding Activity...
+                        </>
+                      ) : (
+                        <>
+                          <Plus className="mr-2 h-4 w-4" />
+                          Add Activity
+                        </>
+                      )}
+                    </Button>
+                  </DialogFooter>
+                </div>
               </div>
             </div>
-
-            {/* All Activity Logs */}
-            <div className="mt-4">
-              <div className="text-xs font-semibold text-[#5E6156] uppercase tracking-wide mb-3">Activity Updates</div>
-              <div className="relative">
-                <div className="space-y-2 max-h-36 overflow-y-auto pr-1">
-                  {selectedGroupedUpdates.map((log) => (
-                    <div key={log.id} className="flex items-start space-x-3 p-3 rounded-lg bg-[#F8F7F3] border border-[#E5E3DF] hover:bg-[#EFEDE7] transition-colors">
-                      <div className="flex-shrink-0 mt-1">
-                        {(() => {
-                          switch (log.type) {
-                            case 'Call': return <MessageCircleMore className="h-4 w-4" style={{ color: '#2B2521' }} />;
-                            case 'Meeting': return <Users className="h-4 w-4" style={{ color: '#2B2521' }} />;
-                            case 'Email': return <Mail className="h-4 w-4" style={{ color: '#2B2521' }} />;
-                            default: return <MessageSquare className="h-4 w-4" style={{ color: '#2B2521' }} />;
-                          }
-                        })()}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between mb-1">
-                          <p className="text-sm font-medium text-[#282828] line-clamp-2">
-                            {log.content}
-                          </p>
-                          <span className="text-xs text-[#998876] ml-2 font-medium">
-                            {format(new Date(log.date), 'MMM dd')}
-                          </span>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <Badge variant="outline" className="text-xs bg-white border-[#CBCAC5] text-[#5E6156] font-medium">{log.type}</Badge>
-                          {log.nextActionDate && (
-                            <span className="text-xs text-[#4B7B9D] font-medium">
-                              Next: {format(parseISO(log.nextActionDate), 'MMM dd, yyyy')}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                                 {/* Gradient overlay at the bottom, only if more than one log */}
-                 {selectedGroupedUpdates.length > 2 && (
-                   <div className="pointer-events-none absolute left-0 right-0 bottom-0 h-8 bg-gradient-to-b from-transparent to-white/50 to-70%" />
-                 )}
-               </div>
-             </div>
-
-             {/* Add New Activity Form */}
-             <div className="mt-6 pt-4 border-t border-[#E5E3DF]">
-               <h4 className="text-sm font-semibold text-[#5E6156] mb-3">Add New Activity</h4>
-               <div className="space-y-4">
-                 <div className="flex flex-col md:flex-row gap-3">
-                   <div className="flex-1 min-w-0">
-                     <Label htmlFor="activity-type" className="text-sm font-medium text-[#5E6156] mb-2 block">Activity Type</Label>
-                     <Select value={newActivityType} onValueChange={value => setNewActivityType(value as 'General' | 'Call' | 'Meeting' | 'Email')}>
-                       <SelectTrigger id="activity-type" className="w-full border border-[#CBCAC5] bg-[#F8F7F3] focus:ring-1 focus:ring-[#916D5B] focus:border-[#916D5B] rounded-md">
-                         <SelectValue placeholder="Select activity type" />
-                       </SelectTrigger>
-                       <SelectContent>
-                         <SelectItem value="General">General</SelectItem>
-                         <SelectItem value="Call">Call</SelectItem>
-                         <SelectItem value="Meeting">Meeting</SelectItem>
-                         <SelectItem value="Email">Email</SelectItem>
-                       </SelectContent>
-                     </Select>
-                   </div>
-                   <div className="flex-1 min-w-0">
-                     <Label htmlFor="next-action-date" className="text-sm font-medium text-[#5E6156] mb-2 block">Next Action Date (Optional)</Label>
-                     <Popover>
-                       <PopoverTrigger asChild>
-                         <Input
-                           id="next-action-date"
-                           type="text"
-                           value={nextActionDate ? format(nextActionDate, 'dd/MM/yyyy') : ''}
-                           placeholder="dd/mm/yyyy (optional)"
-                           readOnly
-                           className="cursor-pointer bg-[#F8F7F3] border-[#CBCAC5] focus:ring-1 focus:ring-[#916D5B] focus:border-[#916D5B] rounded-md"
-                         />
-                       </PopoverTrigger>
-                       <PopoverContent align="start" className="p-0 w-auto border-[#CBCAC5] bg-white rounded-md shadow-lg">
-                         <Calendar
-                           mode="single"
-                           selected={nextActionDate}
-                           onSelect={setNextActionDate}
-                           initialFocus
-                         />
-                       </PopoverContent>
-                     </Popover>
-                   </div>
-                 </div>
-                 <div>
-                   <Label htmlFor="activity-content" className="text-sm font-medium text-[#5E6156] mb-2 block">Activity Details</Label>
-                   <Textarea
-                     id="activity-content"
-                     placeholder="Describe the call, meeting, email, or general update..."
-                     value={newActivityDescription}
-                     onChange={(e) => setNewActivityDescription(e.target.value)}
-                     className="min-h-[100px] resize-none border-[#CBCAC5] bg-[#F8F7F3] focus:ring-1 focus:ring-[#916D5B] focus:border-[#916D5B] rounded-md"
-                   />
-                 </div>
-                 <DialogFooter className="pt-4">
-                   <Button 
-                     variant="add" 
-                     className="w-full bg-[#2B2521] text-white hover:bg-[#3a322c] rounded-md"
-                     onClick={handleLogActivity}
-                     disabled={isLoggingActivity || !newActivityDescription.trim()}
-                   >
-                     {isLoggingActivity ? (
-                       <>
-                         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                         Adding Activity...
-                       </>
-                     ) : (
-                       <>
-                         <Plus className="mr-2 h-4 w-4" />
-                         Add Activity
-                       </>
-                     )}
-                   </Button>
-                 </DialogFooter>
-               </div>
-             </div>
-           </div>
-         </DialogContent>
-       </Dialog>
+          </DialogContent>
+        </Dialog>
+      )}
+      {/* Entity Dialogs */}
+      {entityDialog.type === 'lead' && entityDialog.id && (
+        <LeadDialog
+          open={true}
+          onOpenChange={open => { if (!open) handleEntityDialogClose(); }}
+          lead={leads.find(l => l.id === entityDialog.id) || { id: entityDialog.id, companyName: '', personName: '', email: '', status: 'New', opportunityIds: [], updateIds: [], createdAt: '', updatedAt: '', assignedUserId: '', rejectionReasons: [] }}
+          onLeadConverted={() => { handleEntityDialogClose(); refreshData(); }}
+          onLeadDeleted={() => { handleEntityDialogClose(); refreshData(); }}
+          onActivityLogged={() => { refreshData(); }}
+          users={[]}
+          role={undefined}
+        />
+      )}
+      {entityDialog.type === 'account' && entityDialog.id && (
+        <AccountModal
+          accountId={entityDialog.id}
+          open={true}
+          onClose={handleEntityDialogClose}
+        />
+      )}
+      {entityDialog.type === 'opportunity' && entityDialog.id && (
+        <OpportunityDialog
+          open={true}
+          onOpenChange={open => { if (!open) handleEntityDialogClose(); }}
+          opportunity={opportunities.find(o => o.id === entityDialog.id) || { id: entityDialog.id, name: '', value: 0, status: 'Scope Of Work', description: '', accountId: '', startDate: '', endDate: '', updateIds: [], createdAt: '', updatedAt: '' }}
+        />
+      )}
     </div>
   );
 }

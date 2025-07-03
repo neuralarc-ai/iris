@@ -413,7 +413,7 @@ export default function LeadDialog({
   // --- DIALOG CONTENT ---
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-4xl bg-white border-0 rounded-lg p-0">
+      <DialogContent className="sm:max-w-4xl bg-white border-0 rounded-lg p-0 max-h-[95vh] overflow-scroll">
         <div className="p-6 pb-0">
           <DialogHeader className="">
             <div className="flex items-center gap-4 justify-between">

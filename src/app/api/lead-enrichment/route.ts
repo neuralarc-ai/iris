@@ -192,15 +192,15 @@ export async function POST(req: NextRequest) {
     }
 
     // Fetch Tavily data
-    const companyNews = await fetchTavilySummary(`${lead.companyName} ${lead.industry} news 2024`);
-    const industryTrends = await fetchTavilySummary(`${lead.industry} technology trends 2024`);
-    const painPoints = await fetchTavilySummary(`${lead.industry} challenges pain points 2024`);
+    const companyNews = await fetchTavilySummary(`${lead.companyName} ${lead.industry} news 2025`);
+    const industryTrends = await fetchTavilySummary(`${lead.industry} technology trends 2025`);
+    const painPoints = await fetchTavilySummary(`${lead.industry} challenges pain points 2025`);
     const tavilySummary = `Company News: ${companyNews}\nIndustry Trends: ${industryTrends}\nPain Points: ${painPoints}`;
     const websiteSummary = await fetchWebsiteSummary(lead.website || company?.website || '');
 
     // Fetch Serper data
-    const serperNews = await fetchSerperSummary(`${lead.companyName} ${lead.industry} news 2024`);
-    const serperTrends = await fetchSerperSummary(`${lead.industry} technology trends 2024`);
+    const serperNews = await fetchSerperSummary(`${lead.companyName} ${lead.industry} news 2025`);
+    const serperTrends = await fetchSerperSummary(`${lead.industry} technology trends 2025`);
     const serperSummary = `Serper News: ${serperNews}\nSerper Trends: ${serperTrends}`;
 
     // Fetch Exa data
