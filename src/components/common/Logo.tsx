@@ -13,7 +13,7 @@ const Logo: React.FC<LogoProps> = ({ className, textSize = "text-2xl" }) => {
     <div className={`flex items-center ${className}`}>
       {/* <Eye size={iconSize} className="text-primary mr-2" /> Icon removed */}
       <span className={`font-headline font-bold ${textSize} text-foreground`}>
-        IRIS AI
+        86/c AI
       </span>
     </div>
   );

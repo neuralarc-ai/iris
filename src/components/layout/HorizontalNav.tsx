@@ -86,8 +86,8 @@ export default function HorizontalNav() {
           <div className="flex items-center">
             <Link href="/dashboard" className="mr-6">
               <Image
-                src="/images/iris.svg"
-                alt="Iris AI Logo"
+                src="/images/86-c.svg"
+                alt="86/c Logo"
                 width={40}
                 height={40}
                 priority

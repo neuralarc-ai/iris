@@ -198,22 +198,7 @@ export const mockUpdates: Update[] = [ // Made 'let' for modification
   }
 ];
 
-export const mockUsers: User[] = [
-  {
-    id: 'user_admin_000',
-    name: 'Admin User',
-    email: 'admin@iris.ai',
-    pin: DEMO_PIN,
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: 'user_jane_001',
-    name: 'Jane Doe',
-    email: 'jane.doe@example.com',
-    pin: '654321',
-    createdAt: oneWeekAgo.toISOString(),
-  },
-];
+
 
 export const addUser = (name: string, email: string, pin: string): User => {
   const newUser: User = {

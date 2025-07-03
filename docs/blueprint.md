@@ -1,4 +1,4 @@
-# **App Name**: Iris AI
+# **App Name**: 86/c AI
 
 ## Core Features:
 
