@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/supabaseClient';
 import { useToast } from '@/hooks/use-toast';
 import { Building2, Box, Upload, ArrowLeft, ArrowRight, Pencil, Check, X } from 'lucide-react';
+import { fetchAndCacheCompanyWebsiteSummary } from '@/lib/utils';
 
 const industryOptions = [
   'SaaS', 'Consulting', 'Finance', 'Healthcare', 'Education', 'Manufacturing', 'Retail', 'Technology', 'Other'
@@ -126,6 +127,18 @@ export default function CompanyProfileDialog({ open, onOpenChange, onImportLeads
           description: companyDescription
         }).eq('id', cid);
       }
+      // Trigger server-side summary refresh
+      try {
+        await fetch('/api/company-summary-refresh', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ forceRefresh: true }),
+        });
+        // Optionally show a toast or log
+        console.log('Company website summary refreshed.');
+      } catch (err) {
+        console.error('Failed to refresh company website summary:', err);
+      }
       // Upsert services
       if (cid) {
         await supabase.from('company_service').delete().eq('company_id', cid);
@@ -139,6 +152,11 @@ export default function CompanyProfileDialog({ open, onOpenChange, onImportLeads
               target_market: s.targetMarket
             }))
           );
+        }
+        // Fetch and update website summary after saving profile
+        const { data: updatedCompany } = await supabase.from('company').select('*').eq('id', cid).single();
+        if (updatedCompany) {
+          await fetchAndCacheCompanyWebsiteSummary(updatedCompany);
         }
       }
       toast({ title: 'Success', description: 'Company profile saved.', className: 'bg-green-100 dark:bg-green-900 border-green-500' });

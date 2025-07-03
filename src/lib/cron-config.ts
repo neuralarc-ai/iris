@@ -19,6 +19,7 @@ export const CRON_CONFIG = {
     OPENROUTER_MODEL: 'deepseek/deepseek-r1:free',
     OPENROUTER_TEMPERATURE: 0.5,
     OPENROUTER_MAX_TOKENS: 1000,
+    COMPANY_WEBSITE_SUMMARY_REFRESH_HOURS: 24, // Refresh company website summary every 24 hours
   },
   
   // Logging
