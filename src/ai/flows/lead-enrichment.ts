@@ -133,6 +133,15 @@ ${serperSummary ? `**Market Intelligence & News (Serper):**\n${serperSummary}\n`
 ${exaSummary ? `**Market Intelligence & News (Exa):**\n${exaSummary}\n` : ''}
 ${websiteSummary ? `**Lead's Company Website Analysis:**\n${websiteSummary}\n` : ''}
 
+**EMAIL TEMPLATE GENERATION INSTRUCTIONS:**
+- Compose a highly personalized outreach email to the lead, using all available data (company profile, website, Tavily, Serper, Exa, and associated opportunities).
+- Reference recent company news, achievements, or strategic initiatives if available.
+- Clearly articulate how our solutions address the lead's specific business needs, industry challenges, or current market trends.
+- Include at least one actionable recommendation or offer tailored to the lead's context.
+- Use the highest standards of formal written English. Do not use contractions. Do not use placeholders; every section must be filled with real, relevant data.
+- The email should be concise, professional, and demonstrate a clear understanding of the lead's business environment.
+- Avoid generic statements. Every sentence must be specific to the lead and their company.
+
 ## SCORING METHODOLOGY:
 Analyze the lead using a weighted 100-point scoring system. Use all available opportunity data to inform your score and recommendations:
 

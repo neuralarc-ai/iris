@@ -890,27 +890,28 @@ export default function LeadsPage() {
     // Fetch enrichment for all paginated leads
     paginatedLeads.forEach((lead) => {
       if (leadEnrichments[lead.id] === undefined && !loadingEnrichments[lead.id]) {
-              setLoadingEnrichments(prev => ({ ...prev, [lead.id]: true }));
-      (async () => {
-        try {
-          const { data } = await supabase
-            .from('aianalysis')
-            .select('ai_output')
-            .eq('entity_type', 'Lead')
-            .eq('entity_id', lead.id)
-            .eq('analysis_type', 'enrichment')
-            .eq('status', 'success')
-            .order('last_refreshed_at', { ascending: false })
-            .limit(1)
-            .single();
-          setLeadEnrichments(prev => ({ ...prev, [lead.id]: data?.ai_output || null }));
-        } catch (error: any) {
-          // Handle error silently
-          console.error('Error fetching enrichment:', error);
-        } finally {
-          setLoadingEnrichments(prev => ({ ...prev, [lead.id]: false }));
-        }
-      })();
+        setLoadingEnrichments(prev => ({ ...prev, [lead.id]: true }));
+        (async () => {
+          try {
+            const { data } = await supabase
+              .from('aianalysis')
+              .select('ai_output')
+              .eq('entity_type', 'Lead')
+              .eq('entity_id', lead.id)
+              .eq('analysis_type', 'enrichment')
+              .eq('status', 'success')
+              .order('last_refreshed_at', { ascending: false })
+              .limit(1)
+              .single();
+            // Ensure ai_output is passed as enrichmentData, including emailTemplate
+            setLeadEnrichments(prev => ({ ...prev, [lead.id]: data?.ai_output || null }));
+          } catch (error: any) {
+            // Handle error silently
+            console.error('Error fetching enrichment:', error);
+          } finally {
+            setLoadingEnrichments(prev => ({ ...prev, [lead.id]: false }));
+          }
+        })();
       }
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
