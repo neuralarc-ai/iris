@@ -32,10 +32,12 @@ import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader,
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
 import { supabase } from '@/lib/supabaseClient';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
+import Avvvatars from 'avvvatars-react';
 
 // Extend User type to ensure 'role' property exists
 interface User extends BaseUser {
   role: string;
+  created_at: string;
 }
 
 const CreateUserForm = ({ onUserCreated, closeDialog }: { onUserCreated: () => void, closeDialog: () => void }) => {
@@ -200,10 +202,16 @@ export default function UserManagementPage() {
   const [isLoading, setIsLoading] = useState(false);
   const PIN_LENGTH = 4;
   const [checkingRole, setCheckingRole] = useState(true);
+  const [search, setSearch] = useState('');
+
+  const filteredUsers = users.filter(user =>
+    user.name.toLowerCase().includes(search.toLowerCase()) ||
+    user.email.toLowerCase().includes(search.toLowerCase())
+  );
 
   const fetchUsers = async () => {
     setIsLoading(true);
-    const { data, error } = await supabase.from('users').select('*').order('created_at', { ascending: false });
+    const { data, error } = await supabase.from('users').select('*, created_at').order('created_at', { ascending: false });
     setIsLoading(false);
     if (error) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
@@ -277,46 +285,55 @@ export default function UserManagementPage() {
   return (
     <div className="max-w-[1440px] mx-auto">
       <PageTitle title="User Management" subtitle="Create and manage user accounts and PINs.">
-        <Dialog open={isCreateUserDialogOpen} onOpenChange={handleCreateUserDialogChange}>
-          <DialogTrigger asChild>
-            <Button variant="add" className="w-fit">
-              <PlusCircle className="mr-2 h-4 w-4" /> Add New User
-            </Button>
-          </DialogTrigger>
-          <CreateUserForm
-            onUserCreated={handleUserCreated}
-            closeDialog={() => setIsCreateUserDialogOpen(false)}
+        <div className="flex flex-row gap-4 items-center w-full">
+          <Input
+            type="text"
+            placeholder="Search Name, Email..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="w-64 py-[23px] rounded-sm"
           />
-        </Dialog>
+          <Dialog open={isCreateUserDialogOpen} onOpenChange={handleCreateUserDialogChange}>
+            <DialogTrigger asChild>
+              <Button variant="add" className="w-fit">
+                <PlusCircle className="mr-2 h-4 w-4" /> Add New User
+              </Button>
+            </DialogTrigger>
+            <CreateUserForm
+              onUserCreated={handleUserCreated}
+              closeDialog={() => setIsCreateUserDialogOpen(false)}
+            />
+          </Dialog>
+        </div>
       </PageTitle>
 
-      <Card className="shadow-lg">
-        <CardContent className="p-0">
+      <Card className='shadow-none border-none rounded-t-md'>
+        <CardContent className="p-0 shadow-none rounded-t-md overflow-hidden">
           {isLoading ? (
             <div className="p-6 text-center"><Loader2 className="mx-auto h-6 w-6 animate-spin" /></div>
-          ) : users.length > 0 ? (
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-[#CBCAC5] hover:bg-[#CBCAC5]">
+          ) : filteredUsers.length > 0 ? (
+            <Table className='rounded-t-md'>
+              <TableHeader className='rounded-t-md'>
+                <TableRow style={{ background: '#C5DAE5' }} className='rounded-t-md'>
                   <TableHead className="text-[#282828] w-8 text-center">#</TableHead>
-                  <TableHead className="text-[#282828]">Name</TableHead>
+                  <TableHead className="text-[#282828] w-8 text-center">Avatar</TableHead>
+                  <TableHead className="text-[#282828]">User Name</TableHead>
                   <TableHead className="text-[#282828]">Email</TableHead>
-                  <TableHead className="text-[#282828] text-center">Role</TableHead>
                   <TableHead className="text-[#282828] text-center">PIN</TableHead>
+                  <TableHead className="text-[#282828] text-center">Role</TableHead>
+                  <TableHead className="text-[#282828] text-center">Created At</TableHead>
                   <TableHead className="text-[#282828] text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {users.map((user, idx) => (
+                {filteredUsers.map((user, idx) => (
                   <TableRow key={user.id} className="hover:bg-transparent bg-transparent">
                     <TableCell className="text-center text-muted-foreground font-mono">{idx + 1}</TableCell>
+                    <TableCell className="text-center">
+                      <Avvvatars value={user.email || user.name} size={36} style="shape" radius={4} />
+                    </TableCell>
                     <TableCell className="font-medium text-foreground">{user.name}</TableCell>
                     <TableCell>{user.email}</TableCell>
-                    <TableCell className="text-center">
-                      <span className={`inline-block rounded-full w-16 px-3 py-1 text-xs font-semibold ${user.role === 'admin' ? 'bg-[#b0aca7] text-[#23201d]' : 'bg-[#CFD4C9] text-[#282828]'}`}>
-                        {user.role === 'admin' ? 'Admin' : 'User'}
-                      </span>
-                    </TableCell>
                     <TableCell className="text-center font-mono tracking-widest flex items-center justify-center gap-2">
                       {visiblePinUserId === user.id ? user.pin : '••••'}
                       <button
@@ -331,6 +348,14 @@ export default function UserManagementPage() {
                           <Eye className="h-4 w-4 text-muted-foreground" />
                         )}
                       </button>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <span className={`inline-block rounded-full w-16 px-3 py-1 text-xs font-semibold ${user.role === 'admin' ? 'bg-[#b0aca7] text-[#23201d]' : 'bg-[#CFD4C9] text-[#282828]'}`}>
+                        {user.role === 'admin' ? 'Admin' : 'User'}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-center font-mono text-xs text-muted-foreground">
+                      {user.created_at ? new Date(user.created_at).toLocaleString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-'}
                     </TableCell>
                     <TableCell className="text-right align-middle">
                       <div className="flex items-center gap-2 justify-end">

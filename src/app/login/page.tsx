@@ -46,8 +46,8 @@ export default function LoginPage() {
                 <div className="mt-2">
                   <div className="text-left ml-4 text-xl font-ligt text-white">welcome to</div>
                   <div className="w-full flex justify-center">
-                    <span className="text-[92px] font-light text-white tracking-tight leading-none text-center">
-                      neural <span className="font-bold tracking-tight">iris</span>
+                    <span className="text-[92px] font-bold text-white tracking-tight leading-none text-center">
+                      86/c
                     </span>
                   </div>
                 </div>

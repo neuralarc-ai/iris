@@ -4,7 +4,7 @@ import { Toaster } from "@/components/ui/toaster";
 import Footer from '@/components/common/Footer';
 
 export const metadata: Metadata = {
-  title: 'IRIS AI - Key Account Management CRM',
+  title: '86/c AI - Key Account Management CRM',
   description: 'Minimalist AI-Powered Key Account Management CRM',
 };
 
