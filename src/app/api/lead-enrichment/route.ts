@@ -35,6 +35,40 @@ async function fetchWebsiteSummary(url: string) {
   return data.summary || '';
 }
 
+// Add Serper API integration
+async function fetchSerperSummary(query: string) {
+  const response = await fetch('https://google.serper.dev/news', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-API-KEY': process.env.SERPER_API_KEY || '',
+    },
+    body: JSON.stringify({ q: query }),
+  });
+  const data = await response.json();
+  // Combine top 3 news snippets
+  return data.news?.slice(0, 3).map((n: any) => n.snippet).join(' ') || '';
+}
+
+// Add Exa API integration
+async function fetchExaSummary(query: string) {
+  const response = await fetch('https://api.exa.ai/search', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': process.env.EXA_API_KEY || '',
+    },
+    body: JSON.stringify({
+      query,
+      num_results: 3,
+      highlights: { num_sentences: 2 }
+    }),
+  });
+  const data = await response.json();
+  // Combine top 3 highlights/snippets
+  return data.results?.map((r: any) => r.highlights?.join(' ') || r.text || '').join(' ') || '';
+}
+
 // Helper to enqueue a job
 async function enqueueLeadAnalysisJob(leadId: string) {
   await supabase.from('lead_analysis_job').insert([
@@ -160,16 +194,31 @@ export async function POST(req: NextRequest) {
     const tavilySummary = `Company News: ${companyNews}\nIndustry Trends: ${industryTrends}\nPain Points: ${painPoints}`;
     const websiteSummary = await fetchWebsiteSummary(lead.website || company?.website || '');
 
+    // Fetch Serper data
+    const serperNews = await fetchSerperSummary(`${lead.companyName} ${lead.industry} news 2024`);
+    const serperTrends = await fetchSerperSummary(`${lead.industry} technology trends 2024`);
+    const serperSummary = `Serper News: ${serperNews}\nSerper Trends: ${serperTrends}`;
+
+    // Fetch Exa data
+    const exaSummary = await fetchExaSummary(`${lead.companyName} ${lead.industry} company profile`);
+
+    // Fetch opportunities associated with this lead
+    const { data: opportunitiesRaw } = await supabase
+      .from('opportunity')
+      .select('*')
+      .eq('account_id', lead.id); // If you link opportunities to lead via account_id or another field, adjust as needed
+    const opportunities = opportunitiesRaw || [];
+
     // Generate AI analysis
     let aiResult;
     try {
-      aiResult = await leadEnrichmentFlow({ lead, user, company, tavilySummary, websiteSummary });
+      aiResult = await leadEnrichmentFlow({ lead, user, company, tavilySummary, websiteSummary, opportunities, serperSummary, exaSummary });
     } catch (error) {
       console.error('AI enrichment failed:', error);
       return NextResponse.json({ error: 'AI enrichment failed due to insufficient data or an AI error.' }, { status: 500 });
     }
     // Validate AI result
-    if (!aiResult || !aiResult.recommendations || !aiResult.pitchNotes || !aiResult.useCase) {
+    if (!aiResult || !aiResult.recommendations || !aiResult.pitchNotes || !aiResult.useCase || !aiResult.emailTemplate) {
       return NextResponse.json({ error: 'AI enrichment returned incomplete data.' }, { status: 500 });
     }
     // Add a small random factor to the lead score for realism
@@ -188,6 +237,7 @@ export async function POST(req: NextRequest) {
         recommended_services: aiResult.recommendations,
         use_case: aiResult.useCase,
         pitch_notes: aiResult.pitchNotes,
+        email_template: aiResult.emailTemplate,
         ai_output: aiResult,
         status: 'success',
         last_refreshed_at: new Date().toISOString(),
