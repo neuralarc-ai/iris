@@ -199,126 +199,97 @@ export default function AddLeadDialog({ open, onOpenChange, onLeadAdded }: AddLe
       if (!isOpen) resetForm();
       onOpenChange(isOpen);
     }}>
-      <DialogContent className="sm:max-w-lg bg-white">
+      <DialogContent className="sm:max-w-[525px] bg-white">
         <DialogHeader>
-          <DialogTitle>Add New Lead</DialogTitle>
+          <DialogTitle className="flex items-center">
+            {/* You can add an icon here for consistency, e.g., <UserPlus className="mr-2 h-5 w-5" /> */}
+            Add New Lead
+          </DialogTitle>
           <DialogDescription>
             Enter details to create a new lead.
           </DialogDescription>
         </DialogHeader>
-        
-        <div className="space-y-3 py-3 max-h-[70vh] overflow-y-auto pr-2">
-          {/* Business Card Upload Section - Commented Out
-          <div className="p-4 border rounded-md bg-muted/30 space-y-3">
-            <Label htmlFor="business-card-upload" className="flex items-center text-sm font-medium">
-              <UploadCloud className="mr-2 h-4 w-4 text-primary" /> Upload Business Card (Optional)
-            </Label>
-            <Input 
-              id="business-card-upload" 
-              type="file" 
-              accept="image/*" 
-              onChange={handleFileChange} 
-              className="text-xs"
-              ref={fileInputRef}
-              disabled={isLoading || isOcrLoading}
-            />
-            {businessCardPreview && (
-              <div className="mt-2 text-center">
-                <img src={businessCardPreview} alt="Business card preview" className="max-w-full max-h-32 mx-auto rounded-md border" />
-              </div>
-            )}
-            {businessCardImage && (
-              <Button 
-                type="button" 
-                variant="outline" 
-                size="sm" 
-                onClick={handleExtractFromCard} 
-                disabled={isOcrLoading || isLoading} 
-                className="w-full mt-2"
-              >
-                {isOcrLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ScanLine className="mr-2 h-4 w-4" />}
-                Extract Info from Card
-              </Button>
-            )}
-          </div>
-          */}
-
-          <form onSubmit={handleSubmit} className="space-y-3.5">
-            <div>
+        <form onSubmit={handleSubmit} className="space-y-4 py-4">
+          <div className="flex gap-4">
+            <div className="flex-1">
               <Label htmlFor="lead-person-name">Person's Name <span className="text-destructive">*</span></Label>
               <Input id="lead-person-name" value={personName} onChange={(e) => setPersonName(e.target.value)} placeholder="e.g., John Doe" disabled={isLoading} />
             </div>
-             <div>
+            <div className="flex-1">
               <Label htmlFor="lead-company-name">Company Name <span className="text-destructive">*</span></Label>
               <Input id="lead-company-name" value={companyName} onChange={(e) => setCompanyName(e.target.value)} placeholder="e.g., Acme Innovations" disabled={isLoading} />
             </div>
-            <div>
+          </div>
+          <div className="flex gap-4">
+            <div className="flex-1">
               <Label htmlFor="lead-email">Email <span className="text-destructive">*</span></Label>
               <Input id="lead-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="e.g., john.doe@acme.com" disabled={isLoading} />
             </div>
-            <div>
+            <div className="flex-1">
               <Label htmlFor="lead-phone">Phone</Label>
               <Input id="lead-phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="e.g., (555) 123-4567" disabled={isLoading} />
             </div>
-            <div>
+          </div>
+          <div className="flex gap-4">
+            <div className="flex-1">
               <Label htmlFor="lead-linkedin">LinkedIn Profile URL</Label>
               <Input id="lead-linkedin" type="url" value={linkedinProfileUrl} onChange={(e) => setLinkedinProfileUrl(e.target.value)} placeholder="e.g., https://linkedin.com/in/johndoe" disabled={isLoading} />
             </div>
-            <div>
-              <Label htmlFor="lead-country">Country</Label>
-              <Select value={country} onValueChange={setCountry} disabled={isLoading}>
-                <SelectTrigger id="lead-country">
-                  <SelectValue placeholder="Select country" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    <SelectLabel>Countries</SelectLabel>
-                    {countries.map((c) => (
-                      <SelectItem key={c.code} value={c.name}>{c.name}</SelectItem>
-                    ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
+            <div className="flex-1">
               <Label htmlFor="lead-website">Website</Label>
               <Input id="lead-website" type="url" value={website} onChange={(e) => setWebsite(e.target.value)} placeholder="e.g., https://acme.com" disabled={isLoading} />
             </div>
-            <div>
+          </div>
+          <div className="flex gap-4">
+            <div className="flex-1">
               <Label htmlFor="lead-industry">Industry</Label>
               <Input id="lead-industry" value={industry} onChange={(e) => setIndustry(e.target.value)} placeholder="e.g., Technology" disabled={isLoading} />
             </div>
-            <div>
+            <div className="flex-1">
               <Label htmlFor="lead-job-title">Job Title</Label>
               <Input id="lead-job-title" value={jobTitle} onChange={(e) => setJobTitle(e.target.value)} placeholder="e.g., CEO" disabled={isLoading} />
             </div>
-
-            {role === 'admin' && (
-              <div>
-                <Label htmlFor="lead-owner">Assigned To</Label>
-                <Select value={ownerId} onValueChange={setOwnerId} disabled={isLoading}>
-                  <SelectTrigger id="lead-owner">
-                    <SelectValue placeholder="Select user" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {users.map(user => (
-                      <SelectItem key={user.id} value={user.id}>{user.name} ({user.email})</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-
-            <DialogFooter className="pt-3">
-              <Button type="button" variant="outline-dark" onClick={() => onOpenChange(false)} disabled={isLoading}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={isLoading} variant="add">
-                {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Create Lead"}
-              </Button>
-            </DialogFooter>
-          </form>
-        </div>
+          </div>
+          <div>
+            <Label htmlFor="lead-country">Country</Label>
+            <Select value={country} onValueChange={setCountry} disabled={isLoading}>
+              <SelectTrigger id="lead-country">
+                <SelectValue placeholder="Select country" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  <SelectLabel>Countries</SelectLabel>
+                  {countries.map((c) => (
+                    <SelectItem key={c.code} value={c.name}>{c.name}</SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+          </div>
+          {role === 'admin' && (
+            <div>
+              <Label htmlFor="lead-owner">Assigned To</Label>
+              <Select value={ownerId} onValueChange={setOwnerId} disabled={isLoading}>
+                <SelectTrigger id="lead-owner">
+                  <SelectValue placeholder="Select user" />
+                </SelectTrigger>
+                <SelectContent>
+                  {users.map(user => (
+                    <SelectItem key={user.id} value={user.id}>{user.name} ({user.email})</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+          <DialogFooter className="pt-2">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isLoading}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={isLoading} variant="add">
+              {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Create Lead"}
+            </Button>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   );

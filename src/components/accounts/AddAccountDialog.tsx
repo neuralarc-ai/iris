@@ -50,6 +50,8 @@ export default function AddAccountDialog({ open, onOpenChange, onAccountAdded, o
   const [ownerId, setOwnerId] = useState<string>('');
   const [role, setRole] = useState<string>('user');
 
+  const [website, setWebsite] = useState('');
+
   const industryOptions = [
     'Technology', 'Finance', 'Healthcare', 'Retail', 'Manufacturing', 'Education', 'Consulting', 'Real Estate', 'Other'
   ];
@@ -116,6 +118,7 @@ export default function AddAccountDialog({ open, onOpenChange, onAccountAdded, o
     setContactPersonName('');
     setContactPhone('');
     setIndustry('');
+    setWebsite('');
     if (resetLeadSelection) {
       setSelectedLeadToConvert('');
     }
@@ -141,6 +144,7 @@ export default function AddAccountDialog({ open, onOpenChange, onAccountAdded, o
         contact_person_name: contactPersonName,
         contact_phone: contactPhone,
         industry,
+        website,
         owner_id: role === 'admin' ? ownerId : currentUser?.id,
       };
       const { data, error } = await supabase.from('account').insert([accountData]).select().single();
@@ -221,6 +225,10 @@ export default function AddAccountDialog({ open, onOpenChange, onAccountAdded, o
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+            <div>
+              <Label htmlFor="account-website">Website Link</Label>
+              <Input id="account-website" type="url" value={website} onChange={(e) => setWebsite(e.target.value)} placeholder="e.g., https://acme.com" className="shadow-sm border-0" />
             </div>
             <div>
               <Label htmlFor="account-person-name">Contact Person Name</Label>
