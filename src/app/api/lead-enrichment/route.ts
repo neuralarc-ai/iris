@@ -9,7 +9,6 @@ const supabase = createClient(
 );
 
 async function fetchTavilySummary(query: string) {
-  console.log('[TAVILY] Fetching summary for query:', query);
   const response = await fetch('https://api.tavily.com/search', {
     method: 'POST',
     headers: {
@@ -19,13 +18,11 @@ async function fetchTavilySummary(query: string) {
     body: JSON.stringify({ query, max_results: 3 }),
   });
   const data = await response.json();
-  console.log('[TAVILY] API response:', JSON.stringify(data));
   return data.results?.map((r: any) => r.snippet).join(' ') || '';
 }
 
 async function fetchWebsiteSummary(url: string) {
   if (!url) return '';
-  console.log('[TAVILY] Fetching website summary for URL:', url);
   const response = await fetch('https://api.tavily.com/scrape', {
     method: 'POST',
     headers: {
@@ -35,13 +32,11 @@ async function fetchWebsiteSummary(url: string) {
     body: JSON.stringify({ url }),
   });
   const data = await response.json();
-  console.log('[TAVILY] Website scrape response:', JSON.stringify(data));
   return data.summary || '';
 }
 
 // Add Serper API integration
 async function fetchSerperSummary(query: string) {
-  console.log('[SERPER] Fetching summary for query:', query);
   const response = await fetch('https://google.serper.dev/news', {
     method: 'POST',
     headers: {
@@ -51,14 +46,12 @@ async function fetchSerperSummary(query: string) {
     body: JSON.stringify({ q: query }),
   });
   const data = await response.json();
-  console.log('[SERPER] API response:', JSON.stringify(data));
   // Combine top 3 news snippets
   return data.news?.slice(0, 3).map((n: any) => n.snippet).join(' ') || '';
 }
 
 // Add Exa API integration
 async function fetchExaSummary(query: string) {
-  console.log('[EXA] Fetching summary for query:', query);
   const response = await fetch('https://api.exa.ai/search', {
     method: 'POST',
     headers: {
@@ -72,7 +65,6 @@ async function fetchExaSummary(query: string) {
     }),
   });
   const data = await response.json();
-  console.log('[EXA] API response:', JSON.stringify(data));
   // Combine top 3 highlights/snippets
   return data.results?.map((r: any) => r.highlights?.join(' ') || r.text || '').join(' ') || '';
 }
@@ -222,16 +214,6 @@ export async function POST(req: NextRequest) {
     const opportunities = opportunitiesRaw || [];
 
     // Generate AI analysis
-    console.log('[AI FLOW] Calling leadEnrichmentFlow with:', {
-      lead,
-      user,
-      company,
-      tavilySummary,
-      websiteSummary,
-      opportunities,
-      serperSummary,
-      exaSummary,
-    });
     let aiResult;
     try {
       aiResult = await leadEnrichmentFlow({ lead, user, company, tavilySummary, websiteSummary, opportunities, serperSummary, exaSummary });
