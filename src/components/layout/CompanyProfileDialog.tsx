@@ -30,6 +30,7 @@ export default function CompanyProfileDialog({ open, onOpenChange, isEditable = 
     description: '',
     targetMarket: ''
   });
+  const [isGeneratingDescription, setIsGeneratingDescription] = useState(false);
 
   // File input ref for import step
   const fileInputRef = React.useRef<HTMLInputElement>(null);
@@ -141,6 +142,25 @@ export default function CompanyProfileDialog({ open, onOpenChange, isEditable = 
     if (file) handleFile(file);
   };
 
+  const generateDescription = async () => {
+    setIsGeneratingDescription(true);
+    try {
+      const response = await fetch('/api/company-description', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ name: companyName, website })
+      });
+      const data = await response.json();
+      setCompanyDescription(data.description);
+    } catch (e) {
+      toast({ title: 'Error', description: 'Failed to generate company description.', variant: 'destructive' });
+    } finally {
+      setIsGeneratingDescription(false);
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl w-full rounded-xl bg-white max-h-[900px] flex flex-col p-0 overflow-hidden">
@@ -202,7 +222,21 @@ export default function CompanyProfileDialog({ open, onOpenChange, isEditable = 
                   </div>
                   <div className="sm:col-span-2">
                     <label className="block text-sm font-medium mb-1">Company Description *</label>
-                    <Textarea value={companyDescription} onChange={e => setCompanyDescription(e.target.value)} placeholder="Describe your company's products, services, and value proposition..." required className="resize-none min-h-[100px]" readOnly={!isEditable} />
+                    <div className="flex items-center gap-2">
+                      <Textarea value={companyDescription} onChange={e => setCompanyDescription(e.target.value)} placeholder="Describe your company's products, services, and value proposition..." required className="resize-none min-h-[100px]" readOnly={!isEditable} />
+                      <Button type="button" variant="outline" className="rounded-lg px-4 py-2 font-medium text-base border-[#E0E0E0] text-[#282828] max-h-12 max-w-fit" onClick={generateDescription} disabled={!isEditable || isGeneratingDescription}>
+                        {isGeneratingDescription ? (
+                          <div className="animate-spin">
+                            <svg className="w-4 h-4" viewBox="0 0 24 24">
+                              <path d="M12 22C6.477 22 2 17.523 2 12S6.477 2 12 2s10 4.477 10 10-4.477 10-10 10zm0-2a8 8 0 100-16 8 8 0 000 16z" />
+                              <path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm0 18a8 8 0 100-16 8 8 0 000 16z" />
+                            </svg>
+                          </div>
+                        ) : (
+                          'Auto-Generate'
+                        )}
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </div>

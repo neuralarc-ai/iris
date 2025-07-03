@@ -564,7 +564,7 @@ Best regards,\n${currentUser?.name || '[Your Name]'}\n${userCompany.name}\n${cur
       if (enrichmentData && enrichmentData.emailTemplate) {
         setEmailTabContent(enrichmentData.emailTemplate);
       } else if (emailTabContent === null) {
-        generateProfessionalEmail().then(setEmailTabContent);
+      generateProfessionalEmail().then(setEmailTabContent);
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
