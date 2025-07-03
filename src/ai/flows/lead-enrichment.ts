@@ -6,6 +6,7 @@ export const leadEnrichmentSchema = z.object({
   pitchNotes: z.string(),
   useCase: z.string(),
   leadScore: z.number().min(0).max(100),
+  emailTemplate: z.string(),
 });
 
 // Utility function for delays
@@ -73,7 +74,7 @@ async function callGeminiAPI(prompt: string) {
   return generatedContent;
 }
 
-export async function leadEnrichmentFlow({ lead, user, company, tavilySummary, websiteSummary, companyScrapeData }: { lead: any, user: any, company: any, tavilySummary?: string, websiteSummary?: string, companyScrapeData?: string }) {
+export async function leadEnrichmentFlow({ lead, user, company, tavilySummary, websiteSummary, companyScrapeData, opportunities, serperSummary, exaSummary }: { lead: any, user: any, company: any, tavilySummary?: string, websiteSummary?: string, companyScrapeData?: string, opportunities?: any[], serperSummary?: string, exaSummary?: string }) {
   const prompt = `
 You are an expert B2B sales analyst with deep expertise in lead qualification and company-service alignment. Your user is ${user.name} from ${company?.name || 'N/A'}.
 
@@ -85,6 +86,9 @@ You are an expert B2B sales analyst with deep expertise in lead qualification an
 - Use only standard punctuation: periods, commas, colons, semicolons, and parentheses.
 - When emphasis is needed, use bold formatting or restructure the sentence.
 - For interruptions in thought, start a new sentence instead.
+
+**DATA GATHERING INSTRUCTION:**
+- Use the company name and website URL (if available) to gather and analyze information from the company website as part of your research and analysis. If a website URL is provided, prioritize using it for direct information. If only the company name is available, attempt to infer or locate the website for context.
 
 ## USER'S COMPANY ANALYSIS:
 **Company Profile:**
@@ -111,12 +115,26 @@ ${companyScrapeData ? `Website Content Summary: ${companyScrapeData}\n` : ''}
 - Website: ${lead.website || 'N/A'}
 - Country: ${lead.country || 'N/A'}
 
+## ASSOCIATED OPPORTUNITIES:
+${(opportunities && opportunities.length > 0)
+  ? opportunities.map((opp, i) => `Opportunity ${i+1}:
+  - Name: ${opp.name}
+  - Status: ${opp.status}
+  - Value: ${opp.value}
+  - Start Date: ${opp.start_date}
+  - End Date: ${opp.end_date}
+  - Description: ${opp.description || 'N/A'}
+`).join('\n')
+  : 'No associated opportunities found.'}
+
 ## EXTERNAL INTELLIGENCE:
-${tavilySummary ? `**Market Intelligence & News:**\n${tavilySummary}\n` : ''}
+${tavilySummary ? `**Market Intelligence & News (Tavily):**\n${tavilySummary}\n` : ''}
+${serperSummary ? `**Market Intelligence & News (Serper):**\n${serperSummary}\n` : ''}
+${exaSummary ? `**Market Intelligence & News (Exa):**\n${exaSummary}\n` : ''}
 ${websiteSummary ? `**Lead's Company Website Analysis:**\n${websiteSummary}\n` : ''}
 
 ## SCORING METHODOLOGY:
-Analyze the lead using a weighted 100-point scoring system:
+Analyze the lead using a weighted 100-point scoring system. Use all available opportunity data to inform your score and recommendations:
 
 **1. Company-Service Alignment (30 points)**
 - Industry Match: How well does the lead's industry align with your services?
@@ -151,16 +169,18 @@ Based on this comprehensive analysis, provide:
 2. **Recommended Services**: Suggest 3-4 specific services or products that would be a good fit for this lead.
 3. **Pitch Notes**: Provide concise, actionable talking points for a sales pitch (no more than 2-3 sentences, max 60 words).
 4. **Use Case**: Describe a compelling use case for this lead (no more than 2-3 sentences, max 60 words).
+5. **Email Template**: Write a personalized, ready-to-send cold outreach email to the lead's main contact, referencing their company, your company, and the recommended services. Use a professional, friendly tone. Use all available data. Do not use placeholders like [Your Name] or [Company Name]; fill with real data or leave blank if not available.
 
 Return a valid JSON object with this exact schema:
 {
   "leadScore": number,
   "recommendations": string[],
   "pitchNotes": string,
-  "useCase": string
+  "useCase": string,
+  "emailTemplate": string
 }
 
-IMPORTANT: Provide only valid JSON without markdown formatting. Base all analysis on actual data provided, not assumptions.
+IMPORTANT: Provide only valid JSON without markdown formatting. Base all analysis on actual data provided, not assumptions. The email template must always be filled with real data, not placeholders.
 `;
 
   try {

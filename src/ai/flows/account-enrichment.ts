@@ -57,7 +57,7 @@ async function callGeminiAPI(prompt: string) {
   return generatedContent;
 }
 
-export async function accountEnrichmentFlow({ account, user, company, tavilySummary, websiteSummary, companyScrapeData }: { account: any, user: any, company: any, tavilySummary?: string, websiteSummary?: string, companyScrapeData?: string }) {
+export async function accountEnrichmentFlow({ account, user, company, tavilySummary, websiteSummary, companyScrapeData, opportunities, serperSummary, exaSummary }: { account: any, user: any, company: any, tavilySummary?: string, websiteSummary?: string, companyScrapeData?: string, opportunities?: any[], serperSummary?: string, exaSummary?: string }) {
   const prompt = `
 You are an expert B2B sales analyst with deep expertise in account qualification and company-service alignment. Your user is ${user.name} from ${company?.name || 'N/A'}.
 
@@ -69,6 +69,9 @@ You are an expert B2B sales analyst with deep expertise in account qualification
 - Use only standard punctuation: periods, commas, colons, semicolons, and parentheses.
 - When emphasis is needed, use bold formatting or restructure the sentence.
 - For interruptions in thought, start a new sentence instead.
+
+**DATA GATHERING INSTRUCTION:**
+- Use the company name and website URL (if available) to gather and analyze information from the company website as part of your research and analysis. If a website URL is provided, prioritize using it for direct information. If only the company name is available, attempt to infer or locate the website for context.
 
 ## USER'S COMPANY ANALYSIS:
 **Company Profile:**
@@ -95,12 +98,26 @@ ${companyScrapeData ? `Website Content Summary: ${companyScrapeData}\n` : ''}
 - Description: ${account.description || 'N/A'}
 - Country: ${account.country || 'N/A'}
 
+## ASSOCIATED OPPORTUNITIES:
+${(opportunities && opportunities.length > 0)
+  ? opportunities.map((opp, i) => `Opportunity ${i+1}:
+  - Name: ${opp.name}
+  - Status: ${opp.status}
+  - Value: ${opp.value}
+  - Start Date: ${opp.start_date}
+  - End Date: ${opp.end_date}
+  - Description: ${opp.description || 'N/A'}
+`).join('\n')
+  : 'No associated opportunities found.'}
+
 ## EXTERNAL INTELLIGENCE:
-${tavilySummary ? `**Market Intelligence & News:**\n${tavilySummary}\n` : ''}
+${tavilySummary ? `**Market Intelligence & News (Tavily):**\n${tavilySummary}\n` : ''}
+${serperSummary ? `**Market Intelligence & News (Serper):**\n${serperSummary}\n` : ''}
+${exaSummary ? `**Market Intelligence & News (Exa):**\n${exaSummary}\n` : ''}
 ${websiteSummary ? `**Account Website Analysis:**\n${websiteSummary}\n` : ''}
 
 ## SCORING METHODOLOGY:
-Analyze the account using a weighted 100-point scoring system:
+Analyze the account using a weighted 100-point scoring system. Use all available opportunity data to inform your score and recommendations:
 
 **1. Company-Service Alignment (30 points)**
 - Industry Match: How well does the account's industry align with your services?

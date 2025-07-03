@@ -44,7 +44,7 @@ interface LeadCardProps {
   onStatusChange?: (newStatus: LeadStatus) => void;
   users?: Array<{ id: string; name: string; email: string }>;
   role?: string;
-  enrichmentData?: { leadScore?: number; recommendations?: string[]; pitchNotes?: string; useCase?: string };
+  enrichmentData?: { leadScore?: number; recommendations?: string[]; pitchNotes?: string; useCase?: string; emailTemplate?: string };
   isEnrichmentLoading?: boolean;
 }
 
@@ -560,7 +560,11 @@ Best regards,\n${currentUser?.name || '[Your Name]'}\n${userCompany.name}\n${cur
   // Generate email only on first visit or on explicit regeneration
   React.useEffect(() => {
     if (activeTab === 'email' && emailTabContent === null && !isGeneratingEmail) {
-      generateProfessionalEmail().then(setEmailTabContent);
+      if (enrichmentData && enrichmentData.emailTemplate) {
+        setEmailTabContent(enrichmentData.emailTemplate);
+      } else {
+        generateProfessionalEmail().then(setEmailTabContent);
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);

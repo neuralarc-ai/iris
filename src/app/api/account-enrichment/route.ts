@@ -35,6 +35,38 @@ async function fetchWebsiteSummary(url: string) {
   return data.summary || '';
 }
 
+async function fetchSerperSummary(query: string) {
+  const response = await fetch('https://google.serper.dev/news', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-API-KEY': process.env.SERPER_API_KEY || '',
+    },
+    body: JSON.stringify({ q: query }),
+  });
+  const data = await response.json();
+  // Combine top 3 news snippets
+  return data.news?.slice(0, 3).map((n: any) => n.snippet).join(' ') || '';
+}
+
+async function fetchExaSummary(query: string) {
+  const response = await fetch('https://api.exa.ai/search', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': process.env.EXA_API_KEY || '',
+    },
+    body: JSON.stringify({
+      query,
+      num_results: 3,
+      highlights: { num_sentences: 2 }
+    }),
+  });
+  const data = await response.json();
+  // Combine top 3 highlights/snippets
+  return data.results?.map((r: any) => r.highlights?.join(' ') || r.text || '').join(' ') || '';
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.text();
@@ -133,10 +165,25 @@ export async function POST(req: NextRequest) {
     const tavilySummary = `Company News: ${companyNews}\nIndustry Trends: ${industryTrends}\nPain Points: ${painPoints}`;
     const websiteSummary = await fetchWebsiteSummary(account.website || company?.website || '');
 
+    // Fetch Serper data
+    const serperNews = await fetchSerperSummary(`${account.name} ${account.industry} news 2024`);
+    const serperTrends = await fetchSerperSummary(`${account.industry} technology trends 2024`);
+    const serperSummary = `Serper News: ${serperNews}\nSerper Trends: ${serperTrends}`;
+
+    // Fetch Exa data
+    const exaSummary = await fetchExaSummary(`${account.name} ${account.industry} company profile`);
+
+    // Fetch opportunities associated with this account
+    const { data: opportunitiesRaw } = await supabase
+      .from('opportunity')
+      .select('*')
+      .eq('account_id', account.id);
+    const opportunities = opportunitiesRaw || [];
+
     // Generate AI analysis
     let aiResult;
     try {
-      aiResult = await accountEnrichmentFlow({ account, user, company, tavilySummary, websiteSummary });
+      aiResult = await accountEnrichmentFlow({ account, user, company, tavilySummary, websiteSummary, opportunities, serperSummary, exaSummary });
     } catch (error) {
       console.error('AI enrichment failed:', error);
       return NextResponse.json({ error: 'AI enrichment failed due to insufficient data or an AI error.' }, { status: 500 });
