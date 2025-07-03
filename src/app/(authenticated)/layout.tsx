@@ -3,8 +3,8 @@ import React, { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
 import HorizontalNav from '@/components/layout/HorizontalNav';
-import { Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';
+import SleekLoader from '@/components/common/SleekLoader';
 
 export default function AuthenticatedLayout({
   children,
@@ -30,7 +30,7 @@ export default function AuthenticatedLayout({
   if (isCheckingAuth || isLoading || !isAuthenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        <SleekLoader />
       </div>
     );
   }

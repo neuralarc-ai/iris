@@ -23,7 +23,7 @@ const buttonVariants = cva(
         delete: "bg-[#916D5B] text-white rounded-[4px] border-0 hover:bg-[#a98a77]",
       },
       size: {
-        default: "w-[152px] h-[56px] min-w-[128px] py-4 px-[27px]",
+        default: "h-[48px] min-w-[128px] py-4 px-4",
         sm: "h-9 rounded-md px-3",
         lg: "h-11 rounded-md px-8",
         icon: "h-10 w-10",
