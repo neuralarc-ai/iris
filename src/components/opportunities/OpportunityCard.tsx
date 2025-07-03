@@ -314,7 +314,7 @@ export default function OpportunityCard({
       setIsLoadingLogs(true);
       try {
         console.log("Fetching activity logs for opportunity:", opportunity.id);
-
+        
         // Check if opportunity.id exists and is valid
         if (!opportunity.id) {
           console.error("No opportunity ID provided");
@@ -328,7 +328,7 @@ export default function OpportunityCard({
             .from("opportunity")
             .select("id")
             .eq("id", opportunity.id)
-            .single();
+          .single();
 
         if (opportunityError) {
           console.error("Opportunity not found:", opportunityError);
@@ -337,20 +337,20 @@ export default function OpportunityCard({
         }
 
         console.log("Opportunity found, fetching logs...");
-
+        
         // Debug: Let's first check what columns exist in the update table
         console.log("Checking update table structure...");
         const { data: tableInfo, error: tableError } = await supabase
           .from("update")
           .select("*")
           .limit(1);
-
+        
         if (tableError) {
           console.error("Error checking table structure:", tableError);
         } else {
           console.log("Update table structure sample:", tableInfo?.[0]);
         }
-
+        
         // Now fetch the logs with better error handling
         console.log("Executing main query for opportunity_id:", opportunity.id);
         const { data: logsData, error } = await supabase
@@ -360,7 +360,7 @@ export default function OpportunityCard({
           .order("date", { ascending: false });
 
         console.log("Query result:", { data: logsData, error });
-
+        
         if (error) {
           console.error("Supabase error fetching logs:", error);
           console.error("Error details:", {
@@ -369,14 +369,14 @@ export default function OpportunityCard({
             hint: error.hint,
             code: error.code,
           });
-
+          
           // Try a fallback query to see if the issue is with the opportunity_id column
           console.log("Trying fallback query...");
           const { data: fallbackData, error: fallbackError } = await supabase
             .from("update")
             .select("*")
             .limit(5);
-
+          
           if (fallbackError) {
             console.error("Fallback query also failed:", fallbackError);
           } else {
@@ -385,9 +385,9 @@ export default function OpportunityCard({
               fallbackData
             );
           }
-
-          toast({
-            title: "Error",
+          
+          toast({ 
+            title: "Error", 
             description: `Failed to load activity logs: ${
               error.message || "Unknown error"
             }`,
@@ -396,13 +396,13 @@ export default function OpportunityCard({
           setActivityLogs([]);
           return;
         }
-
+        
         console.log(
           "Activity logs fetched successfully:",
           logsData?.length || 0,
           "logs"
         );
-
+        
         if (logsData && logsData.length > 0) {
           const transformedLogs = logsData.map((log: any) => ({
             id: log.id,
@@ -428,9 +428,9 @@ export default function OpportunityCard({
         console.error("Failed to fetch logs:", error);
         console.error("Error type:", typeof error);
         console.error("Error details:", error);
-        toast({
-          title: "Error",
-          description: "Failed to load activity logs. Please try again.",
+        toast({ 
+          title: "Error", 
+          description: "Failed to load activity logs. Please try again.", 
           variant: "destructive",
         });
         setActivityLogs([]);
@@ -448,18 +448,18 @@ export default function OpportunityCard({
   const refreshActivityLogs = async () => {
     try {
       console.log("Refreshing activity logs for opportunity:", opportunity.id);
-
+      
       const { data: logsData, error } = await supabase
         .from("update")
         .select("*")
         .eq("opportunity_id", opportunity.id)
         .order("date", { ascending: false });
-
+      
       if (error) {
         console.error("Supabase error refreshing logs:", error);
         return;
       }
-
+      
       if (logsData) {
         const transformedLogs = logsData.map((log: any) => ({
           id: log.id,
@@ -518,7 +518,7 @@ export default function OpportunityCard({
     opportunity.status as OpportunityStatus
   );
   // const isAtRisk = forecast?.bottleneckIdentification && forecast.bottleneckIdentification.toLowerCase() !== "none identified" && forecast.bottleneckIdentification.toLowerCase() !== "none" && forecast.bottleneckIdentification !== "Error fetching forecast." && forecast.bottleneckIdentification.length > 0;
-
+  
   const opportunityHealthIcon = (
     <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
   );
@@ -560,7 +560,7 @@ export default function OpportunityCard({
       });
       return;
     }
-
+    
     // Prevent duplicate submissions
     if (isLoggingActivity) {
       console.log(
@@ -568,15 +568,15 @@ export default function OpportunityCard({
       );
       return;
     }
-
+    
     // Check for recent duplicate entries (within last 5 seconds)
     const recentDuplicate = activityLogs.find(
       (log) =>
-        log.content === newActivityDescription.trim() &&
+      log.content === newActivityDescription.trim() && 
         log.type === "General" &&
-        new Date().getTime() - new Date(log.createdAt).getTime() < 5000
+      new Date().getTime() - new Date(log.createdAt).getTime() < 5000
     );
-
+    
     if (recentDuplicate) {
       console.log("Duplicate activity detected, ignoring");
       toast({
@@ -586,10 +586,10 @@ export default function OpportunityCard({
       });
       return;
     }
-
+    
     setIsLoggingActivity(true);
     console.log("Starting to log activity:", newActivityDescription);
-
+    
     try {
       const currentUserId = localStorage.getItem("user_id");
       if (!currentUserId) throw new Error("User not authenticated");
@@ -598,14 +598,14 @@ export default function OpportunityCard({
       const { data, error } = await supabase
         .from("update")
         .insert([
-          {
+        {
             type: newActivityType,
-            content: newActivityDescription,
-            updated_by_user_id: currentUserId,
-            date: new Date().toISOString(),
-            lead_id: null,
-            opportunity_id: opportunity.id,
-            account_id: opportunity.accountId,
+          content: newActivityDescription,
+          updated_by_user_id: currentUserId,
+          date: new Date().toISOString(),
+          lead_id: null,
+          opportunity_id: opportunity.id,
+          account_id: opportunity.accountId,
             next_action_date: nextActionDate?.toISOString() || null,
           },
         ])
@@ -635,10 +635,10 @@ export default function OpportunityCard({
       setNewActivityDescription("");
       setNewActivityType("General");
       setNextActionDate(undefined);
-
+      
       // Also refresh from backend to ensure consistency
       await refreshActivityLogs();
-
+      
       toast({ title: "Success", description: "Activity logged successfully." });
     } catch (error) {
       console.error("Failed to log activity:", error);
@@ -866,18 +866,18 @@ export default function OpportunityCard({
           <div className="flex items-start justify-between">
             <div>
               <div className="text-xl font-bold text-[#282828] leading-tight truncate">
-                {opportunity.name}
-              </div>
+              {opportunity.name}
+          </div>
               <div className="text-base text-[#5E6156] font-medium mt-0.5 truncate">
                 {accountName || "No Account"}
-              </div>
             </div>
-          </div>
+            </div>
+              </div>
           <div className="mt-2 flex flex-col gap-1">
             {/* Status pill above value */}
             <div className="text-sm font-medium text-[#5E6156]">
               Opportunity Score
-            </div>
+          </div>
             <div className="flex items-center gap-2 mt-1">
               <div className="w-full bg-[#E5E3DF] rounded-full h-2 overflow-hidden">
                 <div
@@ -897,7 +897,7 @@ export default function OpportunityCard({
                       "linear-gradient(to right, #3987BE, #D48EA3)",
                   }}
                 />
-              </div>
+          </div>
               <div className="text-sm font-semibold text-[#282828] ml-2 flex flex-row items-center flex-shrink-0">
                 {aiScore !== null
                   ? `${aiScore}%`
@@ -907,7 +907,7 @@ export default function OpportunityCard({
                         : 0,
                       100
                     )}%`}
-              </div>
+            </div>
             </div>
             <div className="mt-4 space-y-1.5 text-[15px]">
               <div className="mb-2">
@@ -918,7 +918,7 @@ export default function OpportunityCard({
                 >
                   {status}
                 </span>
-              </div>
+          </div>
               <div className="text-[#5E6156] truncate">
                 <span className="font-medium">Value:</span>{" "}
                 <span className="text-[#282828]">
@@ -926,7 +926,7 @@ export default function OpportunityCard({
                     ? `$${opportunity.value.toLocaleString()}`
                     : "N/A"}
                 </span>
-              </div>
+            </div>
               <div className="text-[#5E6156] truncate">
                 <span className="font-medium">Start Date:</span>{" "}
                 <span className="text-[#282828]">
@@ -934,10 +934,10 @@ export default function OpportunityCard({
                     ? format(new Date(opportunity.startDate), "MMM dd, yyyy")
                     : "N/A"}
                 </span>
-              </div>
-            </div>
           </div>
-        </div>
+                </div>
+                </div>
+            </div>
         <div
           className="mt-6 border-t border-[#E5E3DF] pt-3 flex justify-center"
           onClick={(e) => e.stopPropagation()}
@@ -949,7 +949,7 @@ export default function OpportunityCard({
                 className="w-full text-[#282828] font-semibold text-base py-2 rounded-md border-[#E5E3DF] bg-[#F8F7F3] hover:bg-[#EFEDE7] flex items-center justify-center gap-2 max-h-10"
               >
                 <MoreHorizontal className="h-5 w-5 text-[#282828]" /> Actions
-              </Button>
+          </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent className="bg-[#fff] text-[#282828] p-1 rounded-md border border-[#E5E3DF] shadow-xl sm:max-w-[308px] sm:h-fit">
               <DropdownMenuItem
@@ -980,8 +980,8 @@ export default function OpportunityCard({
                   <div className="flex flex-col gap-0.5">
                     <div className="flex items-center gap-2">
                       <DialogTitle className="text-3xl font-bold text-[#282828]">
-                        {opportunity.name}
-                      </DialogTitle>
+              {opportunity.name}
+            </DialogTitle>
                       {!editMode && (
                         <Button
                           variant="ghost"
@@ -1051,15 +1051,15 @@ export default function OpportunityCard({
                           />
                         </Button>
                       )}
-                    </div>
+                </div>
                     <p className="text-lg text-[#5E6156] leading-tight">
                       {accountName || "No Account"}
                     </p>
                     <p className="text-lg text-[#5E6156] leading-tight">
                       {opportunity.status}
                     </p>
-                  </div>
-                </div>
+              </div>
+              </div>
                 <div className="flex items-start gap-2 mr-6">
                   <Select
                     value={editMode ? editOpportunity.status : editStatus}
@@ -1158,14 +1158,14 @@ export default function OpportunityCard({
                                     {opportunity.value.toLocaleString()}
                                   </span>
                                 )}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
+              </div>
+            </div>
+              </div>
+            </div>
                         <div className="bg-[#F8F7F3] p-4 rounded-md">
                           <div className="flex items-center gap-3">
                             <CalendarDays className="h-5 w-5 text-[#4B7B9D] mt-1 flex-shrink-0" />
-                            <div>
+            <div>
                               <p className="text-sm text-[#5E6156]">
                                 Expected Close Date
                               </p>
@@ -1177,13 +1177,13 @@ export default function OpportunityCard({
                                     : "N/A";
                                 })()}
                               </p>
-                            </div>
-                          </div>
-                        </div>
+                </div>
+                </div>
+                </div>
                         <div className="bg-[#F8F7F3] p-4 rounded-md">
                           <div className="flex items-center gap-3">
                             <CalendarIcon className="h-5 w-5 text-[#5E6156] mt-1 flex-shrink-0" />
-                            <div>
+            <div>
                               <p className="text-sm text-[#5E6156]">
                                 Start Date
                               </p>
@@ -1210,7 +1210,7 @@ export default function OpportunityCard({
                     </h3>
                     <div className="bg-[#F8F7F3] p-4 rounded-md min-h-[200px]">
                       {editMode ? (
-                        <Textarea
+                <Textarea
                           value={editOpportunity.description}
                           onChange={(e) =>
                             setEditOpportunity({
@@ -1339,8 +1339,8 @@ export default function OpportunityCard({
                           >
                             Next Action Date (Optional)
                           </Label>
-                          <Popover>
-                            <PopoverTrigger asChild>
+                    <Popover>
+                      <PopoverTrigger asChild>
                               <Input
                                 id="next-action-date"
                                 type="text"
@@ -1354,20 +1354,20 @@ export default function OpportunityCard({
                                 disabled={isLoggingActivity}
                                 className="cursor-pointer bg-[#F8F7F3] border-[#CBCAC5] focus:ring-1 focus:ring-[#916D5B] focus:border-[#916D5B] rounded-md"
                               />
-                            </PopoverTrigger>
+                      </PopoverTrigger>
                             <PopoverContent
                               align="start"
                               className="p-0 w-auto border-[#CBCAC5] bg-white rounded-md shadow-lg"
                             >
-                              <Calendar
-                                mode="single"
-                                selected={nextActionDate}
+                        <Calendar
+                          mode="single"
+                          selected={nextActionDate}
                                 onSelect={setNextActionDate}
-                                initialFocus
-                              />
-                            </PopoverContent>
-                          </Popover>
-                        </div>
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
                       </div>
                       <div>
                         <Label
@@ -1387,7 +1387,7 @@ export default function OpportunityCard({
                         />
                       </div>
                       <div className="flex justify-end">
-                        <Button
+                  <Button 
                           variant="add"
                           className="w-full bg-[#2B2521] text-white hover:bg-[#3a322c] rounded-md"
                           onClick={handleLogActivity}
@@ -1401,21 +1401,21 @@ export default function OpportunityCard({
                             <Activity className="mr-2 h-4 w-4" />
                           )}
                           Add Activity
-                        </Button>
-                      </div>
+                  </Button>
+                </div>
                     </form>
-                  </div>
+              </div>
                   <div className="md:col-span-1 bg-white border border-[#E5E3DF] rounded-lg p-6">
                     <div className="text-sm font-semibold text-[#5E6156] uppercase tracking-wide mb-3">
                       Recent Activity
-                    </div>
+            </div>
                     {isLoadingLogs ? (
                       <div className="flex items-center justify-center h-32">
                         <LoadingSpinner size={24} />
                         <span className="ml-2 text-muted-foreground">
                           Loading activity...
                         </span>
-                      </div>
+          </div>
                     ) : activityLogs.length > 0 ? (
                       <>
                         <div className="relative">
@@ -1552,17 +1552,17 @@ export default function OpportunityCard({
                   value={assignedUserId || ""}
                   onValueChange={handleAssignUser}
                 >
-                  <SelectTrigger className="w-full mt-1">
-                    <SelectValue placeholder="Assign to user" />
-                  </SelectTrigger>
-                  <SelectContent>
+                <SelectTrigger className="w-full mt-1">
+                  <SelectValue placeholder="Assign to user" />
+                </SelectTrigger>
+                <SelectContent>
                     {allUsers.map((user) => (
                       <SelectItem key={user.id} value={user.id}>
                         {user.name} ({user.email})
                       </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  ))}
+                </SelectContent>
+              </Select>
               ) : (
                 <span className="ml-2">
                   {assignedUser ? (
