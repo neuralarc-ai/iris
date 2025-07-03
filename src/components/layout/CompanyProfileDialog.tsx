@@ -6,7 +6,7 @@ import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/supabaseClient';
 import { useToast } from '@/hooks/use-toast';
-import { Building2, Box, Upload, ArrowLeft, ArrowRight, Pencil, Check, X } from 'lucide-react';
+import { Building2, Box, Upload, ArrowLeft, ArrowRight, Pencil, Check, X, Sparkles, Loader2 } from 'lucide-react';
 
 const industryOptions = [
   'SaaS', 'Consulting', 'Finance', 'Healthcare', 'Education', 'Manufacturing', 'Retail', 'Technology', 'Other'
@@ -32,6 +32,7 @@ export default function CompanyProfileDialog({ open, onOpenChange, onImportLeads
   });
   const [isEditing, setIsEditing] = useState(false);
   const [userRole, setUserRole] = useState<string | null>(null);
+  const [isAnalyzingWebsite, setIsAnalyzingWebsite] = useState(false);
 
   // File input ref for import step
   const fileInputRef = React.useRef<HTMLInputElement>(null);
@@ -66,6 +67,20 @@ export default function CompanyProfileDialog({ open, onOpenChange, onImportLeads
     };
     fetchRole();
   }, []);
+
+  // Auto-analyze website when URL is entered and description is empty
+  useEffect(() => {
+    if (website.trim() && !companyDescription.trim() && isEditing && !isAnalyzingWebsite) {
+      // Small delay to avoid too many API calls
+      const timer = setTimeout(() => {
+        if (website.trim() && !companyDescription.trim()) {
+          analyzeWebsite();
+        }
+      }, 2000); // 2 second delay after user stops typing
+      
+      return () => clearTimeout(timer);
+    }
+  }, [website, isEditing, isAnalyzingWebsite]); // Removed companyDescription to avoid infinite loop
 
   const fetchCompany = async () => {
     const { data, error } = await supabase.from('company').select('*').single();
@@ -174,6 +189,48 @@ export default function CompanyProfileDialog({ open, onOpenChange, onImportLeads
   const handleCancelEdit = () => {
     fetchCompany(); // refetches and resets all fields
     setIsEditing(false);
+  };
+
+  // Function to analyze website and extract company description
+  const analyzeWebsite = async () => {
+    if (!website.trim() || !isEditing) return;
+    
+    setIsAnalyzingWebsite(true);
+    try {
+      const response = await fetch('/api/website-analysis', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ website: website.trim() }),
+      });
+
+      const data = await response.json();
+      
+      if (data.success && data.description) {
+        setCompanyDescription(data.description);
+        toast({ 
+          title: 'Success', 
+          description: 'Company description extracted from website!', 
+          className: 'bg-green-100 dark:bg-green-900 border-green-500' 
+        });
+      } else {
+        toast({ 
+          title: 'No description found', 
+          description: data.description || 'Unable to extract description from website.', 
+          variant: 'destructive' 
+        });
+      }
+    } catch (error) {
+      console.error('Website analysis error:', error);
+      toast({ 
+        title: 'Error', 
+        description: 'Failed to analyze website. Please enter description manually.', 
+        variant: 'destructive' 
+      });
+    } finally {
+      setIsAnalyzingWebsite(false);
+    }
   };
 
   return (
@@ -289,7 +346,22 @@ export default function CompanyProfileDialog({ open, onOpenChange, onImportLeads
                   </div>
                   <div>
                     <label className="block text-sm font-medium mb-1">Website URL *</label>
-                    <Input value={website} onChange={e => setWebsite(e.target.value)} placeholder="https://yourcompany.com" required readOnly={!isEditing} />
+                    <div className="relative">
+                      <Input 
+                        value={website} 
+                        onChange={e => setWebsite(e.target.value)} 
+                        placeholder="https://yourcompany.com" 
+                        required 
+                        readOnly={!isEditing}
+                        className={isAnalyzingWebsite ? 'pr-10' : ''}
+                      />
+                      {isAnalyzingWebsite && (
+                        <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex items-center gap-1 text-xs text-[#5E6156]">
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                          <span>Analyzing...</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                   <div className="sm:col-span-2">
                     <label className="block text-sm font-medium mb-1">Industry *</label>
@@ -305,8 +377,34 @@ export default function CompanyProfileDialog({ open, onOpenChange, onImportLeads
                     </Select>
                   </div>
                   <div className="sm:col-span-2">
-                    <label className="block text-sm font-medium mb-1">Company Description *</label>
-                    <Textarea value={companyDescription} onChange={e => setCompanyDescription(e.target.value)} placeholder="Describe your company's products, services, and value proposition..." required className="resize-none min-h-[100px]" readOnly={!isEditing} />
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-sm font-medium">Company Description *</label>
+                      {isEditing && website.trim() && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={analyzeWebsite}
+                          disabled={isAnalyzingWebsite}
+                          className="flex items-center gap-2 text-xs"
+                        >
+                          {isAnalyzingWebsite ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <Sparkles className="h-3 w-3" />
+                          )}
+                          {isAnalyzingWebsite ? 'Analyzing...' : 'Auto-fill from Website'}
+                        </Button>
+                      )}
+                    </div>
+                    <Textarea 
+                      value={companyDescription} 
+                      onChange={e => setCompanyDescription(e.target.value)} 
+                      placeholder="Describe your company's products, services, and value proposition..." 
+                      required 
+                      className="resize-none min-h-[100px]" 
+                      readOnly={!isEditing} 
+                    />
                   </div>
                 </div>
               </div>

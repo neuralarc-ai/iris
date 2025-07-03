@@ -1092,7 +1092,7 @@ export default function LeadsPage() {
                         {status}
                       </button>
                     ))}
-                  </div>
+              </div>
                 </DropdownMenuContent>
               </DropdownMenu>
               <div className="flex items-center border border-[#2B2521]/30 bg-white rounded-[4px] p-1 gap-1">
