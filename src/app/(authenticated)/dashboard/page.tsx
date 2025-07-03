@@ -686,7 +686,7 @@ export default function DashboardPage() {
                   </Button>
                 </div>
               </CardHeader>
-              <CardContent className="relative flex-grow flex flex-col gap-4 overflow-scroll max-h-[490px] h-full">
+              <CardContent className="relative flex-grow flex flex-col gap-4 overflow-scroll max-h-[290px] h-full">
                 {isLoadingEngagement ? (
                   <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
                     <Users className="h-8 w-8 mb-2 animate-pulse" />

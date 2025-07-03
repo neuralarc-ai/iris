@@ -82,22 +82,7 @@ const LeadEngagementCard: React.FC<LeadEngagementCardProps> = ({ leads = [], aia
                     <span className="font-medium">AI Suggests:</span> {ai.use_case || ai.pitch_notes}
                   </div>
                 ) : null}
-                {/* Suggested Email */}
-                {ai.email_template ? (
-                  <div className="bg-white border border-[#E5E3DF] rounded p-2 mt-1 flex items-center gap-2">
-                    <Mail className="h-4 w-4 text-[#916D5B]" />
-                    <span className="text-xs font-mono text-[#282828] flex-1">{ai.email_template}</span>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="h-7 w-7"
-                      onClick={() => navigator.clipboard.writeText(ai.email_template!)}
-                      title="Copy email template"
-                    >
-                      <Clipboard className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ) : null}
+                {/* Email template display removed as per request */}
               </div>
             );
           })}
