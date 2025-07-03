@@ -1139,6 +1139,7 @@ export default function LeadsPage() {
       {/* Tab Navigation - Show when there are rejected leads or archived leads */}
       {(rejectedLeads.length > 0 || archivedLeads.length > 0) && (
         <div className="flex items-center space-x-1 border-b border-gray-200 dark:border-gray-700 mb-6">
+          {/* Accepted tab always visible */}
           <button
             onClick={() => setActiveTab('leads')}
             className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-all duration-200 ${
@@ -1158,46 +1159,52 @@ export default function LeadsPage() {
               </span>
             </span>
           </button>
-          
-          <button
-            onClick={() => setActiveTab('rejected')}
-            className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-all duration-200 ${
-              activeTab === 'rejected'
-                ? 'bg-white dark:bg-gray-800 text-red-600 border-b-2 border-red-600'
-                : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800'
-            }`}
-          >
-            <span className="flex items-center gap-2">
-              Rejected
-              <span className={`px-2 py-0.5 text-xs rounded-full ${
+
+          {/* Only show Rejected tab if there are rejected leads */}
+          {rejectedLeads.length > 0 && (
+            <button
+              onClick={() => setActiveTab('rejected')}
+              className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-all duration-200 ${
                 activeTab === 'rejected'
-                  ? 'bg-red-600 text-white'
-                  : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
-              }`}>
-                {filteredRejectedLeads.length}
+                  ? 'bg-white dark:bg-gray-800 text-red-600 border-b-2 border-red-600'
+                  : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800'
+              }`}
+            >
+              <span className="flex items-center gap-2">
+                Rejected
+                <span className={`px-2 py-0.5 text-xs rounded-full ${
+                  activeTab === 'rejected'
+                    ? 'bg-red-600 text-white'
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
+                }`}>
+                  {filteredRejectedLeads.length}
+                </span>
               </span>
-            </span>
-          </button>
-          
-          <button
-            onClick={() => setActiveTab('archived')}
-            className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-all duration-200 ${
-              activeTab === 'archived'
-                ? 'bg-white dark:bg-gray-800 text-orange-600 border-b-2 border-orange-600'
-                : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800'
-            }`}
-          >
-            <span className="flex items-center gap-2">
-              Archived
-              <span className={`px-2 py-0.5 text-xs rounded-full ${
+            </button>
+          )}
+
+          {/* Only show Archived tab if there are archived leads */}
+          {archivedLeads.length > 0 && (
+            <button
+              onClick={() => setActiveTab('archived')}
+              className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-all duration-200 ${
                 activeTab === 'archived'
-                  ? 'bg-orange-600 text-white'
-                  : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
-              }`}>
-                {filteredArchivedLeads.length}
+                  ? 'bg-white dark:bg-gray-800 text-orange-600 border-b-2 border-orange-600'
+                  : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800'
+              }`}
+            >
+              <span className="flex items-center gap-2">
+                Archived
+                <span className={`px-2 py-0.5 text-xs rounded-full ${
+                  activeTab === 'archived'
+                    ? 'bg-orange-600 text-white'
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
+                }`}>
+                  {filteredArchivedLeads.length}
+                </span>
               </span>
-            </span>
-          </button>
+            </button>
+          )}
         </div>
       )}
 
