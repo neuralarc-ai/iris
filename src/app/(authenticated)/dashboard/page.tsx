@@ -42,23 +42,23 @@ const statusOrder = [
   "Loss"
 ];
 
-// Animation variants
+// Animation variants (refactored for sleeker, modern feel, no scale)
 const fadeUp = {
-  hidden: { opacity: 0, y: 20 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.35 } },
+  hidden: { opacity: 0, y: 24 },
+  visible: { opacity: 1, y: 0 },
 };
 const fadeUpStaggerParent = {
   hidden: {},
   visible: {
     transition: {
-      staggerChildren: 0.08,
-      delayChildren: 0.15,
+      staggerChildren: 0.10,
+      delayChildren: 0.18,
     },
   },
 };
 const fadeUpStaggerCard = {
-  hidden: { opacity: 0, y: 16 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.32 } },
+  hidden: { opacity: 0, y: 18 },
+  visible: { opacity: 1, y: 0 },
 };
 
 export default function DashboardPage() {
@@ -393,6 +393,7 @@ export default function DashboardPage() {
         variants={fadeUp}
         initial="hidden"
         animate="visible"
+        transition={{ type: 'spring', stiffness: 60, damping: 18, duration: 0.5, ease: 'easeOut' }}
       >
         <PageTitle title="Intelligent Sales Dashboard" />
       </motion.div>
@@ -405,7 +406,7 @@ export default function DashboardPage() {
         animate="visible"
       >
         {/* Each card gets its own fadeUpStaggerCard */}
-        <motion.div variants={fadeUpStaggerCard}>
+        <motion.div variants={fadeUpStaggerCard} transition={{ type: 'spring', stiffness: 70, damping: 16, duration: 0.42, ease: 'easeOut' }}>
           <div className="rounded-md bg-white p-6 flex flex-col justify-between min-h-[120px] shadow-sm">
             <div className="flex items-center justify-between mb-2">
               <span className="text-lg font-medium text-[#232323]">Pipeline Value</span>
@@ -417,10 +418,10 @@ export default function DashboardPage() {
             </div>
           </div>
         </motion.div>
-        <motion.div variants={fadeUpStaggerCard}>
+        <motion.div variants={fadeUpStaggerCard} transition={{ type: 'spring', stiffness: 70, damping: 16, duration: 0.42, ease: 'easeOut' }}>
           <div className="rounded-md bg-white p-6 flex flex-col justify-between min-h-[120px] shadow-sm">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-lg font-medium text-[#232323]">Active Opps</span>
+              <span className="text-lg font-medium text-[#232323]">Active Oppotunities</span>
               <span className={`px-2 py-0.5 rounded-full text-xs font-semibold border ${metrics.activeOppsDelta >= 0 ? 'bg-green-50 text-green-700 border-green-100' : 'bg-red-50 text-red-700 border-red-100'}`}>{metrics.activeOppsDelta >= 0 ? '+' : ''}{metrics.activeOppsDelta}</span>
             </div>
             <div className="flex items-end justify-between">
@@ -429,7 +430,7 @@ export default function DashboardPage() {
             </div>
           </div>
         </motion.div>
-        <motion.div variants={fadeUpStaggerCard}>
+        <motion.div variants={fadeUpStaggerCard} transition={{ type: 'spring', stiffness: 70, damping: 16, duration: 0.42, ease: 'easeOut' }}>
           <div className="rounded-md bg-white p-6 flex flex-col justify-between min-h-[120px] shadow-sm">
             <div className="flex items-center justify-between mb-2">
               <span className="text-lg font-medium text-[#232323]">New Leads</span>
@@ -441,7 +442,7 @@ export default function DashboardPage() {
             </div>
           </div>
         </motion.div>
-        <motion.div variants={fadeUpStaggerCard}>
+        <motion.div variants={fadeUpStaggerCard} transition={{ type: 'spring', stiffness: 70, damping: 16, duration: 0.42, ease: 'easeOut' }}>
           <div className="rounded-md bg-white p-6 flex flex-col justify-between min-h-[120px] shadow-sm">
             <div className="flex items-center justify-between mb-2">
               <span className="text-lg font-medium text-[#232323]">Conversion Rate</span>
@@ -460,18 +461,18 @@ export default function DashboardPage() {
         initial="hidden"
         animate="visible"
         variants={fadeUp}
-        transition={{ delay: 0.45 }}
+        transition={{ type: 'spring', stiffness: 60, damping: 18, duration: 0.4, ease: 'easeOut', delay: 0.45 }}
         className="flex flex-col gap-4"
       >
         <motion.div
           initial="hidden"
           animate="visible"
           variants={fadeUp}
-          transition={{ delay: 0.5 }}
+          transition={{ type: 'spring', stiffness: 60, damping: 18, duration: 0.4, ease: 'easeOut', delay: 0.5 }}
           className="grid grid-cols-6 gap-4"
         >
           {/* Opportunities Pipeline */}
-          <motion.div variants={fadeUp} className="col-span-2">
+          <motion.div variants={fadeUp} transition={{ type: 'spring', stiffness: 60, damping: 18, duration: 0.5, ease: 'easeOut' }} className="col-span-2">
             <Card className="bg-white rounded-md shadow-sm flex flex-col h-full">
               <CardHeader>
                 <CardTitle className="text-lg flex items-center text-[#282828]">
@@ -552,7 +553,7 @@ export default function DashboardPage() {
             </Card>
           </motion.div>
           {/* Key Opportunity Insights */}
-          <motion.div variants={fadeUp} className="col-span-4">
+          <motion.div variants={fadeUp} transition={{ type: 'spring', stiffness: 60, damping: 18, duration: 0.4, ease: 'easeOut' }} className="col-span-4">
             <Card className="bg-white rounded-md shadow-sm flex flex-col h-full">
               <CardHeader>
                 <CardTitle className="text-lg flex items-center text-[#282828]">
@@ -613,18 +614,18 @@ export default function DashboardPage() {
         initial="hidden"
         animate="visible"
         variants={fadeUp}
-        transition={{ delay: 0.7 }}
+        transition={{ type: 'spring', stiffness: 60, damping: 18, duration: 0.4, ease: 'easeOut', delay: 0.7 }}
         className="flex flex-col gap-4"
       >
         <motion.div
           initial="hidden"
           animate="visible"
           variants={fadeUp}
-          transition={{ delay: 0.75 }}
+          transition={{ type: 'spring', stiffness: 60, damping: 18, duration: 0.4, ease: 'easeOut', delay: 0.75 }}
           className="grid grid-cols-6 gap-4"
         >
           {/* Lead Engagement */}
-          <motion.div variants={fadeUp} className="col-span-2">
+          <motion.div variants={fadeUp} transition={{ type: 'spring', stiffness: 60, damping: 18, duration: 0.5, ease: 'easeOut' }} className="col-span-2">
             <Card className="bg-white rounded-md shadow-sm flex flex-col min-h-[402px] h-full">
               <CardHeader className="flex flex-col gap-2 justify-between">
                 <div className="flex items-center">
@@ -676,7 +677,7 @@ export default function DashboardPage() {
             </Card>
           </motion.div>
           {/* Recent Activity Stream */}
-          <motion.div variants={fadeUp} className="col-span-4">
+          <motion.div variants={fadeUp} transition={{ type: 'spring', stiffness: 60, damping: 18, duration: 0.4, ease: 'easeOut' }} className="col-span-4">
             <Card className="bg-white rounded-md shadow-sm flex flex-col h-full">
               <CardHeader>
                 <CardTitle className="text-lg flex items-center text-[#282828]">

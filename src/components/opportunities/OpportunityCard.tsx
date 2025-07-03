@@ -111,6 +111,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { History } from "lucide-react";
+import { motion } from "framer-motion";
 
 interface OpportunityCardProps {
   opportunity: Opportunity;
@@ -855,6 +856,16 @@ export default function OpportunityCard({
     )} days left`;
   }
 
+  const [animatedScore, setAnimatedScore] = useState(0);
+  const targetScore = aiScore !== null
+    ? aiScore
+    : Math.min(opportunity.value ? Math.floor(opportunity.value / 1000) : 0, 100);
+  useEffect(() => {
+    setAnimatedScore(0);
+    const timeout = setTimeout(() => setAnimatedScore(targetScore), 50);
+    return () => clearTimeout(timeout);
+  }, [targetScore, opportunity.id]);
+
   return (
     <>
       <Card
@@ -880,33 +891,20 @@ export default function OpportunityCard({
             </div>
             <div className="flex items-center gap-2 mt-1">
               <div className="w-full bg-[#E5E3DF] rounded-full h-2 overflow-hidden">
-                <div
+                <motion.div
                   className="h-2 rounded-full"
+                  initial={{ width: 0 }}
+                  animate={{ width: `${animatedScore}%` }}
+                  transition={{ duration: 1.25, ease: [0.42, 0, 0.58, 1] }}
                   style={{
-                    width: `${
-                      aiScore !== null
-                        ? aiScore
-                        : Math.min(
-                            opportunity.value
-                              ? Math.floor(opportunity.value / 1000)
-                              : 0,
-                            100
-                          )
-                    }%`,
-                    backgroundImage:
-                      "linear-gradient(to right, #3987BE, #D48EA3)",
+                    backgroundImage: "linear-gradient(to right, #3987BE, #D48EA3)",
+                    minWidth: 0,
+                    maxWidth: '100%',
                   }}
                 />
               </div>
               <div className="text-sm font-semibold text-[#282828] ml-2 flex flex-row items-center flex-shrink-0">
-                {aiScore !== null
-                  ? `${aiScore}%`
-                  : `${Math.min(
-                      opportunity.value
-                        ? Math.floor(opportunity.value / 1000)
-                        : 0,
-                      100
-                    )}%`}
+                {targetScore}%
               </div>
             </div>
             <div className="mt-4 space-y-1.5 text-[15px]">
