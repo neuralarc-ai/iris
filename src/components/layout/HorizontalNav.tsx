@@ -88,8 +88,8 @@ export default function HorizontalNav() {
               <Image
                 src="/images/86-c.svg"
                 alt="86/c Logo"
-                width={40}
-                height={40}
+                width={50}
+                height={50}
                 priority
               />
             </Link>
