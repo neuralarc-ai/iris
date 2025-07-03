@@ -11,6 +11,7 @@ import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader,
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
+import { archiveAccount } from '@/lib/archive';
 import AccountModal from './AccountModal';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -34,6 +35,7 @@ export default function AccountCard({ account, onNewOpportunity, owner, onAccoun
   const [aiEnrichment, setAiEnrichment] = useState<any>(null);
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [enrichmentUpdated, setEnrichmentUpdated] = useState(0);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Map fields for runtime compatibility (camelCase preferred, fallback to snake_case)
   const contactPersonName = account.contactPersonName || (account as any).contact_person_name || account.name;
@@ -88,6 +90,35 @@ export default function AccountCard({ account, onNewOpportunity, owner, onAccoun
     };
     fetchAiEnrichment();
   }, [account.id, enrichmentUpdated]);
+
+  const handleArchiveAccount = async () => {
+    setIsDeleting(true);
+    try {
+      const currentUserId = localStorage.getItem('user_id');
+      if (!currentUserId) throw new Error('User not authenticated');
+      
+      await archiveAccount(account.id, currentUserId);
+      
+      setShowDeleteDialog(false);
+      toast({
+        title: "Account archived",
+        description: "Account and all related data have been moved to archive.",
+      });
+      
+      if (onAccountDeleted) {
+        onAccountDeleted(account.id);
+      }
+    } catch (error) {
+      console.error("Failed to archive account:", error);
+      toast({
+        title: "Error",
+        description: "Failed to archive account. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   return (
     <Card
@@ -145,7 +176,7 @@ export default function AccountCard({ account, onNewOpportunity, owner, onAccoun
               <PlusCircle className="h-5 w-5 text-[#282828]" /> Add Opportunity
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => setShowDeleteDialog(true)} className="min-h-[44px] bg-[#fff] flex items-center gap-2 text-[#916D5B] focus:bg-[#F8F7F3] focus:text-[#916D5B] cursor-pointer">
-              <Trash2 className="h-5 w-5 text-[#916D5B]" /> Delete Account
+              <Trash2 className="h-5 w-5 text-[#916D5B]" /> Archive Account
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -161,14 +192,20 @@ export default function AccountCard({ account, onNewOpportunity, owner, onAccoun
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Account?</AlertDialogTitle>
+            <AlertDialogTitle>Archive Account?</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete this account? This action cannot be undone.
+              Are you sure you want to archive this account? It will be moved to the archive section and can be restored later.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={() => { setShowDeleteDialog(false); if (onAccountDeleted) onAccountDeleted(account.id); }} className="bg-[#916D5B] text-white rounded-md border-0 hover:bg-[#a98a77]">Delete</AlertDialogAction>
+            <AlertDialogAction 
+              onClick={handleArchiveAccount} 
+              className="bg-[#916D5B] text-white rounded-md border-0 hover:bg-[#a98a77]"
+              disabled={isDeleting}
+            >
+              {isDeleting ? "Archiving..." : "Archive"}
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

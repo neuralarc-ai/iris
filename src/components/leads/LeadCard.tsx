@@ -10,6 +10,7 @@ import { add, formatDistanceToNow, format, parseISO } from 'date-fns';
 import { convertLeadToAccount, deleteLead } from '@/lib/data';
 import { supabase } from '@/lib/supabaseClient';
 import { useToast } from "@/hooks/use-toast";
+import { archiveLead } from '@/lib/archive';
 import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from '@/components/ui/alert-dialog';
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
@@ -255,27 +256,25 @@ export default function LeadCard({ lead, onLeadConverted, onLeadDeleted, onActiv
 
   const canConvert = lead.status !== "Converted to Account" && lead.status !== "Lost";
 
-  const handleDeleteLead = async () => {
+  const handleArchiveLead = async () => {
     try {
-      const { error } = await supabase
-        .from('lead')
-        .delete()
-        .eq('id', lead.id);
-
-      if (error) throw error;
+      const currentUserId = localStorage.getItem('user_id');
+      if (!currentUserId) throw new Error('User not authenticated');
+      
+      await archiveLead(lead.id, currentUserId);
 
       toast({
-        title: "Lead Deleted",
-        description: `${lead.companyName} has been deleted successfully.`,
+        title: "Lead Archived",
+        description: `${lead.companyName} and all related activity logs have been moved to archive.`,
         variant: "destructive"
       });
 
       if (onLeadDeleted) onLeadDeleted(lead.id);
     } catch (error) {
-      console.error('Lead deletion failed:', error);
+      console.error('Lead archiving failed:', error);
       toast({ 
-        title: "Deletion Failed", 
-        description: error instanceof Error ? error.message : "Could not delete lead.", 
+        title: "Archiving Failed", 
+        description: error instanceof Error ? error.message : "Could not archive lead.", 
         variant: "destructive" 
       });
     }
@@ -629,7 +628,7 @@ Best regards,\n${currentUser?.name || '[Your Name]'}\n${userCompany.name}\n${cur
                 <CheckSquare className="h-5 w-5 text-[#282828]" /> Convert to Account
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => setShowDeleteDialog(true)} className="min-h-[44px] bg-[#fff] flex items-center gap-2 text-[#916D5B] focus:bg-[#F8F7F3] focus:text-[#916D5B] cursor-pointer">
-                <Trash2 className="h-5 w-5 text-[#916D5B]" /> Delete Lead
+                                        <Trash2 className="h-5 w-5 text-[#916D5B]" /> Archive Lead
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -1326,14 +1325,14 @@ Best regards,\n${currentUser?.name || '[Your Name]'}\n${userCompany.name}\n${cur
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Lead?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete this lead? This action cannot be undone.
-            </AlertDialogDescription>
+                                <AlertDialogTitle>Archive Lead?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Are you sure you want to archive this lead? It will be moved to the archive section and can be restored later.
+                    </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={() => { setShowDeleteDialog(false); handleDeleteLead(); }} className="bg-[#916D5B] text-white rounded-md border-0 hover:bg-[#a98a77]">Delete</AlertDialogAction>
+                                    <AlertDialogAction onClick={() => { setShowDeleteDialog(false); handleArchiveLead(); }} className="bg-[#916D5B] text-white rounded-md border-0 hover:bg-[#a98a77]">Archive</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

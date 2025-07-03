@@ -18,6 +18,10 @@ export interface Account {
   contactPersonName?: string; // Added from lead conversion
   contactPhone?: string; // Added from lead conversion
   convertedFromLeadId?: string; // Track original lead
+  // Archive fields
+  isArchived?: boolean;
+  archivedAt?: string;
+  archivedBy?: string;
 }
 
 export interface Lead {
@@ -38,6 +42,10 @@ export interface Lead {
   website?: string;
   industry?: string;
   jobTitle?: string;
+  // Archive fields
+  isArchived?: boolean;
+  archivedAt?: string;
+  archivedBy?: string;
 }
 
 export interface Opportunity {
@@ -55,6 +63,10 @@ export interface Opportunity {
   endDate: string;
   currency?: string;
   ownerId?: string;
+  // Archive fields
+  isArchived?: boolean;
+  archivedAt?: string;
+  archivedBy?: string;
 }
 
 export interface Update {
@@ -68,6 +80,10 @@ export interface Update {
   createdAt: string;
   updatedByUserId?: string;
   nextActionDate?: string; // Optional: next action date for follow-up
+  // Archive fields
+  isArchived?: boolean;
+  archivedAt?: string;
+  archivedBy?: string;
 }
 
 // For AI Generated Content

@@ -5,7 +5,7 @@ import PageTitle from '@/components/common/PageTitle';
 import OpportunityCard from '@/components/opportunities/OpportunityCard';
 import type { Opportunity, OpportunityStatus } from '@/types';
 import { Button } from '@/components/ui/button';
-import { ListFilter, Search, BarChartBig, List, Grid, Eye, PlusCircle } from 'lucide-react';
+import { ListFilter, Search, BarChartBig, List, Grid, Eye, PlusCircle, Archive } from 'lucide-react';
 import Image from 'next/image';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -13,6 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import AddOpportunityDialog from '@/components/opportunities/AddOpportunityDialog';
 import { supabase } from '@/lib/supabaseClient';
+import { restoreOpportunity } from '@/lib/archive';
 import { Loader2 } from 'lucide-react';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
@@ -36,6 +37,7 @@ interface OpportunityData {
 
 export default function OpportunitiesPage() {
   const [opportunities, setOpportunities] = useState<OpportunityData[]>([]);
+  const [archivedOpportunities, setArchivedOpportunities] = useState<OpportunityData[]>([]);
   const [accounts, setAccounts] = useState<{ id: string; name: string }[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<OpportunityStatus | 'all'>('all');
@@ -45,9 +47,11 @@ export default function OpportunitiesPage() {
   const [view, setView] = useState<'grid' | 'table'>('grid');
   const [owners, setOwners] = useState<Record<string, { name: string; email: string }>>({});
   const [userRole, setUserRole] = useState<string>('user');
+  const [activeTab, setActiveTab] = useState<'opportunities' | 'archived'>('opportunities');
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
+  const [currentArchivedPage, setCurrentArchivedPage] = useState(1);
   const ITEMS_PER_PAGE = 12;
 
   useEffect(() => {
@@ -68,8 +72,8 @@ export default function OpportunitiesPage() {
       const { data: accountsData } = await supabase.from('account').select('id, name');
       setAccounts(accountsData || []);
       
-      // Fetch opportunities
-      let query = supabase.from('opportunity').select('*').order('updated_at', { ascending: false });
+      // Fetch active opportunities
+      let query = supabase.from('opportunity').select('*').eq('is_archived', false).order('updated_at', { ascending: false });
       if (userRole !== 'admin') {
         query = query.eq('owner_id', localUserId);
       }
@@ -92,6 +96,18 @@ export default function OpportunitiesPage() {
         setOpportunities([]);
         setOwners({});
       }
+
+      // Fetch archived opportunities
+      let archivedQuery = supabase.from('opportunity').select('*').eq('is_archived', true).order('archived_at', { ascending: false });
+      if (userRole !== 'admin') {
+        archivedQuery = archivedQuery.eq('owner_id', localUserId);
+      }
+      const { data: archivedData, error: archivedError } = await archivedQuery;
+      if (!archivedError && archivedData) {
+        setArchivedOpportunities(archivedData);
+      } else {
+        setArchivedOpportunities([]);
+      }
       setIsLoading(false);
     };
     fetchData();
@@ -107,11 +123,25 @@ export default function OpportunitiesPage() {
     return matchesSearch && matchesStatus && matchesAccount;
   }).sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
 
-  // Pagination logic
+  // Filter archived opportunities
+  const filteredArchivedOpportunities = archivedOpportunities.filter(opportunity => {
+    const matchesSearch = opportunity.name.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = statusFilter === 'all' || opportunity.status === statusFilter;
+    const matchesAccount = accountFilter === 'all' || opportunity.account_id === accountFilter;
+    return matchesSearch && matchesStatus && matchesAccount;
+  }).sort((a, b) => new Date(b.archived_at || b.updated_at).getTime() - new Date(a.archived_at || a.updated_at).getTime());
+
+  // Pagination logic for active opportunities
   const totalPages = Math.ceil(filteredOpportunities.length / ITEMS_PER_PAGE);
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
   const endIndex = startIndex + ITEMS_PER_PAGE;
   const paginatedOpportunities = filteredOpportunities.slice(startIndex, endIndex);
+
+  // Pagination logic for archived opportunities
+  const totalArchivedPages = Math.ceil(filteredArchivedOpportunities.length / ITEMS_PER_PAGE);
+  const startArchivedIndex = (currentArchivedPage - 1) * ITEMS_PER_PAGE;
+  const endArchivedIndex = startArchivedIndex + ITEMS_PER_PAGE;
+  const paginatedArchivedOpportunities = filteredArchivedOpportunities.slice(startArchivedIndex, endArchivedIndex);
 
   // Reset to first page when filters change
   useEffect(() => {
@@ -135,6 +165,22 @@ export default function OpportunitiesPage() {
     }
   };
 
+  const goToArchivedPage = (page: number) => {
+    setCurrentArchivedPage(page);
+  };
+
+  const goToNextArchivedPage = () => {
+    if (currentArchivedPage < totalArchivedPages) {
+      setCurrentArchivedPage(currentArchivedPage + 1);
+    }
+  };
+
+  const goToPreviousArchivedPage = () => {
+    if (currentArchivedPage > 1) {
+      setCurrentArchivedPage(currentArchivedPage - 1);
+    }
+  };
+
   const handleOpportunityAdded = (newOpportunity: Opportunity) => {
     // Convert Opportunity to OpportunityData format for state
     const opportunityData: OpportunityData = {
@@ -152,6 +198,37 @@ export default function OpportunitiesPage() {
       currency: newOpportunity.currency || 'USD',
     };
     setOpportunities(prevOpportunities => [opportunityData, ...prevOpportunities.filter(op => op.id !== newOpportunity.id)]);
+  };
+
+  const handleOpportunityDeleted = (opportunityId: string) => {
+    setOpportunities(prevOpportunities => 
+      prevOpportunities.filter(op => op.id !== opportunityId)
+    );
+  };
+
+  const handleRestoreArchivedOpportunity = async (opportunityId: string) => {
+    try {
+      const currentUserId = localStorage.getItem('user_id');
+      if (!currentUserId) throw new Error('User not authenticated');
+      
+      await restoreOpportunity(opportunityId, currentUserId);
+      
+      // Remove from archived opportunities
+      setArchivedOpportunities(prev => prev.filter(op => op.id !== opportunityId));
+      
+      // Refresh the opportunities list to include the restored opportunity
+      const { data: restoredOpportunity } = await supabase
+        .from('opportunity')
+        .select('*')
+        .eq('id', opportunityId)
+        .single();
+      
+      if (restoredOpportunity) {
+        setOpportunities(prev => [restoredOpportunity, ...prev]);
+      }
+    } catch (error) {
+      console.error('Failed to restore opportunity:', error);
+    }
   };
 
   function mapOpportunityFromSupabase(opp: OpportunityData): Opportunity {
@@ -263,7 +340,55 @@ export default function OpportunitiesPage() {
         </CardHeader>
       </Card>
 
-      {filteredOpportunities.length > 0 ? (
+      {/* Tab Navigation - Show when there are archived opportunities */}
+      {archivedOpportunities.length > 0 && (
+        <div className="flex items-center space-x-1 border-b border-gray-200 dark:border-gray-700 mb-6">
+          <button
+            onClick={() => setActiveTab('opportunities')}
+            className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-all duration-200 ${
+              activeTab === 'opportunities'
+                ? 'bg-white dark:bg-gray-800 text-primary border-b-2 border-primary'
+                : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800'
+            }`}
+          >
+            <span className="flex items-center gap-2">
+              Active
+              <span className={`px-2 py-0.5 text-xs rounded-full ${
+                activeTab === 'opportunities'
+                  ? 'bg-primary text-white'
+                  : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
+              }`}>
+                {filteredOpportunities.length}
+              </span>
+            </span>
+          </button>
+          
+          <button
+            onClick={() => setActiveTab('archived')}
+            className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-all duration-200 ${
+              activeTab === 'archived'
+                ? 'bg-white dark:bg-gray-800 text-orange-600 border-b-2 border-orange-600'
+                : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800'
+            }`}
+          >
+            <span className="flex items-center gap-2">
+              Archived
+              <span className={`px-2 py-0.5 text-xs rounded-full ${
+                activeTab === 'archived'
+                  ? 'bg-orange-600 text-white'
+                  : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
+              }`}>
+                {filteredArchivedOpportunities.length}
+              </span>
+            </span>
+          </button>
+        </div>
+      )}
+
+      {/* Active Opportunities Tab Content */}
+      {activeTab === 'opportunities' && (
+        <>
+          {filteredOpportunities.length > 0 ? (
         view === 'grid' ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 pb-8">
             {paginatedOpportunities.map((opportunity) => (
@@ -292,6 +417,7 @@ export default function OpportunitiesPage() {
                     )
                   );
                 }}
+                onDelete={() => handleOpportunityDeleted(opportunity.id)}
               />
             ))}
           </div>
@@ -438,6 +564,197 @@ export default function OpportunitiesPage() {
               </PaginationItem>
             </PaginationContent>
           </Pagination>
+        </div>
+      )}
+        </>
+      )}
+
+      {/* Archived Opportunities Tab Content */}
+      {activeTab === 'archived' && (
+        <div className="mt-6">
+          {filteredArchivedOpportunities.length > 0 ? (
+            view === 'grid' ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 pb-8">
+                {paginatedArchivedOpportunities.map((opportunity) => (
+                  <OpportunityCard
+                    key={opportunity.id}
+                    opportunity={mapOpportunityFromSupabase(opportunity)}
+                    accountName={accounts.find(a => a.id === opportunity.account_id)?.name || ''}
+                    onStatusChange={newStatus => {
+                      setArchivedOpportunities(prev =>
+                        prev.map(op =>
+                          op.id === opportunity.id ? { ...op, status: newStatus } : op
+                        )
+                      );
+                    }}
+                    onValueChange={newValue => {
+                      setArchivedOpportunities(prev =>
+                        prev.map(op =>
+                          op.id === opportunity.id ? { ...op, value: newValue } : op
+                        )
+                      );
+                    }}
+                    onTimelineChange={(newStartDate, newEndDate) => {
+                      setArchivedOpportunities(prev =>
+                        prev.map(op =>
+                          op.id === opportunity.id ? { ...op, start_date: newStartDate, end_date: newEndDate } : op
+                        )
+                      );
+                    }}
+                    onDelete={() => handleRestoreArchivedOpportunity(opportunity.id)}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="overflow-x-auto rounded-[8px] shadow">
+                <Table className='bg-white'>
+                  <TableHeader>
+                    <TableRow className='bg-[#CBCAC5] hover:bg-[#CBCAC5]'>
+                      <TableHead className='text-[#282828] rounded-tl-[8px]'>Name</TableHead>
+                      <TableHead className='text-[#282828]'>Account</TableHead>
+                      <TableHead className='text-[#282828]'>Value</TableHead>
+                      <TableHead className='text-[#282828]'>Status</TableHead>
+                      <TableHead className='text-[#282828]'>Timeline</TableHead>
+                      {userRole === 'admin' && <TableHead className='text-[#282828]'>Assigned To</TableHead>}
+                      <TableHead className='text-[#282828] rounded-tr-[8px]'>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {paginatedArchivedOpportunities.map((opportunity) => (
+                      <TableRow key={opportunity.id} className="hover:bg-transparent">
+                        <TableCell className="font-semibold text-foreground">{opportunity.name}</TableCell>
+                        <TableCell>{accounts.find(a => a.id === opportunity.account_id)?.name || '-'}</TableCell>
+                        <TableCell className="font-medium">${opportunity.value.toLocaleString()}</TableCell>
+                        <TableCell>
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                            opportunity.status === 'Win' ? 'bg-green-100 text-green-800' :
+                            opportunity.status === 'Loss' ? 'bg-red-100 text-red-800' :
+                            opportunity.status === 'Negotiation' ? 'bg-amber-100 text-amber-800' :
+                            opportunity.status === 'Proposal' ? 'bg-blue-100 text-blue-800' :
+                            opportunity.status === 'On Hold' ? 'bg-gray-100 text-gray-800' :
+                            'bg-sky-100 text-sky-800'
+                          }`}>
+                            {opportunity.status}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {(() => {
+                            const start = new Date(opportunity.start_date);
+                            const end = new Date(opportunity.end_date);
+                            if (start && end && !isNaN(start.getTime()) && !isNaN(end.getTime())) {
+                              return `${start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+                            }
+                            return 'N/A';
+                          })()}
+                        </TableCell>
+                        {userRole === 'admin' && <TableCell>{owners[opportunity.owner_id]?.name || '-'}</TableCell>}
+                        <TableCell className="flex gap-2">
+                          <TooltipProvider delayDuration={0}>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button variant="outline" size="sm" className="rounded-[4px] p-2">
+                                  <Eye className="h-4 w-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>View Details</TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button 
+                                  size="sm" 
+                                  variant="add" 
+                                  className="rounded-[4px] p-2"
+                                  onClick={() => handleRestoreArchivedOpportunity(opportunity.id)}
+                                >
+                                  <PlusCircle className="h-4 w-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Restore Opportunity</TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )
+          ) : (
+            <div className="text-center py-16">
+              <Archive className="mx-auto h-16 w-16 text-muted-foreground/50 mb-6" />
+              <p className="text-xl font-semibold text-foreground mb-2">No Archived Opportunities</p>
+              <p className="text-muted-foreground">No opportunities have been archived yet.</p>
+            </div>
+          )}
+          
+          {/* Pagination for archived opportunities */}
+          {filteredArchivedOpportunities.length > ITEMS_PER_PAGE && (
+            <div className="mt-6 flex justify-center">
+              <Pagination>
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious 
+                      onClick={goToPreviousArchivedPage}
+                      className={currentArchivedPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                    />
+                  </PaginationItem>
+                  
+                  {/* First page */}
+                  {currentArchivedPage > 3 && (
+                    <>
+                      <PaginationItem>
+                        <PaginationLink onClick={() => goToArchivedPage(1)}>1</PaginationLink>
+                      </PaginationItem>
+                      {currentArchivedPage > 4 && (
+                        <PaginationItem>
+                          <PaginationEllipsis />
+                        </PaginationItem>
+                      )}
+                    </>
+                  )}
+                  
+                  {/* Page numbers around current page */}
+                  {Array.from({ length: Math.min(5, totalArchivedPages) }, (_, i) => {
+                    const pageNum = Math.max(1, Math.min(totalArchivedPages - 4, currentArchivedPage - 2)) + i;
+                    if (pageNum <= totalArchivedPages) {
+                      return (
+                        <PaginationItem key={pageNum}>
+                          <PaginationLink 
+                            onClick={() => goToArchivedPage(pageNum)}
+                            isActive={currentArchivedPage === pageNum}
+                          >
+                            {pageNum}
+                          </PaginationLink>
+                        </PaginationItem>
+                      );
+                    }
+                    return null;
+                  })}
+                  
+                  {/* Last page */}
+                  {currentArchivedPage < totalArchivedPages - 2 && (
+                    <>
+                      {currentArchivedPage < totalArchivedPages - 3 && (
+                        <PaginationItem>
+                          <PaginationEllipsis />
+                        </PaginationItem>
+                      )}
+                      <PaginationItem>
+                        <PaginationLink onClick={() => goToArchivedPage(totalArchivedPages)}>{totalArchivedPages}</PaginationLink>
+                      </PaginationItem>
+                    </>
+                  )}
+                  
+                  <PaginationItem>
+                    <PaginationNext 
+                      onClick={goToNextArchivedPage}
+                      className={currentArchivedPage === totalArchivedPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
+            </div>
+          )}
         </div>
       )}
       

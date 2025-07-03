@@ -94,6 +94,7 @@ import {
 import { Calendar } from "@/components/ui/calendar";
 import { supabase } from "@/lib/supabaseClient";
 import { countries } from "@/lib/countryData";
+import { archiveOpportunity } from "@/lib/archive";
 import {
   Select,
   SelectTrigger,
@@ -119,6 +120,7 @@ interface OpportunityCardProps {
   onStatusChange?: (newStatus: OpportunityStatus) => void;
   onValueChange?: (newValue: number) => void;
   onTimelineChange?: (newStartDate: string, newEndDate: string) => void;
+  onDelete?: (opportunityId: string) => void;
   selectMode?: boolean;
   onSelect?: () => void;
 }
@@ -198,6 +200,7 @@ export default function OpportunityCard({
   onStatusChange,
   onValueChange,
   onTimelineChange,
+  onDelete,
   selectMode,
   onSelect,
 }: OpportunityCardProps) {
@@ -242,6 +245,7 @@ export default function OpportunityCard({
   // AI Score and Delete Dialog
   const [aiScore, setAiScore] = useState<number | null>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const status = opportunity.status as OpportunityStatus;
 
@@ -905,7 +909,7 @@ export default function OpportunityCard({
           </div>
               <div className="text-sm font-semibold text-[#282828] ml-2 flex flex-row items-center flex-shrink-0">
                 {targetScore}%
-              </div>
+            </div>
             </div>
             <div className="mt-4 space-y-1.5 text-[15px]">
               <div className="mb-2">
@@ -1575,30 +1579,51 @@ export default function OpportunityCard({
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
+      {/* Archive Confirmation Dialog */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Opportunity?</AlertDialogTitle>
+            <AlertDialogTitle>Archive Opportunity?</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete this opportunity? This action
-              cannot be undone.
+              Are you sure you want to archive this opportunity? It will be moved to the archive section and can be restored later.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={async () => {
-                setShowDeleteDialog(false);
-                // Add delete logic here if needed
-                toast({
-                  title: "Opportunity deleted",
-                  description: "Opportunity has been deleted successfully.",
-                });
+                setIsDeleting(true);
+                try {
+                  const currentUserId = localStorage.getItem('user_id');
+                  if (!currentUserId) throw new Error('User not authenticated');
+                  
+                  await archiveOpportunity(opportunity.id, currentUserId);
+                  
+                  setShowDeleteDialog(false);
+                  toast({
+                    title: "Opportunity archived",
+                    description: "Opportunity and all related activity logs have been moved to archive.",
+                  });
+                  
+                  // Call the onDelete callback to refresh the parent list
+                  if (onDelete) {
+                    onDelete(opportunity.id);
+                  }
+                } catch (error) {
+                  console.error("Failed to archive opportunity:", error);
+                  toast({
+                    title: "Error",
+                    description: "Failed to archive opportunity. Please try again.",
+                    variant: "destructive",
+                  });
+                } finally {
+                  setIsDeleting(false);
+                }
               }}
               className="bg-[#916D5B] text-white rounded-md border-0 hover:bg-[#a98a77]"
+              disabled={isDeleting}
             >
-              Delete
+              {isDeleting ? "Archiving..." : "Archive"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
