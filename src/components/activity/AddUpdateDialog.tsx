@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import type { Account, Opportunity, Update, UpdateType, Lead } from '@/types';
-import { Loader2, MessageSquarePlus, Briefcase, BarChartBig, User, CalendarIcon, Activity } from 'lucide-react';
+import { Loader2, PlusCircle, Briefcase, BarChartBig, User, CalendarIcon } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
 import { Input } from "@/components/ui/input";
 import { Calendar } from "@/components/ui/calendar";
@@ -40,6 +40,7 @@ export default function AddUpdateDialog({ open, onOpenChange, onUpdateAdded }: A
   const [selectedOpportunityId, setSelectedOpportunityId] = useState<string>('');
   const [updateType, setUpdateTypeState] = useState<UpdateType | ''>('');
   const [content, setContent] = useState('');
+  const [activityDate, setActivityDate] = useState<Date | undefined>(undefined);
   const [nextActionDate, setNextActionDate] = useState<Date | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(false);
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -156,6 +157,7 @@ export default function AddUpdateDialog({ open, onOpenChange, onUpdateAdded }: A
     setSelectedOpportunityId('');
     setUpdateTypeState('');
     setContent('');
+    setActivityDate(undefined);
     setNextActionDate(undefined);
     setAccountSearch('');
     setOpportunitySearch('');
@@ -171,7 +173,7 @@ export default function AddUpdateDialog({ open, onOpenChange, onUpdateAdded }: A
         type: updateData.type,
         content: updateData.content,
         updated_by_user_id: currentUserId,
-        date: new Date().toISOString(),
+        date: updateData.activityDate ? updateData.activityDate.toISOString() : new Date().toISOString(),
         lead_id: updateData.leadId || null,
         opportunity_id: updateData.opportunityId || null,
         account_id: updateData.accountId || null,
@@ -207,19 +209,12 @@ export default function AddUpdateDialog({ open, onOpenChange, onUpdateAdded }: A
         isValid = !!selectedAccountId && !!updateType && !!content.trim();
     }
 
-    if (!isValid) {
-      let errorMessage = "";
-      if (entityType === "lead") {
-        errorMessage = "Lead, Update Type, and Content are required.";
-      } else if (entityType === "opportunity") {
-        errorMessage = "Opportunity, Update Type, and Content are required.";
-      } else {
-        errorMessage = "Account, Update Type, and Content are required.";
-      }
-      toast({ 
-        title: "Error", 
-        description: errorMessage, 
-        variant: "destructive" 
+    // Must select either activityDate or nextActionDate, not both, not neither
+    if ((!activityDate && !nextActionDate) || (activityDate && nextActionDate)) {
+      toast({
+        title: "Error",
+        description: "Please select either an Activity Date or a Next Action Date (not both).",
+        variant: "destructive"
       });
       return;
     }
@@ -234,6 +229,7 @@ export default function AddUpdateDialog({ open, onOpenChange, onUpdateAdded }: A
           type: updateType as UpdateType,
           content: content,
           nextActionDate: nextActionDate?.toISOString() || null,
+          activityDate: activityDate || null,
         };
         const lead = leads.find(l => l.id === selectedLeadId);
         successMessage = `Update for lead "${lead?.companyName}" has been logged.`
@@ -245,6 +241,7 @@ export default function AddUpdateDialog({ open, onOpenChange, onUpdateAdded }: A
           type: updateType as UpdateType,
           content: content,
           nextActionDate: nextActionDate?.toISOString() || null,
+          activityDate: activityDate || null,
         };
         successMessage = `Update for opportunity "${selectedOpportunity?.name}" has been logged.`
       } else { // account
@@ -253,6 +250,7 @@ export default function AddUpdateDialog({ open, onOpenChange, onUpdateAdded }: A
           type: updateType as UpdateType,
           content: content,
           nextActionDate: nextActionDate?.toISOString() || null,
+          activityDate: activityDate || null,
         };
         const account = accounts.find(acc => acc.id === selectedAccountId);
         successMessage = `Update for account "${account?.name}" has been logged.`
@@ -276,10 +274,25 @@ export default function AddUpdateDialog({ open, onOpenChange, onUpdateAdded }: A
     }
   };
 
+  // Mutually exclusive date logic
+  const handleActivityDateChange = (date: Date | undefined) => {
+    setActivityDate(date);
+    if (date) setNextActionDate(undefined);
+  };
+  const handleNextActionDateChange = (date: Date | undefined) => {
+    setNextActionDate(date);
+    if (date) setActivityDate(undefined);
+  };
+
   if (isLoadingData) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-lg bg-white">
+          <DialogHeader>
+            <DialogTitle>
+              <span className="sr-only">Loading Data</span>
+            </DialogTitle>
+          </DialogHeader>
           <div className="flex items-center justify-center h-32">
             <div className="text-center">
               <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
@@ -296,10 +309,10 @@ export default function AddUpdateDialog({ open, onOpenChange, onUpdateAdded }: A
       if (!isOpen) resetForm();
       onOpenChange(isOpen);
     }}>
-      <DialogContent className="sm:max-w-lg focus-within:ring-0 focus-within:outline-none ">
+      <DialogContent className="sm:max-w-lg focus-within:ring-0 focus-within:outline-none bg-white">
         <DialogHeader>
           <DialogTitle className="flex items-center">
-            <Activity className="mr-2 h-5 w-5" /> Add New Activity
+            <PlusCircle className="mr-2 h-5 w-5 text-[#916D5B]" /> Add New Activity
           </DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 py-4 max-h-[70vh] overflow-y-auto pr-3">
@@ -462,7 +475,34 @@ export default function AddUpdateDialog({ open, onOpenChange, onUpdateAdded }: A
                 </SelectContent>
               </Select>
             </div>
+          </div>
 
+          {/* Date Pickers */}
+          <div className="flex gap-4">
+            <div className="flex-1">
+              <Label htmlFor="activity-date">Activity Date</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Input
+                    id="activity-date"
+                    type="text"
+                    value={activityDate ? format(activityDate, 'dd/MM/yyyy') : ''}
+                    placeholder="dd/mm/yyyy"
+                    readOnly
+                    disabled={isLoading || !!nextActionDate}
+                    className="cursor-pointer bg-white"
+                  />
+                </PopoverTrigger>
+                <PopoverContent align="start" className="p-0 w-auto border-none bg-[#CFD4C9] rounded-sm">
+                  <Calendar
+                    mode="single"
+                    selected={activityDate}
+                    onSelect={handleActivityDateChange}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
             <div className="flex-1">
               <Label htmlFor="next-action-date">Next Action Date</Label>
               <Popover>
@@ -473,7 +513,7 @@ export default function AddUpdateDialog({ open, onOpenChange, onUpdateAdded }: A
                     value={nextActionDate ? format(nextActionDate, 'dd/MM/yyyy') : ''}
                     placeholder="dd/mm/yyyy"
                     readOnly
-                    disabled={isLoading}
+                    disabled={isLoading || !!activityDate}
                     className="cursor-pointer bg-white"
                   />
                 </PopoverTrigger>
@@ -481,8 +521,13 @@ export default function AddUpdateDialog({ open, onOpenChange, onUpdateAdded }: A
                   <Calendar
                     mode="single"
                     selected={nextActionDate}
-                    onSelect={setNextActionDate}
+                    onSelect={handleNextActionDateChange}
                     initialFocus
+                    disabled={(date) => {
+                      const today = new Date();
+                      today.setHours(0,0,0,0);
+                      return date <= today;
+                    }}
                   />
                 </PopoverContent>
               </Popover>

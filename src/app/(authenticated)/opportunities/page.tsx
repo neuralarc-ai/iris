@@ -95,7 +95,7 @@ export default function OpportunitiesPage() {
       setIsLoading(false);
     };
     fetchData();
-  }, [isAddOpportunityDialogOpen]);
+  }, []);
 
   const opportunityStatusOptions: OpportunityStatus[] = ["Scope Of Work", "Proposal", "Negotiation", "On Hold", "Win", "Loss"];
   const accountOptions = accounts.map(account => ({ id: account.id, name: account.name }));
@@ -135,23 +135,50 @@ export default function OpportunitiesPage() {
     }
   };
 
+  // Add a reload function for when an opportunity is added
+  const reloadOpportunities = async () => {
+    setIsLoading(true);
+    const localUserId = localStorage.getItem('user_id');
+    if (!localUserId) {
+      setIsLoading(false);
+      return;
+    }
+    // Fetch user role
+    const { data: userData } = await supabase.from('users').select('role').eq('id', localUserId).single();
+    const userRole = userData?.role || 'user';
+    setUserRole(userRole);
+    // Fetch accounts
+    const { data: accountsData } = await supabase.from('account').select('id, name');
+    setAccounts(accountsData || []);
+    // Fetch opportunities
+    let query = supabase.from('opportunity').select('*').order('updated_at', { ascending: false });
+    if (userRole !== 'admin') {
+      query = query.eq('owner_id', localUserId);
+    }
+    const { data, error } = await query;
+    if (!error && data) {
+      setOpportunities(data);
+      // Fetch owners for all unique owner_ids
+      const ownerIds = Array.from(new Set(data.map((opp: any) => opp.owner_id).filter(Boolean)));
+      if (ownerIds.length > 0) {
+        const { data: usersData } = await supabase.from('users').select('id, name, email').in('id', ownerIds);
+        const ownersMap: Record<string, { name: string; email: string }> = {};
+        usersData?.forEach((user: any) => {
+          ownersMap[user.id] = { name: user.name, email: user.email };
+        });
+        setOwners(ownersMap);
+      } else {
+        setOwners({});
+      }
+    } else {
+      setOpportunities([]);
+      setOwners({});
+    }
+    setIsLoading(false);
+  };
+
   const handleOpportunityAdded = (newOpportunity: Opportunity) => {
-    // Convert Opportunity to OpportunityData format for state
-    const opportunityData: OpportunityData = {
-      id: newOpportunity.id,
-      name: newOpportunity.name,
-      account_id: newOpportunity.accountId,
-      status: newOpportunity.status,
-      value: newOpportunity.value,
-      description: newOpportunity.description,
-      start_date: newOpportunity.startDate,
-      end_date: newOpportunity.endDate,
-      owner_id: '', // Will be set by the dialog
-      created_at: newOpportunity.createdAt,
-      updated_at: newOpportunity.updatedAt,
-      currency: newOpportunity.currency || 'USD',
-    };
-    setOpportunities(prevOpportunities => [opportunityData, ...prevOpportunities.filter(op => op.id !== newOpportunity.id)]);
+    reloadOpportunities();
   };
 
   function mapOpportunityFromSupabase(opp: OpportunityData): Opportunity {
@@ -171,6 +198,15 @@ export default function OpportunitiesPage() {
       ownerId: opp.owner_id,
     };
   }
+
+  // Render AddOpportunityDialog outside the main return
+  const addOpportunityDialog = (
+    <AddOpportunityDialog 
+      open={isAddOpportunityDialogOpen} 
+      onOpenChange={setIsAddOpportunityDialogOpen}
+      onOpportunityAdded={handleOpportunityAdded} 
+    />
+  );
 
   if (isLoading) {
     return (
@@ -441,11 +477,7 @@ export default function OpportunitiesPage() {
         </div>
       )}
       
-      <AddOpportunityDialog 
-        open={isAddOpportunityDialogOpen} 
-        onOpenChange={setIsAddOpportunityDialogOpen}
-        onOpportunityAdded={handleOpportunityAdded} 
-      />
+      {addOpportunityDialog}
     </div>
   );
 }

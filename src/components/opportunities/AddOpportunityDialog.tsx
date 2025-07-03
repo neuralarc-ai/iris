@@ -171,7 +171,7 @@ export default function AddOpportunityDialog({ open, onOpenChange, onOpportunity
       if (!isOpen) resetForm();
       onOpenChange(isOpen);
     }}>
-      <DialogContent className="sm:max-w-[525px]">
+      <DialogContent className="sm:max-w-[525px] bg-white">
         <DialogHeader>
           <DialogTitle className="flex items-center">
             <BarChartBig className="mr-2 h-5 w-5" /> Add New Opportunity
@@ -251,20 +251,43 @@ export default function AddOpportunityDialog({ open, onOpenChange, onOpportunity
             </div>
           )}
 
-          <div>
-            <Label htmlFor="opportunity-status">Status <span className="text-destructive">*</span></Label>
-            <Select value={status} onValueChange={(value: OpportunityStatus) => setStatus(value)}>
-              <SelectTrigger id="opportunity-status">
-                <SelectValue placeholder="Select status" />
-              </SelectTrigger>
-              <SelectContent>
-                {opportunityStatusOptions.map(opt => (
-                  <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="flex gap-4">
+            <div className="flex-1">
+              <Label htmlFor="opportunity-status">Status <span className="text-destructive">*</span></Label>
+              <Select value={status} onValueChange={(value: OpportunityStatus) => setStatus(value)}>
+                <SelectTrigger id="opportunity-status">
+                  <SelectValue placeholder="Select status" />
+                </SelectTrigger>
+                <SelectContent>
+                  {opportunityStatusOptions.map(opt => (
+                    <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex-1">
+              <Label htmlFor="opportunity-expected-close">Expected Close Date <span className="text-destructive">*</span></Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Input
+                    id="opportunity-expected-close"
+                    type="text"
+                    readOnly
+                    value={expectedCloseDate ? format(expectedCloseDate, 'MMM dd, yyyy') : ''}
+                    placeholder="Select expected close date"
+                    className="w-full cursor-pointer"
+                  />
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={expectedCloseDate}
+                    onSelect={setExpectedCloseDate}
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
           </div>
-
           <div className="flex gap-4">
             <div className="flex-1">
               <Label htmlFor="opportunity-value">Quoted Amount <span className="text-destructive">*</span></Label>
@@ -298,28 +321,6 @@ export default function AddOpportunityDialog({ open, onOpenChange, onOpportunity
                 </SelectContent>
               </Select>
             </div>
-            <div className="flex-1">
-              <Label htmlFor="opportunity-expected-close">Expected Close Date <span className="text-destructive">*</span></Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Input
-                    id="opportunity-expected-close"
-                    type="text"
-                    readOnly
-                    value={expectedCloseDate ? format(expectedCloseDate, 'MMM dd, yyyy') : ''}
-                    placeholder="Select expected close date"
-                    className="w-full mt-1 cursor-pointer bg-white"
-                  />
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={expectedCloseDate}
-                    onSelect={setExpectedCloseDate}
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
           </div>
 
           <div>
@@ -331,6 +332,7 @@ export default function AddOpportunityDialog({ open, onOpenChange, onOpportunity
               placeholder="Brief overview of the opportunity, client needs, etc."
               disabled={isLoading}
               rows={3}
+              className='resize-none'
             />
           </div>
           <DialogFooter className="pt-2">
