@@ -638,15 +638,12 @@ export default function UpdatesPage() {
         view === 'grid' ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 pb-8">
             {paginatedGroupedUpdates.map((groupedUpdate) => (
-              <div key={`${groupedUpdate.entityType}-${groupedUpdate.entityId}`}
+              <UpdateItem
+                key={`${groupedUpdate.entityType}-${groupedUpdate.entityId}`}
+                update={groupedUpdate.latestUpdate}
+                groupedUpdates={groupedUpdate.updates}
                 onClick={() => handleEntityDialogOpen(groupedUpdate.entityType, groupedUpdate.entityId)}
-                className="cursor-pointer"
-              >
-                <UpdateItem 
-                  update={groupedUpdate.latestUpdate}
-                  groupedUpdates={groupedUpdate.updates}
-                />
-              </div>
+              />
             ))}
           </div>
         ) : (

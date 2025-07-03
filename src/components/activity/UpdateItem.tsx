@@ -26,6 +26,7 @@ import { Input } from '@/components/ui/input';
 interface UpdateItemProps {
   update: Update;
   groupedUpdates?: Update[];
+  onClick?: () => void;
 }
 
 const getUpdateTypeIcon = (type: Update['type']) => {
@@ -60,7 +61,7 @@ const getActivityTypeBadgeClasses = (type: Update['type']) => {
   }
 };
 
-export default function UpdateItem({ update, groupedUpdates }: UpdateItemProps) {
+export default function UpdateItem({ update, groupedUpdates, onClick }: UpdateItemProps) {
   // State for related data
   const [opportunity, setOpportunity] = useState<Opportunity | undefined>(undefined);
   const [account, setAccount] = useState<Account | undefined>(undefined);
@@ -516,7 +517,7 @@ export default function UpdateItem({ update, groupedUpdates }: UpdateItemProps) 
       {/* Card View */}
       <Card 
         className="border border-[#E5E3DF] bg-white rounded-sm shadow-sm hover:shadow-md transition-all duration-300 flex flex-col h-full p-4 cursor-pointer"
-        onClick={() => setIsDialogOpen(true)}
+        onClick={onClick}
       >
         {/* Top badges and name */}
         <div className="flex flex-col gap-1">
@@ -558,52 +559,12 @@ export default function UpdateItem({ update, groupedUpdates }: UpdateItemProps) 
                 <Button
             variant="outline"
             className="w-full text-[#282828] font-semibold text-base py-2 rounded-md border-[#E5E3DF] bg-[#F8F7F3] hover:bg-[#EFEDE7] flex items-center justify-center gap-2 max-h-10"
-                  onClick={e => { e.stopPropagation(); setIsDialogOpen(true); }}
+                  onClick={e => { e.stopPropagation(); onClick && onClick(); }}
                 >
             <Plus className="h-5 w-5" /> Add Activity
                 </Button>
         </CardFooter>
       </Card>
-
-      {/* Dialog */}
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-xl bg-white border border-[#CBCAC5] rounded-lg" onClick={e => e.stopPropagation()}>
-          <DialogHeader className="pb-3 border-b border-[#E5E3DF]">
-            <div className="flex items-center gap-2">
-              <DialogTitle className="text-xl font-semibold text-[#282828]">
-                {opportunity?.name || lead?.personName || account?.name || 'Update'}
-              </DialogTitle>
-              {totalUpdates > 1 && (
-                <Badge variant="secondary" className="ml-2" style={{ backgroundColor: '#916D5B', color: '#fff', border: 'none' }}>
-                  {totalUpdates} updates
-                </Badge>
-              )}
-            </div>
-          </DialogHeader>
-
-          <div className="flex-1 overflow-y-auto space-y-6">
-            {/* Details Section */}
-            {opportunity && (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                <div className="bg-[#F3F4F6] p-4 rounded-lg flex flex-col items-center justify-center min-h-[56px]">
-                  <div className="text-sm font-medium text-[#6B7280]">Value</div>
-                  <div className="text-2xl font-bold text-[#5E6156] mt-1">${opportunity.value.toLocaleString()}</div>
-                </div>
-                <div className="bg-[#F3F4F6] p-4 rounded-lg flex flex-col items-center justify-center min-h-[56px]">
-                  <div className="text-sm font-medium text-[#6B7280]">Status</div>
-                  <span className={`mt-2 rounded-full px-4 py-1 text-base font-semibold capitalize border ${getOpportunityStatusBadgeClasses(opportunity.status)}`}>{opportunity.status}</span>
-                </div>
-              </div>
-            )}
-          </div>
-
-          <DialogFooter>
-            <Button type="submit" onClick={handleLogActivity}>
-              Log Activity
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </>
   );
 }
