@@ -1,0 +1,193 @@
+import { z } from 'zod';
+import { getRetryConfig, CRON_CONFIG } from '@/lib/cron-config';
+
+export const accountEnrichmentSchema = z.object({
+  recommendations: z.array(z.string()),
+  pitchNotes: z.string(),
+  useCase: z.string(),
+  accountScore: z.number().min(0).max(100),
+  emailTemplate: z.string(),
+});
+
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+async function retryWithBackoff<T>(fn: () => Promise<T>, maxRetries: number = getRetryConfig().maxRetries, baseDelay: number = getRetryConfig().baseDelay): Promise<T> {
+  let lastError: Error;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error: any) {
+      lastError = error;
+      if (error.message?.includes('Too Many Requests') && attempt < maxRetries) {
+        const delay = baseDelay * Math.pow(2, attempt);
+        console.log(`Rate limited, retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries + 1})`);
+        await sleep(delay);
+        continue;
+      }
+      throw error;
+    }
+  }
+  throw lastError!;
+}
+
+async function callGeminiAPI(prompt: string) {
+  await sleep(1200);
+  const response = await fetch(
+    'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + process.env.GEMINI_API_KEY,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        generationConfig: { response_mime_type: 'application/json' },
+      }),
+    }
+  );
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Gemini API error: ${response.statusText} - ${errorText}`);
+  }
+  const data = await response.json();
+  let generatedContent;
+  try {
+    generatedContent = JSON.parse(data.candidates?.[0]?.content?.parts?.[0]?.text || '{}');
+  } catch (e) {
+    throw new Error('Gemini response was not valid JSON.');
+  }
+  return generatedContent;
+}
+
+export async function accountEnrichmentFlow({ account, user, company, tavilySummary, websiteSummary, companyScrapeData }: { account: any, user: any, company: any, tavilySummary?: string, websiteSummary?: string, companyScrapeData?: string }) {
+  const prompt = `
+You are an expert B2B sales analyst with deep expertise in account qualification and company-service alignment. Your user is ${user.name} from ${company?.name || 'N/A'}.
+
+**COMMUNICATION & FORMATTING REQUIREMENTS:**
+- Use the highest standards of formal written English in all responses.
+- Do not use contractions. Always write out full forms. For example, write "do not" instead of "don't", "cannot" instead of "can't", "will not" instead of "won't", "I am" instead of "I'm", "you are" instead of "you're", "it is" instead of "it's", "they are" instead of "they're", and "we are" instead of "we're".
+- Do not use em dashes anywhere in your response.
+- Do not use en dashes unless they are part of a date range.
+- Use only standard punctuation: periods, commas, colons, semicolons, and parentheses.
+- When emphasis is needed, use bold formatting or restructure the sentence.
+- For interruptions in thought, start a new sentence instead.
+
+## USER'S COMPANY ANALYSIS:
+**Company Profile:**
+- Name: ${company?.name || 'N/A'}
+- Website: ${company?.website || 'N/A'}
+- Industry: ${company?.industry || 'N/A'}
+- Description: ${company?.description || 'N/A'}
+
+**Services & Solutions:**
+${(company?.services || []).map((s: any, i: number) => `${i+1}. ${s.name}: ${s.description || 'No description'} (Target: ${s.target_market || 'General'})`).join('\n') || 'N/A'}
+
+**Company Website Analysis:**
+${companyScrapeData ? `Website Content Summary: ${companyScrapeData}\n` : ''}
+
+## ACCOUNT PROFILE:
+- Name: ${account.name}
+- Type: ${account.type || 'N/A'}
+- Status: ${account.status || 'N/A'}
+- Industry: ${account.industry || 'N/A'}
+- Website: ${account.website || 'N/A'}
+- Contact Person: ${account.contact_person_name || 'N/A'}
+- Contact Email: ${account.contact_email || 'N/A'}
+- Contact Phone: ${account.contact_phone || 'N/A'}
+- Description: ${account.description || 'N/A'}
+- Country: ${account.country || 'N/A'}
+
+## EXTERNAL INTELLIGENCE:
+${tavilySummary ? `**Market Intelligence & News:**\n${tavilySummary}\n` : ''}
+${websiteSummary ? `**Account Website Analysis:**\n${websiteSummary}\n` : ''}
+
+## SCORING METHODOLOGY:
+Analyze the account using a weighted 100-point scoring system:
+
+**1. Company-Service Alignment (30 points)**
+- Industry Match: How well does the account's industry align with your services?
+- Company Size Match: Is the account in your target range?
+- Technology Needs: Do they likely need your specific solutions?
+- Market Segment: Are they in your ideal customer segment?
+
+**2. Decision-Making Power (25 points)**
+- Contact Role: Is the contact person a decision-maker or influencer?
+- Department Relevance: Are they in a department that would use your services?
+- Seniority Level: Do they have budget authority or significant influence?
+
+**3. Company Quality & Fit (20 points)**
+- Financial Stability: Revenue, funding, growth indicators
+- Company Maturity: Age, market position, growth stage
+- Geographic Alignment: Location advantages/challenges
+
+**4. Engagement & Accessibility (15 points)**
+- Email Domain Quality: Corporate email vs. generic
+- Contact Information Quality: Professional contact details
+- Digital Presence: Professional online presence
+
+**5. Timing & Market Factors (10 points)**
+- Industry Trends: Is their industry growing/investing in your solutions?
+- Company News: Recent developments indicating need for your services
+- Competitive Landscape: How saturated is their market with your competitors?
+
+## DELIVERABLES:
+Based on this comprehensive analysis, provide:
+
+1. **Account Score**: Single number (0-100) with a one-sentence rationale
+2. **Recommended Services**: Suggest 3-4 specific services or products that would be a good fit for this account.
+3. **Pitch Notes**: Provide concise, actionable talking points for a sales pitch (no more than 2-3 sentences, max 60 words).
+4. **Use Case**: Describe a compelling use case for this account (no more than 2-3 sentences, max 60 words).
+5. **Email Template**: Write a personalized, ready-to-send cold outreach email to the account's main contact, referencing their company, your company, and the recommended services. Use a professional, friendly tone. Use all available data. Do not use placeholders like [Your Name] or [Company Name]; fill with real data or leave blank if not available.
+
+Return a valid JSON object with this exact schema:
+{
+  "accountScore": number,
+  "recommendations": string[],
+  "pitchNotes": string,
+  "useCase": string,
+  "emailTemplate": string
+}
+
+IMPORTANT: Provide only valid JSON without markdown formatting. Base all analysis on actual data provided, not assumptions.
+`;
+
+  try {
+    return await retryWithBackoff(async () => {
+      const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: CRON_CONFIG.API.OPENROUTER_MODEL,
+          messages: [
+            { role: 'system', content: 'You are a helpful assistant.' },
+            { role: 'user', content: prompt },
+          ],
+          response_format: { type: 'json_object' },
+          temperature: CRON_CONFIG.API.OPENROUTER_TEMPERATURE,
+          max_tokens: CRON_CONFIG.API.OPENROUTER_MAX_TOKENS,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`OpenRouter API error: ${response.statusText} - ${errorText}`);
+      }
+      const data = await response.json();
+      let generatedContent;
+      try {
+        generatedContent = JSON.parse(data.choices[0].message.content);
+      } catch (e) {
+        console.error('Failed to parse AI response:', e, data);
+        throw new Error('AI response was not valid JSON.');
+      }
+      return generatedContent;
+    });
+  } catch (error: any) {
+    if (error.message?.includes('429') || error.message?.toLowerCase().includes('rate limit')) {
+      console.warn('OpenRouter rate limit hit, falling back to Gemini...');
+      return await callGeminiAPI(prompt);
+    }
+    throw error;
+  }
+} 

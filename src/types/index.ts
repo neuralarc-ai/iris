@@ -1,9 +1,8 @@
-
 export type AccountType = "Client" | "Channel Partner";
 export type AccountStatus = "Active" | "Inactive";
-export type OpportunityStatus = "Need Analysis" | "Negotiation" | "In Progress" | "On Hold" | "Completed" | "Cancelled";
+export type OpportunityStatus = 'Scope Of Work' | 'Proposal' | 'Negotiation' | 'Win' | 'Loss' | 'On Hold';
 export type UpdateType = "General" | "Call" | "Meeting" | "Email";
-export type LeadStatus = "New" | "Contacted" | "Qualified" | "Proposal Sent" | "Converted to Account" | "Lost";
+export type LeadStatus = "New" | "Contacted" | "Qualified" | "Proposal Sent" | "Converted to Account" | "Lost" | "Rejected";
 
 export interface Account {
   id: string;
@@ -34,12 +33,18 @@ export interface Lead {
   updateIds?: string[]; // Direct updates to this lead
   createdAt: string;
   updatedAt: string;
+  assignedUserId?: string; // NEW: user assignment
+  rejectionReasons?: string[]; // Reasons why the lead was rejected
+  website?: string;
+  industry?: string;
+  jobTitle?: string;
 }
 
 export interface Opportunity {
   id: string;
-  name:string;
-  accountId: string; // Opportunities are linked to Accounts
+  name: string;
+  accountId?: string; // Opportunities can be linked to Accounts
+  leadId?: string;    // Or to Leads
   status: OpportunityStatus;
   value: number;
   description: string;
@@ -48,6 +53,8 @@ export interface Opportunity {
   updatedAt: string;
   startDate: string;
   endDate: string;
+  currency?: string;
+  ownerId?: string;
 }
 
 export interface Update {
@@ -60,6 +67,7 @@ export interface Update {
   type: UpdateType;
   createdAt: string;
   updatedByUserId?: string;
+  nextActionDate?: string; // Optional: next action date for follow-up
 }
 
 // For AI Generated Content
@@ -89,6 +97,7 @@ export interface User {
   email: string;
   pin: string;
   createdAt: string;
+  role: string;
 }
 
 export interface ApiSettings {

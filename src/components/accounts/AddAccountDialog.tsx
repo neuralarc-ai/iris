@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -19,6 +18,8 @@ import { useToast } from "@/hooks/use-toast";
 import type { Account, AccountType, AccountStatus, Lead } from '@/types';
 import { addAccount, getUnconvertedLeads, convertLeadToAccount, mockAccounts } from '@/lib/data';
 import { Loader2, PlusCircle, UserCheck } from 'lucide-react';
+import { supabase } from '@/lib/supabaseClient';
+import { useAuth } from '@/hooks/use-auth';
 
 interface AddAccountDialogProps {
   open: boolean;
@@ -43,6 +44,35 @@ export default function AddAccountDialog({ open, onOpenChange, onAccountAdded, o
   const [availableLeads, setAvailableLeads] = useState<Lead[]>([]);
   const [selectedLeadToConvert, setSelectedLeadToConvert] = useState<string | ''>('');
 
+  const { isAuthenticated } = useAuth();
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [users, setUsers] = useState<any[]>([]);
+  const [ownerId, setOwnerId] = useState<string>('');
+  const [role, setRole] = useState<string>('user');
+
+  useEffect(() => {
+    const fetchCurrentUser = async () => {
+      const userId = localStorage.getItem('user_id');
+      if (!userId) return;
+      const { data, error } = await supabase.from('users').select('*').eq('id', userId).single();
+      if (data) {
+        setCurrentUser(data);
+        setRole(data.role);
+        setOwnerId(data.id);
+      }
+    };
+    fetchCurrentUser();
+  }, [open]);
+
+  useEffect(() => {
+    if (role === 'admin') {
+      const fetchUsers = async () => {
+        const { data, error } = await supabase.from('users').select('id, name, email');
+        if (data) setUsers(data);
+      };
+      fetchUsers();
+    }
+  }, [role]);
 
   useEffect(() => {
     if (open) {
@@ -91,76 +121,35 @@ export default function AddAccountDialog({ open, onOpenChange, onAccountAdded, o
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000)); 
-      let newAccount: Account | null = null;
-
-      if (selectedLeadToConvert && selectedLeadToConvert !== MANUAL_CREATE_VALUE) {
-        const convertedAccount = convertLeadToAccount(selectedLeadToConvert);
-        if (convertedAccount) {
-           newAccount = {
-             ...convertedAccount,
-             name: name || convertedAccount.name, // Allow overriding pre-filled name
-             type: type || convertedAccount.type,
-             description: description || convertedAccount.description,
-             industry: industry || convertedAccount.industry,
-             contactEmail: contactEmail || convertedAccount.contactEmail,
-             contactPersonName: contactPersonName || convertedAccount.contactPersonName,
-             contactPhone: contactPhone || convertedAccount.contactPhone,
-             updatedAt: new Date().toISOString()
-           };
-           // Update mockAccounts array directly if convertLeadToAccount doesn't handle updates to existing entries (it creates new)
-           const accountIndex = mockAccounts.findIndex(acc => acc.id === newAccount!.id);
-           if (accountIndex > -1) {
-             mockAccounts[accountIndex] = newAccount;
-           } else {
-              // This case should ideally not happen if convertLeadToAccount adds it via addAccount
-              mockAccounts.push(newAccount); 
-           }
-
-
-          toast({
-            title: "Lead Converted to Account",
-            description: `${newAccount.name} has been successfully created and updated.`,
-            className: "bg-green-100 dark:bg-green-900 border-green-500"
-          });
-          onLeadConverted?.(selectedLeadToConvert, newAccount.id);
-        } else {
-          toast({ title: "Error", description: "Failed to convert selected lead. It might already be converted or lost.", variant: "destructive" });
-          setIsLoading(false);
-          return;
-        }
-      } else {
-        // This block handles manual creation (selectedLeadToConvert is '' or MANUAL_CREATE_VALUE)
-        if (!name.trim() || !type) {
-          toast({ title: "Error", description: "Account Name and Type are required for new accounts.", variant: "destructive" });
-          setIsLoading(false);
-          return;
-        }
-        const newAccountData = {
-          name,
-          type,
-          status: 'Active' as AccountStatus, // Default to Active
-          description,
-          contactEmail,
-          contactPersonName,
-          contactPhone,
-          industry,
-        };
-        newAccount = addAccount(newAccountData); // addAccount adds to mockAccounts
-        toast({
-          title: "Account Created",
-          description: `${newAccount.name} has been successfully added.`,
-        });
+      let newAccountId = '';
+      if (!name.trim() || !type) {
+        toast({ title: "Error", description: "Account Name and Type are required for new accounts.", variant: "destructive" });
+        setIsLoading(false);
+        return;
       }
-
-      if (newAccount) {
-        onAccountAdded?.(newAccount);
+      const accountData = {
+        name,
+        type,
+        status: 'Active',
+        description,
+        contact_email: contactEmail,
+        contact_person_name: contactPersonName,
+        contact_phone: contactPhone,
+        industry,
+        owner_id: role === 'admin' ? ownerId : currentUser?.id,
+      };
+      const { data, error } = await supabase.from('account').insert([accountData]).select().single();
+      if (error) {
+        toast({ title: "Error", description: error.message, variant: "destructive" });
+        setIsLoading(false);
+        return;
       }
-      resetFormFields(true); // Reset all including lead selection
+      newAccountId = data.id;
+      toast({ title: "Account Created", description: `${data.name} has been successfully added.` });
+      onAccountAdded?.(data);
+      resetFormFields(true);
       onOpenChange(false);
-
     } catch (error) {
       console.error("Failed to process account:", error);
       toast({ title: "Error", description: "Failed to process account. Please try again.", variant: "destructive" });
@@ -217,7 +206,7 @@ export default function AddAccountDialog({ open, onOpenChange, onAccountAdded, o
             </div>
             <div>
               <Label htmlFor="account-type">Account Type <span className="text-destructive">*</span></Label>
-              <Select value={type || undefined} onValueChange={(value: AccountType | undefined) => setType(value || 'Client')}>
+              <Select value={type || undefined} onValueChange={(value: string) => setType(value as AccountType)}>
                 <SelectTrigger id="account-type">
                   <SelectValue placeholder="Select account type" />
                 </SelectTrigger>
@@ -253,6 +242,21 @@ export default function AddAccountDialog({ open, onOpenChange, onAccountAdded, o
                 rows={3}
               />
             </div>
+            {role === 'admin' && (
+              <div>
+                <Label htmlFor="account-owner">Assign Owner <span className="text-destructive">*</span></Label>
+                <Select value={ownerId} onValueChange={setOwnerId}>
+                  <SelectTrigger id="account-owner">
+                    <SelectValue placeholder="Select owner" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {users.map(user => (
+                      <SelectItem key={user.id} value={user.id}>{user.name} ({user.email})</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </fieldset>
           <DialogFooter className="pt-2">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isLoading}>

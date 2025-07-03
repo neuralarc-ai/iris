@@ -11,7 +11,7 @@ const PageTitle: React.FC<PageTitleProps> = ({ title, subtitle, children }) => {
     <div className="mb-6 md:mb-8">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-3xl md:text-4xl font-headline font-bold text-foreground">
+          <h1 className="text-3xl md:text-4xl font-headline font-semibold tracking-tight text-foreground">
             {title}
           </h1>
           {subtitle && (

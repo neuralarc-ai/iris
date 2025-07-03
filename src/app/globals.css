@@ -1,4 +1,3 @@
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -6,8 +5,8 @@
 @layer base {
   :root {
     /* New background color for light mode */
-    --background: 40 33% 98%; /* #FBFAF8 */
-    --foreground: 220 10% 15%; /* Darker text for good contrast */
+    --background: 45 20% 96%;
+    --foreground: 220 10% 15%;
 
     /* Card variables for glass effect */
     --card: 0 0% 100%;
@@ -16,13 +15,13 @@
     --popover: 0 0% 100%;
     --popover-foreground: 220 10% 10%;
 
-    --primary: 240 5.9% 10%;
+    --primary: 81 12% 59%;
     --primary-foreground: 0 0% 98%;
 
-    --secondary: 220 10% 90%;
-    --secondary-foreground: 220 10% 10%;
+    --secondary: 75 5% 36%;
+    --secondary-foreground: 0 0% 98%;
 
-    --muted: 220 10% 85%;
+    --muted: 35 16% 53%;
     --muted-foreground: 220 10% 45%;
 
     --accent: 220 10% 88%;
@@ -33,16 +32,16 @@
 
     --border: 220 10% 80%;
     --input: 220 10% 80%;
-    --ring: 240 5.9% 10%;
+    --ring: 81 12% 59%;
 
     --radius: 0.5rem;
 
-    /* Chart colors - monochrome theme */
-    --chart-1: 0 0% 20%;
-    --chart-2: 0 0% 35%;
-    --chart-3: 0 0% 50%;
-    --chart-4: 0 0% 65%;
-    --chart-5: 0 0% 80%;
+    /* Chart colors - new theme */
+    --chart-1: 81 12% 59%; /* Primary */
+    --chart-2: 75 5% 36%; /* Secondary */
+    --chart-3: 35 16% 53%; /* Tertiary */
+    --chart-4: 81 12% 75%; /* Lighter Primary */
+    --chart-5: 35 16% 70%; /* Lighter Tertiary */
   }
 
   .dark {
@@ -57,13 +56,13 @@
     --popover: 220 10% 10%;
     --popover-foreground: 220 10% 90%;
 
-    --primary: 220 10% 90%;
-    --primary-foreground: 220 10% 10%;
+    --primary: 81 12% 59%;
+    --primary-foreground: 0 0% 98%;
 
-    --secondary: 220 10% 20%;
-    --secondary-foreground: 220 10% 90%;
+    --secondary: 75 5% 36%;
+    --secondary-foreground: 0 0% 98%;
 
-    --muted: 220 10% 20%;
+    --muted: 35 16% 53%;
     --muted-foreground: 220 10% 60%;
 
     --accent: 220 10% 25%;
@@ -74,13 +73,14 @@
 
     --border: 220 10% 25%;
     --input: 220 10% 25%;
-    --ring: 220 10% 80%;
+    --ring: 81 12% 59%;
 
-    --chart-1: 0 0% 80%;
-    --chart-2: 0 0% 65%;
-    --chart-3: 0 0% 50%;
-    --chart-4: 0 0% 35%;
-    --chart-5: 0 0% 20%;
+    /* Chart colors - new theme */
+    --chart-1: 81 12% 59%; /* Primary */
+    --chart-2: 75 5% 46%; /* Lighter Secondary for dark mode */
+    --chart-3: 35 16% 63%; /* Lighter Tertiary for dark mode */
+    --chart-4: 81 12% 75%; /* Lighter Primary */
+    --chart-5: 35 16% 70%; /* Lighter Tertiary */
   }
 }
 
@@ -91,9 +91,11 @@
   body {
     /* Apply solid background color using CSS variable */
     @apply bg-[hsl(var(--background))] text-foreground font-body;
+    font-family: 'Fustat', sans-serif;
   }
   h1, h2, h3, h4, h5, h6 {
     @apply font-headline;
+    font-family: 'Fustat', sans-serif;
   }
   code, pre {
     @apply font-code;
@@ -112,4 +114,94 @@
     background-color: hsl(var(--accent));
     color: hsl(var(--accent-foreground));
   }
+}
+
+.grain-texture {
+  position: relative;
+  overflow: visible;
+}
+
+.grain-texture::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: url('/images/grain.svg');
+  background-repeat: no-repeat;
+  background-size: cover;
+  opacity: 0.7;
+  mix-blend-mode: soft-light;
+  pointer-events: none;
+  z-index: 999;
+}
+
+/* PIN Input Custom Styles */
+.pin-input {
+  caret-color: #fff !important;
+}
+
+.pin-input[type="password"] {
+  -webkit-text-security: disc;
+  text-security: disc;
+}
+
+.pin-input[type="password"]::placeholder {
+  -webkit-text-security: none;
+  text-security: none;
+}
+
+/* Ensure password dots are visible and properly sized */
+.pin-input[type="password"]::-webkit-password-decoration {
+  font-size: 2.5rem;
+  font-weight: 700;
+}
+
+/* Firefox specific styling for password dots */
+.pin-input[type="password"]::-moz-password-decoration {
+  font-size: 2.5rem;
+  font-weight: 700;
+}
+
+/* Enhanced cursor visibility */
+.pin-input:focus {
+  caret-color: #fff !important;
+  animation: cursor-blink 1s infinite;
+}
+
+@keyframes cursor-blink {
+  0%, 50% {
+    caret-color: #fff;
+  }
+  51%, 100% {
+    caret-color: transparent;
+  }
+}
+
+/* Custom Scrollbar Styles */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+  background: #FAFAFA;
+}
+::-webkit-scrollbar-thumb {
+  background: #CDCDCD;
+  border-radius: 8px;
+  border: 2px solid #FAFAFA;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #bdbdbd;
+}
+::-webkit-scrollbar-corner {
+  background: #FAFAFA;
+}
+/* Remove up/down arrows (default for most modern browsers) */
+::-webkit-scrollbar-button {
+  display: none;
+  height: 0;
+  width: 0;
+}
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #CDCDCD #FAFAFA;
 }

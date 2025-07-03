@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -18,21 +17,30 @@ interface OpportunityCardProps { // Renamed
   opportunity: Opportunity; // Renamed
 }
 
-const getStatusGrayscale = (status: Opportunity['status']): string => { // Renamed
+const getStatusColor = (status: Opportunity['status']) => {
   switch (status) {
-    case 'Need Analysis': return 'text-gray-400'; 
-    case 'Negotiation': return 'text-gray-500';
-    case 'In Progress': return 'text-gray-700'; 
-    case 'On Hold': return 'text-gray-600';
-    case 'Completed': return 'text-gray-800'; 
-    case 'Cancelled': return 'text-gray-300'; 
+    case 'Scope Of Work': return 'text-gray-400';
+    case 'Proposal': return 'text-blue-600';
+    case 'Negotiation': return 'text-gray-700';
+    case 'Win': return 'text-green-600';
+    case 'Loss': return 'text-red-600';
+    case 'On Hold': return 'text-yellow-600';
     default: return 'text-gray-500';
   }
 };
 
+const getProgressPercentage = (status: Opportunity['status']) => {
+  if (status === 'Win') return 100;
+  if (status === 'Loss' || status === 'Scope Of Work') return 0;
+  if (status === 'Proposal') return 25;
+  if (status === 'Negotiation') return 75;
+  if (status === 'On Hold') return 50;
+  return 0;
+};
+
 const calculateProgress = (startDate: string, endDate: string, status: Opportunity['status']): number => { // Renamed
-  if (status === 'Completed') return 100;
-  if (status === 'Cancelled' || status === 'Need Analysis') return 0;
+  if (status === 'Win') return 100;
+  if (status === 'Loss' || status === 'Scope Of Work') return 0;
 
   const start = parseISO(startDate);
   const end = parseISO(endDate);
@@ -60,11 +68,8 @@ export default function OpportunityCard({ opportunity }: OpportunityCardProps) {
     if (opportunity.accountId) { // Renamed
       setAssociatedEntity(getAccountById(opportunity.accountId)); // Renamed
       setEntityType('Account');
-    } else if (opportunity.leadId) { // Renamed
-      setAssociatedEntity(getLeadById(opportunity.leadId)); // Renamed
-      setEntityType('Lead');
     }
-  }, [opportunity.accountId, opportunity.leadId]); // Renamed
+  }, [opportunity.accountId]); // Renamed
   
   const fetchForecast = async () => {
     setIsLoadingForecast(true);
@@ -99,7 +104,7 @@ export default function OpportunityCard({ opportunity }: OpportunityCardProps) {
 
 
   return (
-    <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300 flex flex-col h-full">
+    <Card className="shadow-md hover:shadow-lg transition-shadow duration-300 flex flex-col h-full bg-white">
       <CardHeader>
         <div className="flex justify-between items-start">
           <div>
@@ -107,7 +112,7 @@ export default function OpportunityCard({ opportunity }: OpportunityCardProps) {
               <BarChartBig className="mr-2 h-5 w-5 text-primary" /> {/* Renamed Icon */}
               {opportunity.name} {/* Renamed */}
             </CardTitle>
-            <CardDescription className={`${getStatusGrayscale(opportunity.status)} flex items-center`}> {/* Renamed */}
+            <CardDescription className={`${getStatusColor(opportunity.status)} flex items-center`}> {/* Renamed */}
               Status: {opportunity.status} {/* Renamed */}
               {entityName && (
                 <>

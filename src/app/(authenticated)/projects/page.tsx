@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState } from 'react';
@@ -7,7 +6,8 @@ import OpportunityCard from '@/components/opportunities/OpportunityCard'; // Ren
 import { mockOpportunities, mockAccounts, mockLeads, addOpportunity as saveNewOpportunity } from '@/lib/data'; // Renamed, added addOpportunity
 import type { Opportunity, OpportunityStatus } from '@/types'; // Renamed
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Filter, BarChartBig } from 'lucide-react'; // Added BarChartBig
+import { Filter, BarChartBig } from 'lucide-react';
+import Image from 'next/image';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'; // Added CardHeader, CardTitle
@@ -21,10 +21,9 @@ export default function OpportunitiesPage() { // Renamed
   const [entityFilter, setEntityFilter] = useState<string | 'all'>('all'); 
   const [isAddOpportunityDialogOpen, setIsAddOpportunityDialogOpen] = useState(false); // Renamed
 
-  const opportunityStatusOptions: OpportunityStatus[] = ["Need Analysis", "Negotiation", "In Progress", "On Hold", "Completed", "Cancelled"]; // Renamed
+  const opportunityStatusOptions: OpportunityStatus[] = ["Scope Of Work", "Proposal", "Negotiation", "Win", "Loss", "On Hold"]; // Updated to match type definition
 
   const entityOptions = [
-    ...mockLeads.map(lead => ({ id: `lead_${lead.id}`, name: `${lead.companyName} (Lead)` })),
     ...mockAccounts.map(account => ({ id: `account_${account.id}`, name: `${account.name} (Account)` }))
   ];
 
@@ -35,9 +34,7 @@ export default function OpportunitiesPage() { // Renamed
     let matchesEntity = true;
     if (entityFilter !== 'all') {
       const [type, id] = entityFilter.split('_');
-      if (type === 'lead') {
-        matchesEntity = opportunity.leadId === id;
-      } else if (type === 'account') {
+      if (type === 'account') {
         matchesEntity = opportunity.accountId === id;
       }
     }
@@ -49,10 +46,10 @@ export default function OpportunitiesPage() { // Renamed
   };
 
   return (
-    <div className="container mx-auto">
+    <div className="max-w-[1440px] px-4 mx-auto w-full">
       <PageTitle title="Opportunity Management" subtitle="Track and manage all ongoing and potential sales opportunities."> {/* Renamed */}
-        <Button onClick={() => setIsAddOpportunityDialogOpen(true)}> {/* Renamed */}
-          <PlusCircle className="mr-2 h-4 w-4" /> Add New Opportunity {/* Renamed */}
+        <Button onClick={() => setIsAddOpportunityDialogOpen(true)} variant="add">
+          <Image src="/images/add.svg" alt="Add" width={20} height={20} className="mr-2" /> Add New Opportunity
         </Button>
       </PageTitle>
 
