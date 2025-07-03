@@ -349,7 +349,7 @@ export default function DashboardPage() {
         conversionRateDelta,
         conversionRatePrev,
       });
-
+      
       setLastRefreshed(new Date());
     } catch (error) {
       console.error("Failed to fetch dashboard data:", error);
@@ -475,12 +475,12 @@ export default function DashboardPage() {
             <div className="flex items-center justify-between mb-2">
               <span className="text-lg font-medium text-[#232323]">Conversion Rate</span>
               <span className={`px-2 py-0.5 rounded-full text-xs font-semibold border ${metrics.conversionRateDelta >= 0 ? 'bg-green-50 text-green-700 border-green-100' : 'bg-red-50 text-red-700 border-red-100'}`}>{metrics.conversionRateDelta >= 0 ? '+' : ''}{metrics.conversionRateDelta}%</span>
-            </div>
+        </div>
             <div className="flex items-end justify-between">
               <span className="text-3xl font-semibold text-[#18181B] tracking-tight">{metrics.conversionRate}%</span>
               <span className="text-sm text-muted-foreground ml-2">{metrics.conversionRatePrev}% <span className="text-xs">(last month)</span></span>
-            </div>
-          </div>
+        </div>
+        </div>
         </motion.div>
       </motion.div>
 
@@ -549,16 +549,16 @@ export default function DashboardPage() {
                             />
                           ))}
                         </Pie>
-                        <Tooltip
+                      <Tooltip
                           contentStyle={{
                             backgroundColor: "rgba(239, 237, 231, 0.9)",
-                            borderColor: "#CBCAC5",
-                            borderRadius: 8,
-                            boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.04), 0 2px 4px -2px rgb(0 0 0 / 0.04)",
+                              borderColor: "#CBCAC5",
+                              borderRadius: 8,
+                              boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.04), 0 2px 4px -2px rgb(0 0 0 / 0.04)",
                           }}
                           labelStyle={{ color: "#282828" }}
                           itemStyle={{ color: "#916D5B" }}
-                        />
+                      />
                       </PieChart>
                     </ResponsiveContainer>
                     <div className="flex flex-wrap justify-center gap-3 mt-4">
@@ -590,26 +590,26 @@ export default function DashboardPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="flex-grow flex flex-col gap-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {isLoading && latestOpportunities.length === 0 ? (
-                    Array.from({ length: 2 }).map((_, i) => (
-                      <Card key={i} className="shadow-md rounded-sm animate-pulse h-full">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6"> 
+                    {isLoading && latestOpportunities.length === 0 ? (
+                    Array.from({ length: 2 }).map((_, i) => ( 
+                        <Card key={i} className="shadow-md rounded-sm animate-pulse h-full">
                         <CardHeader>
-                          <div className="h-6 bg-muted/50 rounded w-3/4 mb-2"></div>
-                          <div className="h-4 bg-muted/50 rounded w-1/2"></div>
+                            <div className="h-6 bg-muted/50 rounded w-3/4 mb-2"></div>
+                            <div className="h-4 bg-muted/50 rounded w-1/2"></div>
                         </CardHeader>
                         <CardContent className="space-y-2">
-                          <div className="h-4 bg-muted/50 rounded w-full"></div>
-                          <div className="h-4 bg-muted/50 rounded w-5/6"></div>
-                          <div className="h-4 bg-muted/50 rounded w-full mt-2"></div>
+                            <div className="h-4 bg-muted/50 rounded w-full"></div>
+                            <div className="h-4 bg-muted/50 rounded w-5/6"></div>
+                            <div className="h-4 bg-muted/50 rounded w-full mt-2"></div>
                         </CardContent>
-                      </Card>
+                        </Card>
                     ))
-                  ) : latestOpportunities.length > 0 ? (
+                    ) : latestOpportunities.length > 0 ? (
                     latestOpportunities.map((opp) => (
                       <OpportunityCard key={opp.id} opportunity={opp} accountName={(opp as any).accountName} />
                     ))
-                  ) : (
+                    ) : (
                     !isLoading && (
                       <div className="col-span-2 flex flex-col items-center justify-center bg-white rounded-[8px] h-[343px] shadow-sm border text-center gap-4 animate-fade-in">
                         {/* Hopeful horizon icon */}
@@ -629,7 +629,7 @@ export default function DashboardPage() {
                         <span className="text-sm text-muted-foreground text-center">Add your first opportunity to get started!</span>
                       </div>
                     )
-                  )}
+                    )}
                 </div>
               </CardContent>
             </Card>
@@ -661,7 +661,7 @@ export default function DashboardPage() {
                   <CardTitle className="text-lg flex items-center text-[#282828]">
                     Lead Engagement
                   </CardTitle>
-                </div>
+              </div>
                 <div className="flex flex-row gap-2">
                   <Button
                     type="button"
@@ -684,14 +684,14 @@ export default function DashboardPage() {
                   >
                     <Users className={`h-4 w-4 ${leadSegment === 'Cold' ? 'text-white' : 'text-[#3987BE]'}`} /> Cold
                   </Button>
-                </div>
+            </div>
               </CardHeader>
               <CardContent className="relative flex-grow flex flex-col gap-4 overflow-scroll max-h-[290px] h-full">
                 {isLoadingEngagement ? (
                   <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
                     <Users className="h-8 w-8 mb-2 animate-pulse" />
                     <span>Loading engagement data...</span>
-                  </div>
+          </div>
                 ) : (
                   <LeadEngagementCard
                     leads={engagementLeads}
@@ -747,7 +747,7 @@ export default function DashboardPage() {
                         </svg>
                         <span className="text-lg text-muted-foreground font-medium text-center">No recent activity yet</span>
                         <span className="text-sm text-muted-foreground text-center">Once you start engaging, updates will appear here!</span>
-                      </div>
+        </div>
                     )
                   )}
                 </div>
