@@ -9,6 +9,7 @@ interface LeadEngagementCardProps {
     companyName: string;
     personName: string;
     email: string;
+    status?: string;
     matchScore?: number;
     avatarUrl?: string;
   }>;
@@ -17,6 +18,7 @@ interface LeadEngagementCardProps {
     use_case?: string;
     pitch_notes?: string;
     email_template?: string;
+    entity_type?: string;
   }>;
   updates?: Record<string, Array<{
     type: string;
@@ -34,8 +36,14 @@ const getSegment = (score?: number) => {
 };
 
 const LeadEngagementCard: React.FC<LeadEngagementCardProps> = ({ leads = [], aianalysis = {}, updates = {}, segment }) => {
-  // Filter leads by segment prop
-  const filteredLeads = leads.filter(lead => getSegment(aianalysis[lead.id]?.match_score) === segment);
+  // Filter leads by segment prop, skip those with status 'Converted to Account' or entity_type 'Account' in aianalysis
+  const filteredLeads = leads.filter(lead => {
+    const ai = aianalysis[lead.id] || {};
+    // Skip if lead is converted or AI entity_type is Account
+    if (lead.status === 'Converted to Account') return false;
+    if (ai.entity_type === 'Account') return false;
+    return getSegment(ai.match_score) === segment;
+  });
   // Sort by match_score desc
   const sortedLeads = [...filteredLeads].sort((a, b) => (aianalysis[b.id]?.match_score ?? 0) - (aianalysis[a.id]?.match_score ?? 0));
   const topLeads = sortedLeads.slice(0, 3);
