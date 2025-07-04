@@ -258,24 +258,25 @@ export default function AccountModal({ accountId, open, onClose, aiEnrichment, i
 
   // Placeholder for user's company info (customize as needed)
   const userCompany = {
-    name: 'NeuralArc',
-    website: 'https://neuralarc.com',
-    contact: 'contact@neuralarc.com',
+    name: '[Your Company Name]',
+    website: 'https://yourcompany.com',
+    contact: 'contact@yourcompany.com',
   };
   // Placeholder for current user (customize as needed)
   const currentUser = { name: ownerName || '[Your Name]', email: ownerName || '[Your Email]' };
 
   // Email generation logic
-  const generateProfessionalEmail = async () => {
+  const generateProfessionalEmail = async (aiOverride?: any) => {
     setIsGeneratingEmail(true);
     // If AI-generated email template is present, use it
-    if (ai?.emailTemplate) {
+    const aiData = aiOverride || ai;
+    if (aiData?.emailTemplate) {
       setIsGeneratingEmail(false);
-      return ai.emailTemplate;
+      return aiData.emailTemplate;
     }
     // Fallback: Compose recommended services string
-    const services = (ai?.recommended_services || ai?.recommendations)?.length
-      ? (ai.recommended_services || ai.recommendations).map((s: string) => `- ${s}`).join('\n')
+    const services = (aiData?.recommended_services || aiData?.recommendations)?.length
+      ? (aiData.recommended_services || aiData.recommendations).map((s: string) => `- ${s}`).join('\n')
       : '- AI-powered CRM\n- Sales Forecasting\n- Automated Reporting';
     // Simulate API call delay
     return new Promise<string>((resolve) => {
@@ -328,10 +329,13 @@ export default function AccountModal({ accountId, open, onClose, aiEnrichment, i
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  // If aiEnrichment or isAiLoading props change, update local state
+  // If aiEnrichment or isAiLoading props change, update local state and regenerate email if needed
   useEffect(() => {
     setAI(aiEnrichment || null);
     setLoadingAI(isAiLoading || false);
+    if (aiEnrichment && aiEnrichment.emailTemplate) {
+      setEmailTabContent(aiEnrichment.emailTemplate);
+    }
   }, [aiEnrichment, isAiLoading]);
 
   // Replace the enrichment fetch logic with this useEffect:
@@ -899,20 +903,6 @@ export default function AccountModal({ accountId, open, onClose, aiEnrichment, i
                       <Mail className="h-5 w-5 text-[#5E6156]" /> Email to Account
                     </h4>
                     <div className="flex gap-2 pr-6">
-                      <Button
-                        variant="outline"
-                        className="max-h-12 flex items-center gap-1 border-[#E5E3DF] text-[#282828] bg-white hover:bg-[#F8F7F3]"
-                        onClick={async () => {
-                          setIsGeneratingEmail(true);
-                          setEmailTabContent(null);
-                          const email = await generateProfessionalEmail();
-                          setEmailTabContent(email);
-                        }}
-                        disabled={isGeneratingEmail}
-                      >
-                        <RefreshCw className="h-4 w-4 mr-1" />
-                        {isGeneratingEmail ? 'Regenerating...' : 'Regenerate'}
-                      </Button>
                       <Button
                         variant="outline"
                         className="max-h-12 flex items-center gap-1 border-[#E5E3DF] text-[#282828] bg-white hover:bg-[#F8F7F3]"
