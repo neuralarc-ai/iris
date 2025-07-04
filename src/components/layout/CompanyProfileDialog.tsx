@@ -6,7 +6,7 @@ import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/supabaseClient';
 import { useToast } from '@/hooks/use-toast';
-import { Building2, Box, Upload, ArrowLeft, ArrowRight, Pencil, Check, X, Sparkles } from 'lucide-react';
+import { Building2, Box, Upload, ArrowLeft, ArrowRight, Pencil, Check, X, Sparkles, Loader2 } from 'lucide-react';
 import { fetchAndCacheCompanyWebsiteSummary } from '@/lib/utils';
 import SleekLoader from '../common/SleekLoader';
 
@@ -46,6 +46,14 @@ export default function CompanyProfileDialog({ open, onOpenChange, onImportLeads
   useEffect(() => {
     if (open && hasCompanyInfo) setStep(1);
   }, [open, hasCompanyInfo]);
+
+  // Update hasCompanyInfo when companyId changes
+  useEffect(() => {
+    if (companyId) {
+      // If we now have a company ID, we're no longer in "new company" mode
+      // This will trigger the UI to show the "Save" button instead of "Next"
+    }
+  }, [companyId]);
 
   useEffect(() => {
     if (open) {
@@ -356,7 +364,43 @@ export default function CompanyProfileDialog({ open, onOpenChange, onImportLeads
               </DialogFooter>
             </form>
           ) : (
-            <form className="space-y-4" noValidate onSubmit={e => { e.preventDefault(); setStep(2); }}>
+            <form className="space-y-4" noValidate onSubmit={async (e) => { 
+              e.preventDefault(); 
+              if (!hasCompanyInfo) {
+                // For new companies, save the data first before moving to step 2
+                setIsSaving(true);
+                try {
+                  const { data, error } = await supabase.from('company').insert({
+                    name: companyName,
+                    website,
+                    industry,
+                    description: companyDescription
+                  }).select().single();
+                  
+                  if (data) {
+                    setCompanyId(data.id);
+                    // Save services if any
+                    if (services.length > 0) {
+                      await supabase.from('company_service').insert(
+                        services.map(s => ({
+                          company_id: data.id,
+                          name: s.name,
+                          category: s.category,
+                          description: s.description,
+                          target_market: s.targetMarket
+                        }))
+                      );
+                    }
+                    setStep(2); // Now advance to step 2
+                    toast({ title: 'Success', description: 'Company profile saved.', className: 'bg-green-100 dark:bg-green-900 border-green-500' });
+                  }
+                } catch (error) {
+                  toast({ title: 'Error', description: 'Failed to save company profile.', variant: 'destructive' });
+                } finally {
+                  setIsSaving(false);
+                }
+              }
+            }}>
               <div className="bg-[#F8F7F3] border border-[#E0E0E0] rounded-xl p-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
@@ -376,7 +420,7 @@ export default function CompanyProfileDialog({ open, onOpenChange, onImportLeads
                       />
                       {isAnalyzingWebsite && (
                         <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex items-center gap-1 text-xs text-[#5E6156]">
-                          <SleekLoader />
+                          <Loader2 className="w-4 h-4 animate-spin" />
                         </div>
                       )}
                     </div>
@@ -407,7 +451,7 @@ export default function CompanyProfileDialog({ open, onOpenChange, onImportLeads
                           className="flex items-center gap-2 text-xs"
                         >
                           {isAnalyzingWebsite ? (
-                            <SleekLoader />
+                            <Loader2 className="w-4 h-4 animate-spin" />
                           ) : (
                             <Sparkles className="h-3 w-3" />
                           )}
@@ -505,12 +549,50 @@ export default function CompanyProfileDialog({ open, onOpenChange, onImportLeads
                   </Button>
                 </div>
                 <div className="flex-1 flex justify-end gap-4">
-                  <Button type="button" variant="ghost" className="self-center text-[#282828] text-sm font-medium cursor-pointer hover:underline" onClick={() => onOpenChange(false)}>
-                    Skip for Now
-                  </Button>
-                  <Button type="submit" className="sm:max-w-fit sm:w-fit max-h-12 px-2 bg-[#282828] text-white hover:bg-[#3a322c] rounded-md flex items-center gap-1" disabled={Number(step) === 2 || !isEditing}>
-                    Next <ArrowRight className="w-4 h-4" />
-                  </Button>
+                  {/* Only show "Skip for Now" for new companies on step 1 */}
+                  {!hasCompanyInfo && step === 1 && (
+                    <Button type="button" variant="ghost" className="self-center text-[#282828] text-sm font-medium cursor-pointer hover:underline" onClick={() => onOpenChange(false)}>
+                      Skip for Now
+                    </Button>
+                  )}
+                  {/* Show "Next" for new companies on step 1, "Save" for existing companies */}
+                  {!hasCompanyInfo ? (
+                    <Button 
+                      type="submit" 
+                      className="sm:max-w-fit sm:w-fit max-h-12 px-2 bg-[#282828] text-white hover:bg-[#3a322c] rounded-md flex items-center gap-1" 
+                      disabled={Number(step) === 2 || !isEditing || !companyName.trim() || !website.trim() || !industry || !companyDescription.trim() || isSaving}
+                    >
+                      {isSaving ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Saving...
+                        </>
+                      ) : (
+                        <>
+                          Next <ArrowRight className="w-4 h-4" />
+                        </>
+                      )}
+                    </Button>
+                  ) : (
+                    <Button 
+                      type="button" 
+                      className="sm:max-w-fit sm:w-fit max-h-12 px-2 bg-[#282828] text-white hover:bg-[#3a322c] rounded-md flex items-center gap-1" 
+                      disabled={!isEditing || isSaving}
+                      onClick={handleSave}
+                    >
+                      {isSaving ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Saving...
+                        </>
+                      ) : (
+                        <>
+                          <Check className="w-4 h-4" />
+                          Save
+                        </>
+                      )}
+                    </Button>
+                  )}
                 </div>
               </DialogFooter>
             </form>
