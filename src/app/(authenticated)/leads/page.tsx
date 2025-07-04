@@ -227,13 +227,18 @@ export default function LeadsPage() {
   const totalLeadsPages = Math.ceil(filteredLeads.length / ITEMS_PER_PAGE);
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
   const endIndex = startIndex + ITEMS_PER_PAGE;
-  // Sort so leads with a lead score appear first
+  // Sort the entire filteredLeads array by lead score ascending (lowest to highest), leads without a score at the end
   const sortedLeads = [...filteredLeads].sort((a, b) => {
-    const aHasScore = leadEnrichments[a.id]?.leadScore !== undefined;
-    const bHasScore = leadEnrichments[b.id]?.leadScore !== undefined;
-    if (aHasScore === bHasScore) return 0;
-    return aHasScore ? -1 : 1;
+    const aScore = leadEnrichments[a.id]?.leadScore;
+    const bScore = leadEnrichments[b.id]?.leadScore;
+    const aHasScore = typeof aScore === 'number';
+    const bHasScore = typeof bScore === 'number';
+    if (aHasScore && bHasScore) return aScore - bScore;
+    if (aHasScore) return -1;
+    if (bHasScore) return 1;
+    return 0;
   });
+  // Paginate after sorting so all pages and the whole table are in score order
   const paginatedLeads = sortedLeads.slice(startIndex, endIndex);
 
   // Filter rejected leads based on search term
