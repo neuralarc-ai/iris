@@ -176,7 +176,7 @@ Based on this comprehensive analysis, provide:
 
 **Email Formatting Requirements:**
 - The greeting must use only the first name of the contact (e.g., 'Dear Sam' instead of 'Dear Sam Holiday').
-- The email body must include the following call scheduling link: http://meet.neuralarc.ai/
+- The email body must include the following call scheduling link: https://meet.neuralarc.ai/
 - The email template must start with the subject line in the format: "Subject: <your subject here>" on the first line.
 - The signature must be exactly as follows:
 Best regards,
