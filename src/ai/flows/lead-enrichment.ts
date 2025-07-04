@@ -133,14 +133,7 @@ ${serperSummary ? `**Market Intelligence & News (Serper):**\n${serperSummary}\n`
 ${exaSummary ? `**Market Intelligence & News (Exa):**\n${exaSummary}\n` : ''}
 ${websiteSummary ? `**Lead's Company Website Analysis:**\n${websiteSummary}\n` : ''}
 
-**EMAIL TEMPLATE GENERATION INSTRUCTIONS:**
-- Compose a highly personalized outreach email to the lead, using all available data (company profile, website, Tavily, Serper, Exa, and associated opportunities).
-- Reference recent company news, achievements, or strategic initiatives if available.
-- Clearly articulate how our solutions address the lead's specific business needs, industry challenges, or current market trends.
-- Include at least one actionable recommendation or offer tailored to the lead's context.
-- Use the highest standards of formal written English. Do not use contractions. Do not use placeholders; every section must be filled with real, relevant data.
-- The email should be concise, professional, and demonstrate a clear understanding of the lead's business environment.
-- Avoid generic statements. Every sentence must be specific to the lead and their company.
+
 
 ## SCORING METHODOLOGY:
 Analyze the lead using a weighted 100-point scoring system. Use all available opportunity data to inform your score and recommendations:
@@ -178,7 +171,13 @@ Based on this comprehensive analysis, provide:
 2. **Recommended Services**: Suggest 3-4 specific services or products that would be a good fit for this lead.
 3. **Pitch Notes**: Provide concise, actionable talking points for a sales pitch (no more than 2-3 sentences, max 60 words).
 4. **Use Case**: Describe a compelling use case for this lead (no more than 2-3 sentences, max 60 words).
-5. **Email Template**: Write a personalized, ready-to-send cold outreach email to the lead's main contact, referencing their company, your company, and the recommended services. Use a professional, friendly tone. Use all available data. Do not use placeholders like [Your Name] or [Company Name]; fill with real data or leave blank if not available.
+5. **Email Template**: Write a personalized, ready-to-send cold outreach email to the lead's main contact, referencing their company, your company, and the recommended services. Use a professional, friendly tone. Use all available data. Do not use placeholders like [Your Name] or [Company Name]; fill with real data or leave blank if not available. **In the greeting, always use only the lead's first name (e.g., 'Dear Sam,') and never the full name.**
+
+**Signature format:**
+Best regards,
+Nyra
+Neural Intelligence Officer, NeuralArc Inc
+https://neuralarc.ai
 
 Return a valid JSON object with this exact schema:
 {
