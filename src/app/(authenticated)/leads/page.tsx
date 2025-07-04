@@ -33,6 +33,8 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator
 } from '@/components/ui/dropdown-menu';
+import LeadDialog from '@/components/leads/LeadDialog';
+import AddOpportunityDialog from '@/components/opportunities/AddOpportunityDialog';
 
 const leadStatusOptions: LeadStatus[] = ["New", "Contacted", "Qualified", "Proposal Sent", "Lost"];
 
@@ -76,6 +78,11 @@ export default function LeadsPage() {
   const [isCompanyProfileDialogOpen, setIsCompanyProfileDialogOpen] = useState(false);
 
   const [archivedByNames, setArchivedByNames] = useState<Record<string, string>>({});
+
+  const [openLeadDialogId, setOpenLeadDialogId] = useState<string | null>(null);
+  const [addOpportunityLeadId, setAddOpportunityLeadId] = useState<string | null>(null);
+  const [convertLeadId, setConvertLeadId] = useState<string | null>(null);
+  const [archiveLeadId, setArchiveLeadId] = useState<string | null>(null);
 
   // Fetch user names for archivedBy IDs
   useEffect(() => {
@@ -1294,169 +1301,218 @@ export default function LeadsPage() {
               </TableHeader>
               <TableBody>
                 {paginatedLeads.map((lead) => (
-                  <TableRow
-                    key={lead.id}
-                    className={`hover:bg-transparent`}
-                        onClick={selectMode ? (e) => {
-                          // Only trigger selection if clicking on the row but not on the checkbox or action buttons
-                          const target = e.target as HTMLElement;
-                          if (!target.closest('input[type="checkbox"]') && !target.closest('button')) {
-                            handleSelectLead(lead.id);
-                          }
-                        } : undefined}
-                  >
-                    {selectMode && (
-                      <TableCell className="w-10 align-middle">
-                        <input
-                          type="checkbox"
-                          checked={selectedLeads.includes(lead.id)}
-                          onChange={e => { e.stopPropagation(); handleSelectLead(lead.id); }}
-                          onClick={e => e.stopPropagation()}
-                          className="accent-[#97A487] border-none h-4 w-4"
-                        />
+                  <React.Fragment key={lead.id}>
+                    <TableRow
+                      className={`hover:bg-transparent`}
+                      onClick={selectMode ? (e) => {
+                        const target = e.target as HTMLElement;
+                        if (!target.closest('input[type="checkbox"]') && !target.closest('button')) {
+                          handleSelectLead(lead.id);
+                        }
+                      } : (e) => {
+                        const target = e.target as HTMLElement;
+                        if (!target.closest('input[type="checkbox"]') && !target.closest('button')) {
+                          setOpenLeadDialogId(lead.id);
+                        }
+                      }}
+                    >
+                      {selectMode && (
+                        <TableCell className="w-10 align-middle">
+                          <input
+                            type="checkbox"
+                            checked={selectedLeads.includes(lead.id)}
+                            onChange={e => { e.stopPropagation(); handleSelectLead(lead.id); }}
+                            onClick={e => e.stopPropagation()}
+                            className="accent-[#97A487] border-none h-4 w-4"
+                          />
+                        </TableCell>
+                      )}
+                      <TableCell className="font-semibold text-foreground">{lead.companyName}</TableCell>
+                      <TableCell>{lead.personName}</TableCell>
+                      <TableCell><a href={`mailto:${lead.email}`} className="text-primary hover:underline" onClick={e => e.stopPropagation()}>{lead.email}</a></TableCell>
+                      <TableCell>{lead.phone || '-'}</TableCell>
+                      <TableCell>{lead.country}</TableCell>
+                      <TableCell><span className="inline-block rounded-full bg-muted px-3 py-1 text-xs font-semibold text-muted-foreground" style={{background:'#b0aca7',color:'#23201d'}}>{lead.status}</span></TableCell>
+                      <TableCell>{new Date(lead.createdAt).toLocaleDateString('en-GB')}</TableCell>
+                      {role === 'admin' && <TableCell>{users.find(u => u.id === lead.assignedUserId)?.name || ''}</TableCell>}
+                      <TableCell className="flex gap-2" onClick={e => e.stopPropagation()}>
+                        <TooltipProvider delayDuration={0}>
+                          {lead.status !== "Converted to Account" && lead.status !== "Lost" && (
+                            <>
+                              {/* Add Opportunity Button */}
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button 
+                                    size="sm" 
+                                    className="rounded-sm p-2 h-8 w-8 bg-[#97A487] text-white hover:bg-[#97A487]/80 border-0"
+                                    onClick={() => setAddOpportunityLeadId(lead.id)}
+                                  >
+                                    <PlusCircle className="h-3.5 w-3.5" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent side="top" align="center">Add Opportunity</TooltipContent>
+                              </Tooltip>
+                              {/* Convert to Account Button */}
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button 
+                                    size="sm" 
+                                    variant="add" 
+                                    className="rounded-sm p-2 h-8 w-8"
+                                    onClick={() => setConvertLeadId(lead.id)}
+                                    disabled={(lead.status as LeadStatus) === 'Converted to Account' || (lead.status as LeadStatus) === 'Lost'}
+                                  >
+                                    <CheckSquare className="h-3.5 w-3.5" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent side="top" align="center">Convert to Account</TooltipContent>
+                              </Tooltip>
+                              {/* Archive Button */}
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button 
+                                    size="sm" 
+                                    variant="delete" 
+                                    className="rounded-sm p-2 h-8 w-8"
+                                    onClick={() => setArchiveLeadId(lead.id)}
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent side="top" align="center">Archive</TooltipContent>
+                              </Tooltip>
+                            </>
+                          )}
+                        </TooltipProvider>
                       </TableCell>
+                    </TableRow>
+                    {/* LeadDialog for this row */}
+                    {openLeadDialogId === lead.id && (
+                      <LeadDialog
+                        open={true}
+                        onOpenChange={(open) => setOpenLeadDialogId(open ? lead.id : null)}
+                        lead={lead}
+                        onLeadConverted={handleLeadConverted}
+                        onLeadDeleted={(leadId: string) => {
+                          setLeads(prev => prev.filter(l => l.id !== leadId));
+                          setOpenLeadDialogId(null);
+                        }}
+                        users={users}
+                        role={role}
+                        enrichmentData={leadEnrichments[lead.id]}
+                        isEnrichmentLoading={loadingEnrichments[lead.id]}
+                      />
                     )}
-                    <TableCell className="font-semibold text-foreground">{lead.companyName}</TableCell>
-                    <TableCell>{lead.personName}</TableCell>
-                    <TableCell><a href={`mailto:${lead.email}`} className="text-primary hover:underline">{lead.email}</a></TableCell>
-                    <TableCell>{lead.phone || '-'}</TableCell>
-                    <TableCell>{lead.country}</TableCell>
-                    <TableCell><span className="inline-block rounded-full bg-muted px-3 py-1 text-xs font-semibold text-muted-foreground" style={{background:'#b0aca7',color:'#23201d'}}>{lead.status}</span></TableCell>
-                    <TableCell>{new Date(lead.createdAt).toLocaleDateString('en-GB')}</TableCell>
-                        {role === 'admin' && <TableCell>{users.find(u => u.id === lead.assignedUserId)?.name || ''}</TableCell>}
-                    <TableCell className="flex gap-2">
-                      <TooltipProvider delayDuration={0}>
-                        {lead.status !== "Converted to Account" && lead.status !== "Lost" && (
-                          <>
-                            {/* Opportunity Button */}
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                                <Button 
-                                  size="sm" 
-                                  className="rounded-sm p-2 h-8 w-8 bg-[#97A487] text-white hover:bg-[#97A487]/80 border-0"
-                                  onClick={(e) => { 
-                                    e.stopPropagation(); 
-                                    // TODO: Open AddOpportunityDialog for this lead
-                                    toast({
-                                      title: "Coming Soon",
-                                      description: "Opportunity creation from leads will be available soon.",
-                                      className: "bg-blue-100 dark:bg-blue-900 border-blue-500"
-                                    });
-                                  }}
-                                >
-                                  <PlusCircle className="h-3.5 w-3.5" />
-                                </Button>
-                            </TooltipTrigger>
-                              <TooltipContent side="top" align="center">New Opportunity</TooltipContent>
-                          </Tooltip>
-                            
-                            {/* Convert Button */}
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <AlertDialog>
-                                  <AlertDialogTrigger asChild>
-                                    <Button 
-                                      size="sm" 
-                                      variant="add" 
-                                      className="rounded-sm p-2 h-8 w-8"
-                                      onClick={(e) => e.stopPropagation()}
-                                    >
-                                      <CheckSquare className="h-3.5 w-3.5" />
-                                    </Button>
-                                  </AlertDialogTrigger>
-                                  <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                      <AlertDialogTitle>Convert Lead to Account?</AlertDialogTitle>
-                                      <AlertDialogDescription>
-                                        Are you sure you want to convert this lead to an account? This action cannot be undone and the lead will be moved to your accounts list.
-                                      </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                      <AlertDialogAction 
-                                        onClick={(e) => { 
-                                          e.stopPropagation(); 
-                                          // TODO: Implement lead conversion using the same logic as LeadCard
-                                          toast({
-                                            title: "Coming Soon",
-                                            description: "Lead conversion will be available soon.",
-                                            className: "bg-blue-100 dark:bg-blue-900 border-blue-500"
-                                          });
-                                        }} 
-                                        className="bg-[#2B2521] text-white rounded-md border-0 hover:bg-[#3a322c]"
-                                      >
-                                        Convert
-                                      </AlertDialogAction>
-                                    </AlertDialogFooter>
-                                  </AlertDialogContent>
-                                </AlertDialog>
-                              </TooltipTrigger>
-                              <TooltipContent side="top" align="center">Convert Lead</TooltipContent>
-                            </Tooltip>
-                            
-                            {/* Delete Button */}
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <AlertDialog>
-                                  <AlertDialogTrigger asChild>
-                                    <Button 
-                                      size="sm" 
-                                      variant="delete" 
-                                      className="rounded-sm p-2 h-8 w-8"
-                                      onClick={(e) => e.stopPropagation()}
-                                    >
-                                      <Trash2 className="h-3.5 w-3.5" />
-                                    </Button>
-                                  </AlertDialogTrigger>
-                                  <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                      <AlertDialogTitle>Archive Lead?</AlertDialogTitle>
-                                      <AlertDialogDescription>
-                                        Are you sure you want to archive this lead? It will be moved to the archive section and can be restored later.
-                                      </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                      <AlertDialogAction 
-                                        onClick={async (e) => { 
-                                          e.stopPropagation(); 
-                                          try {
-                                            const currentUserId = localStorage.getItem('user_id');
-                                            if (!currentUserId) throw new Error('User not authenticated');
-                                            
-                                            await archiveLead(lead.id, currentUserId);
-
-                                            toast({
-                                              title: "Lead Archived",
-                                              description: `${lead.companyName} and all related activity logs have been moved to archive.`,
-                                              variant: "destructive"
-                                            });
-
-                                            setLeads(prev => prev.filter(l => l.id !== lead.id));
-                                          } catch (error) {
-                                            console.error('Lead archiving failed:', error);
-                                            toast({ 
-                                              title: "Archiving Failed", 
-                                              description: error instanceof Error ? error.message : "Could not archive lead.", 
-                                              variant: "destructive" 
-                                            });
-                                          }
-                                        }} 
-                                        className="bg-[#916D5B] text-white rounded-md border-0 hover:bg-[#a98a77]"
-                                      >
-                                        Delete
-                                      </AlertDialogAction>
-                                    </AlertDialogFooter>
-                                  </AlertDialogContent>
-                                </AlertDialog>
-                              </TooltipTrigger>
-                              <TooltipContent side="top" align="center">Delete</TooltipContent>
-                            </Tooltip>
-                          </>
-                        )}
-                      </TooltipProvider>
-                    </TableCell>
-                  </TableRow>
+                    {/* AddOpportunityDialog for this row */}
+                    {addOpportunityLeadId === lead.id && (
+                      <AddOpportunityDialog
+                        open={true}
+                        onOpenChange={(open) => setAddOpportunityLeadId(open ? lead.id : null)}
+                        accountId={undefined}
+                      />
+                    )}
+                    {/* Convert to Account AlertDialog for this row */}
+                    {convertLeadId === lead.id && (
+                      <AlertDialog open={true} onOpenChange={(open) => setConvertLeadId(open ? lead.id : null)}>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Convert Lead to Account?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Are you sure you want to convert this lead to an account? This action cannot be undone and the lead will be moved to your accounts list.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel onClick={() => setConvertLeadId(null)}>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={async () => {
+                              setConvertLeadId(null);
+                              // Use the same logic as handleConvertLead in LeadCard
+                              if ((lead.status as LeadStatus) === "Converted to Account" || (lead.status as LeadStatus) === "Lost") {
+                                toast({ title: "Action not allowed", description: "This lead has already been processed.", variant: "destructive" });
+                                return;
+                              }
+                              try {
+                                const ownerId = lead.assignedUserId || localStorage.getItem('user_id');
+                                if (!ownerId) throw new Error('User not authenticated');
+                                const { data: accountData, error: accountError } = await supabase.from('account').insert([
+                                  {
+                                    name: lead.companyName,
+                                    type: 'Client',
+                                    status: 'Active',
+                                    description: `Converted from lead: ${lead.personName}`,
+                                    contact_email: lead.email,
+                                    contact_person_name: lead.personName,
+                                    contact_phone: lead.phone || '',
+                                    converted_from_lead_id: lead.id,
+                                    owner_id: ownerId,
+                                  }
+                                ]).select().single();
+                                if (accountError || !accountData) {
+                                  throw accountError || new Error('Failed to create account');
+                                }
+                                const { error: leadError } = await supabase
+                                  .from('lead')
+                                  .update({ status: 'Converted to Account' })
+                                  .eq('id', lead.id);
+                                if (leadError) {
+                                  throw leadError;
+                                }
+                                toast({
+                                  title: "Lead Converted!",
+                                  description: lead.companyName + " has been converted to an account: " + accountData.name + ".",
+                                  className: "bg-green-100 dark:bg-green-900 border-green-500"
+                                });
+                                handleLeadConverted(lead.id, accountData.id);
+                              } catch (error) {
+                                console.error('Lead conversion failed:', error);
+                                toast({ 
+                                  title: "Conversion Failed", 
+                                  description: error instanceof Error ? error.message : "Could not convert lead to account.", 
+                                  variant: "destructive" 
+                                });
+                              }
+                            }} className="bg-[#2B2521] text-white rounded-md border-0 hover:bg-[#3a322c]">Convert</AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    )}
+                    {/* Archive AlertDialog for this row */}
+                    {archiveLeadId === lead.id && (
+                      <AlertDialog open={true} onOpenChange={(open) => setArchiveLeadId(open ? lead.id : null)}>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Archive Lead?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Are you sure you want to archive this lead? It will be moved to the archive section and can be restored later.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel onClick={() => setArchiveLeadId(null)}>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={async () => {
+                              setArchiveLeadId(null);
+                              try {
+                                const currentUserId = localStorage.getItem('user_id');
+                                if (!currentUserId) throw new Error('User not authenticated');
+                                await archiveLead(lead.id, currentUserId);
+                                toast({
+                                  title: "Lead Archived",
+                                  description: `${lead.companyName} and all related activity logs have been moved to archive.`,
+                                  variant: "destructive"
+                                });
+                                setLeads(prev => prev.filter(l => l.id !== lead.id));
+                              } catch (error) {
+                                console.error('Lead archiving failed:', error);
+                                toast({ 
+                                  title: "Archiving Failed", 
+                                  description: error instanceof Error ? error.message : "Could not archive lead.", 
+                                  variant: "destructive" 
+                                });
+                              }
+                            }} className="bg-[#916D5B] text-white rounded-md border-0 hover:bg-[#a98a77]">Archive</AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    )}
+                  </React.Fragment>
                 ))}
               </TableBody>
             </Table>
@@ -1596,180 +1652,229 @@ export default function LeadsPage() {
                       </TableHeader>
                       <TableBody>
                         {paginatedLeads.map((lead) => (
-                          <TableRow
-                            key={lead.id}
-                            className={`hover:bg-transparent`}
-                            onClick={selectMode ? (e) => {
-                              // Only trigger selection if clicking on the row but not on the checkbox or action buttons
-                              const target = e.target as HTMLElement;
-                              if (!target.closest('input[type="checkbox"]') && !target.closest('button')) {
-                                handleSelectLead(lead.id);
-                              }
-                            } : undefined}
-                          >
-                            {selectMode && (
-                              <TableCell className="w-10 align-middle">
-                                <input
-                                  type="checkbox"
-                                  checked={selectedLeads.includes(lead.id)}
-                                  onChange={e => { e.stopPropagation(); handleSelectLead(lead.id); }}
-                                  onClick={e => e.stopPropagation()}
-                                  className="accent-[#97A487] border-none h-4 w-4"
-                                />
+                          <React.Fragment key={lead.id}>
+                            <TableRow
+                              className={`hover:bg-transparent`}
+                              onClick={selectMode ? (e) => {
+                                const target = e.target as HTMLElement;
+                                if (!target.closest('input[type="checkbox"]') && !target.closest('button')) {
+                                  handleSelectLead(lead.id);
+                                }
+                              } : (e) => {
+                                const target = e.target as HTMLElement;
+                                if (!target.closest('input[type="checkbox"]') && !target.closest('button')) {
+                                  setOpenLeadDialogId(lead.id);
+                                }
+                              }}
+                            >
+                              {selectMode && (
+                                <TableCell className="w-10 align-middle">
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedLeads.includes(lead.id)}
+                                    onChange={e => { e.stopPropagation(); handleSelectLead(lead.id); }}
+                                    onClick={e => e.stopPropagation()}
+                                    className="accent-[#97A487] border-none h-4 w-4"
+                                  />
+                                </TableCell>
+                              )}
+                              <TableCell className="font-semibold text-foreground">{lead.companyName}</TableCell>
+                              <TableCell>{lead.personName}</TableCell>
+                              <TableCell><a href={`mailto:${lead.email}`} className="text-primary hover:underline" onClick={e => e.stopPropagation()}>{lead.email}</a></TableCell>
+                              <TableCell>{lead.phone || '-'}</TableCell>
+                              <TableCell>{lead.country}</TableCell>
+                              <TableCell><span className="inline-block rounded-full bg-muted px-3 py-1 text-xs font-semibold text-muted-foreground" style={{background:'#b0aca7',color:'#23201d'}}>{lead.status}</span></TableCell>
+                              <TableCell>{new Date(lead.createdAt).toLocaleDateString('en-GB')}</TableCell>
+                              {role === 'admin' && <TableCell>{users.find(u => u.id === lead.assignedUserId)?.name || ''}</TableCell>}
+                              <TableCell className="flex gap-2" onClick={e => e.stopPropagation()}>
+                                <TooltipProvider delayDuration={0}>
+                                  {lead.status !== "Converted to Account" && lead.status !== "Lost" && (
+                                    <>
+                                      {/* Add Opportunity Button */}
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Button 
+                                            size="sm" 
+                                            className="rounded-sm p-2 h-8 w-8 bg-[#97A487] text-white hover:bg-[#97A487]/80 border-0"
+                                            onClick={() => setAddOpportunityLeadId(lead.id)}
+                                          >
+                                            <PlusCircle className="h-3.5 w-3.5" />
+                                          </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent side="top" align="center">Add Opportunity</TooltipContent>
+                                      </Tooltip>
+                                      {/* Convert to Account Button */}
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Button 
+                                            size="sm" 
+                                            variant="add" 
+                                            className="rounded-sm p-2 h-8 w-8"
+                                            onClick={() => setConvertLeadId(lead.id)}
+                                            disabled={(lead.status as LeadStatus) === 'Converted to Account' || (lead.status as LeadStatus) === 'Lost'}
+                                          >
+                                            <CheckSquare className="h-3.5 w-3.5" />
+                                          </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent side="top" align="center">Convert to Account</TooltipContent>
+                                      </Tooltip>
+                                      {/* Archive Button */}
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Button 
+                                            size="sm" 
+                                            variant="delete" 
+                                            className="rounded-sm p-2 h-8 w-8"
+                                            onClick={() => setArchiveLeadId(lead.id)}
+                                          >
+                                            <Trash2 className="h-3.5 w-3.5" />
+                                          </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent side="top" align="center">Archive</TooltipContent>
+                                      </Tooltip>
+                                    </>
+                                  )}
+                                </TooltipProvider>
                               </TableCell>
+                            </TableRow>
+                            {/* LeadDialog for this row */}
+                            {openLeadDialogId === lead.id && (
+                              <LeadDialog
+                                open={true}
+                                onOpenChange={(open) => setOpenLeadDialogId(open ? lead.id : null)}
+                                lead={lead}
+                                onLeadConverted={handleLeadConverted}
+                                onLeadDeleted={(leadId: string) => {
+                                  setLeads(prev => prev.filter(l => l.id !== leadId));
+                                  setOpenLeadDialogId(null);
+                                }}
+                                users={users}
+                                role={role}
+                                enrichmentData={leadEnrichments[lead.id]}
+                                isEnrichmentLoading={loadingEnrichments[lead.id]}
+                              />
                             )}
-                            <TableCell className="font-semibold text-foreground">{lead.companyName}</TableCell>
-                            <TableCell>{lead.personName}</TableCell>
-                            <TableCell><a href={`mailto:${lead.email}`} className="text-primary hover:underline">{lead.email}</a></TableCell>
-                            <TableCell>{lead.phone || '-'}</TableCell>
-                            <TableCell>{lead.country}</TableCell>
-                            <TableCell><span className="inline-block rounded-full bg-muted px-3 py-1 text-xs font-semibold text-muted-foreground" style={{background:'#b0aca7',color:'#23201d'}}>{lead.status}</span></TableCell>
-                            <TableCell>{new Date(lead.createdAt).toLocaleDateString('en-GB')}</TableCell>
-                            {role === 'admin' && <TableCell>{users.find(u => u.id === lead.assignedUserId)?.name || ''}</TableCell>}
-                            <TableCell className="flex gap-2">
-                              <TooltipProvider delayDuration={0}>
-                        {lead.status !== "Converted to Account" && lead.status !== "Lost" && (
-                                  <>
-                                    {/* Opportunity Button */}
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <Button 
-                                          size="sm" 
-                                          className="rounded-sm p-2 h-8 w-8 bg-[#97A487] text-white hover:bg-[#97A487]/80 border-0"
-                                          onClick={(e) => { 
-                                            e.stopPropagation(); 
-                                            // TODO: Open AddOpportunityDialog for this lead
-                                            toast({
-                                              title: "Coming Soon",
-                                              description: "Opportunity creation from leads will be available soon.",
-                                              className: "bg-blue-100 dark:bg-blue-900 border-blue-500"
-                                            });
-                                          }}
-                                        >
-                                          <PlusCircle className="h-3.5 w-3.5" />
-                                        </Button>
-                                      </TooltipTrigger>
-                                      <TooltipContent side="top" align="center">New Opportunity</TooltipContent>
-                                    </Tooltip>
-                                    
-                                    {/* Convert Button */}
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                            <Button 
-                                              size="sm" 
-                                              variant="add" 
-                                              className="rounded-sm p-2 h-8 w-8"
-                                              onClick={(e) => e.stopPropagation()}
-                                            >
-                                              <CheckSquare className="h-3.5 w-3.5" />
-                                            </Button>
-                                </AlertDialogTrigger>
+                            {/* AddOpportunityDialog for this row */}
+                            {addOpportunityLeadId === lead.id && (
+                              <AddOpportunityDialog
+                                open={true}
+                                onOpenChange={(open) => setAddOpportunityLeadId(open ? lead.id : null)}
+                                accountId={undefined}
+                              />
+                            )}
+                            {/* Convert to Account AlertDialog for this row */}
+                            {convertLeadId === lead.id && (
+                              <AlertDialog open={true} onOpenChange={(open) => setConvertLeadId(open ? lead.id : null)}>
                                 <AlertDialogContent>
                                   <AlertDialogHeader>
-                                              <AlertDialogTitle>Convert Lead to Account?</AlertDialogTitle>
+                                    <AlertDialogTitle>Convert Lead to Account?</AlertDialogTitle>
                                     <AlertDialogDescription>
-                                                Are you sure you want to convert this lead to an account? This action cannot be undone and the lead will be moved to your accounts list.
+                                      Are you sure you want to convert this lead to an account? This action cannot be undone and the lead will be moved to your accounts list.
                                     </AlertDialogDescription>
                                   </AlertDialogHeader>
                                   <AlertDialogFooter>
-                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                              <AlertDialogAction 
-                                                onClick={(e) => { 
-                                                  e.stopPropagation(); 
-                                                  // TODO: Implement lead conversion using the same logic as LeadCard
-                                                  toast({
-                                                    title: "Coming Soon",
-                                                    description: "Lead conversion will be available soon.",
-                                                    className: "bg-blue-100 dark:bg-blue-900 border-blue-500"
-                                                  });
-                                                }} 
-                                                className="bg-[#2B2521] text-white rounded-md border-0 hover:bg-[#3a322c]"
-                                              >
-                                                Convert
-                                              </AlertDialogAction>
-                                            </AlertDialogFooter>
-                                          </AlertDialogContent>
-                                        </AlertDialog>
-                                      </TooltipTrigger>
-                                      <TooltipContent side="top" align="center">Convert Lead</TooltipContent>
-                                    </Tooltip>
-                                    
-                                    {/* Delete Button */}
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <AlertDialog>
-                                          <AlertDialogTrigger asChild>
-                                            <Button 
-                                              size="sm" 
-                                              variant="delete" 
-                                              className="rounded-sm p-2 h-8 w-8"
-                                              onClick={(e) => e.stopPropagation()}
-                                            >
-                                              <Trash2 className="h-3.5 w-3.5" />
-                                            </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                  <AlertDialogHeader>
-                                    <AlertDialogTitle>Archive Lead?</AlertDialogTitle>
-                                                                          <AlertDialogDescription>
-                                        Are you sure you want to archive this lead? It will be moved to the archive section and can be restored later.
-                                      </AlertDialogDescription>
-                                  </AlertDialogHeader>
-                                  <AlertDialogFooter>
-                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                              <AlertDialogAction 
-                                                onClick={async (e) => { 
-                                                  e.stopPropagation(); 
-                                                  try {
-                                                    const currentUserId = localStorage.getItem('user_id');
-                                                    if (!currentUserId) throw new Error('User not authenticated');
-                                                    
-                                                    await archiveLead(lead.id, currentUserId);
-
-                                                    toast({
-                                                      title: "Lead Archived",
-                                                      description: `${lead.companyName} and all related activity logs have been moved to archive.`,
-                                                      variant: "destructive"
-                                                    });
-
-                                      setLeads(prev => prev.filter(l => l.id !== lead.id));
-                                                  } catch (error) {
-                                                    console.error('Lead archiving failed:', error);
-                                                    toast({ 
-                                                      title: "Archiving Failed", 
-                                                      description: error instanceof Error ? error.message : "Could not archive lead.", 
-                                                      variant: "destructive" 
-                                                    });
-                                                  }
-                                                }} 
-                                                className="bg-[#916D5B] text-white rounded-md border-0 hover:bg-[#a98a77]"
-                                              >
-                                                Delete
-                                              </AlertDialogAction>
+                                    <AlertDialogCancel onClick={() => setConvertLeadId(null)}>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction onClick={async () => {
+                                      setConvertLeadId(null);
+                                      // Use the same logic as handleConvertLead in LeadCard
+                                      if ((lead.status as LeadStatus) === "Converted to Account" || (lead.status as LeadStatus) === "Lost") {
+                                        toast({ title: "Action not allowed", description: "This lead has already been processed.", variant: "destructive" });
+                                        return;
+                                      }
+                                      try {
+                                        const ownerId = lead.assignedUserId || localStorage.getItem('user_id');
+                                        if (!ownerId) throw new Error('User not authenticated');
+                                        const { data: accountData, error: accountError } = await supabase.from('account').insert([
+                                          {
+                                            name: lead.companyName,
+                                            type: 'Client',
+                                            status: 'Active',
+                                            description: `Converted from lead: ${lead.personName}`,
+                                            contact_email: lead.email,
+                                            contact_person_name: lead.personName,
+                                            contact_phone: lead.phone || '',
+                                            converted_from_lead_id: lead.id,
+                                            owner_id: ownerId,
+                                          }
+                                        ]).select().single();
+                                        if (accountError || !accountData) {
+                                          throw accountError || new Error('Failed to create account');
+                                        }
+                                        const { error: leadError } = await supabase
+                                          .from('lead')
+                                          .update({ status: 'Converted to Account' })
+                                          .eq('id', lead.id);
+                                        if (leadError) {
+                                          throw leadError;
+                                        }
+                                        toast({
+                                          title: "Lead Converted!",
+                                          description: lead.companyName + " has been converted to an account: " + accountData.name + ".",
+                                          className: "bg-green-100 dark:bg-green-900 border-green-500"
+                                        });
+                                        handleLeadConverted(lead.id, accountData.id);
+                                      } catch (error) {
+                                        console.error('Lead conversion failed:', error);
+                                        toast({ 
+                                          title: "Conversion Failed", 
+                                          description: error instanceof Error ? error.message : "Could not convert lead to account.", 
+                                          variant: "destructive" 
+                                        });
+                                      }
+                                    }} className="bg-[#2B2521] text-white rounded-md border-0 hover:bg-[#3a322c]">Convert</AlertDialogAction>
                                   </AlertDialogFooter>
                                 </AlertDialogContent>
                               </AlertDialog>
-                            </TooltipTrigger>
-                                      <TooltipContent side="top" align="center">Delete</TooltipContent>
-                          </Tooltip>
-                                  </>
-                        )}
-                      </TooltipProvider>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        )
-      ) : (
-        <div className="text-center py-16">
-          <Search className="mx-auto h-16 w-16 text-muted-foreground/50 mb-6" />
-          <p className="text-xl font-semibold text-foreground mb-2">No Leads Found</p>
-          <p className="text-muted-foreground">Try adjusting your search or filter criteria, or add a new lead.</p>
-        </div>
+                            )}
+                            {/* Archive AlertDialog for this row */}
+                            {archiveLeadId === lead.id && (
+                              <AlertDialog open={true} onOpenChange={(open) => setArchiveLeadId(open ? lead.id : null)}>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Archive Lead?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      Are you sure you want to archive this lead? It will be moved to the archive section and can be restored later.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel onClick={() => setArchiveLeadId(null)}>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction onClick={async () => {
+                                      setArchiveLeadId(null);
+                                      try {
+                                        const currentUserId = localStorage.getItem('user_id');
+                                        if (!currentUserId) throw new Error('User not authenticated');
+                                        await archiveLead(lead.id, currentUserId);
+                                        toast({
+                                          title: "Lead Archived",
+                                          description: `${lead.companyName} and all related activity logs have been moved to archive.`,
+                                          variant: "destructive"
+                                        });
+                                        setLeads(prev => prev.filter(l => l.id !== lead.id));
+                                      } catch (error) {
+                                        console.error('Lead archiving failed:', error);
+                                        toast({ 
+                                          title: "Archiving Failed", 
+                                          description: error instanceof Error ? error.message : "Could not archive lead.", 
+                                          variant: "destructive" 
+                                        });
+                                      }
+                                    }} className="bg-[#916D5B] text-white rounded-md border-0 hover:bg-[#a98a77]">Archive</AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            )}
+                          </React.Fragment>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )
+              ) : (
+                <div className="text-center py-16">
+                  <Search className="mx-auto h-16 w-16 text-muted-foreground/50 mb-6" />
+                  <p className="text-xl font-semibold text-foreground mb-2">No Leads Found</p>
+                  <p className="text-muted-foreground">Try adjusting your search or filter criteria, or add a new lead.</p>
+                </div>
               )}
               
               {/* Pagination for accepted leads in tabbed view */}
