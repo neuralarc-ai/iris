@@ -6,7 +6,7 @@ import AccountCard from '@/components/accounts/AccountCard';
 import { mockAccounts as initialMockAccounts } from '@/lib/data';
 import type { Account, AccountType, AccountStatus } from '@/types';
 import { Button } from '@/components/ui/button';
-import { Search, ListFilter, List, Grid, Eye, PlusCircle, Loader2, Archive } from 'lucide-react';
+import { Search, ListFilter, List, Grid, Eye, PlusCircle, Loader2, Archive, Trash2 } from 'lucide-react';
 import Image from 'next/image';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -17,9 +17,11 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
 import AddOpportunityDialog from '@/components/opportunities/AddOpportunityDialog';
 import { supabase } from '@/lib/supabaseClient';
-import { restoreAccount } from '@/lib/archive';
+import { restoreAccount, archiveAccount } from '@/lib/archive';
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import AccountModal from '@/components/accounts/AccountModal';
+import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from '@/components/ui/alert-dialog';
 
 
 export default function AccountsPage() {
@@ -39,6 +41,13 @@ export default function AccountsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [currentArchivedPage, setCurrentArchivedPage] = useState(1);
   const ITEMS_PER_PAGE = 12;
+
+  // Add at the top, after other useState hooks
+  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
+  const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
+  const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
+  const [accountIdToArchive, setAccountIdToArchive] = useState<string | null>(null);
+  const [isArchiving, setIsArchiving] = useState(false);
 
   useEffect(() => {
     const fetchAccounts = async () => {
@@ -387,7 +396,17 @@ export default function AccountsPage() {
                       <TooltipProvider delayDuration={0}>
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <Button variant="outline" size="sm" asChild className="rounded-[4px] p-2"><a href={`/accounts?id=${account.id}#details`}><Eye className="h-4 w-4" /></a></Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="rounded-[4px] p-2"
+                              onClick={() => {
+                                setSelectedAccountId(account.id);
+                                setIsAccountModalOpen(true);
+                              }}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
                           </TooltipTrigger>
                           <TooltipContent>View Details</TooltipContent>
                         </Tooltip>
@@ -399,6 +418,22 @@ export default function AccountsPage() {
                             }}><PlusCircle className="h-4 w-4" /></Button>
                           </TooltipTrigger>
                           <TooltipContent>New Opportunity</TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              size="sm"
+                              variant="delete"
+                              className="rounded-[4px] p-2"
+                              onClick={() => {
+                                setAccountIdToArchive(account.id);
+                                setArchiveDialogOpen(true);
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Archive</TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
                     </TableCell>
@@ -534,7 +569,17 @@ export default function AccountsPage() {
                           <TooltipProvider delayDuration={0}>
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <Button variant="outline" size="sm" asChild className="rounded-[4px] p-2"><a href={`/accounts?id=${account.id}#details`}><Eye className="h-4 w-4" /></a></Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="rounded-[4px] p-2"
+                                  onClick={() => {
+                                    setSelectedAccountId(account.id);
+                                    setIsAccountModalOpen(true);
+                                  }}
+                                >
+                                  <Eye className="h-4 w-4" />
+                                </Button>
                               </TooltipTrigger>
                               <TooltipContent>View Details</TooltipContent>
                             </Tooltip>
@@ -664,6 +709,52 @@ export default function AccountsPage() {
         }}
         accountId={opportunityAccountId || undefined}
       />
+      {selectedAccountId && (
+        <AccountModal
+          accountId={selectedAccountId}
+          open={isAccountModalOpen}
+          onClose={() => {
+            setIsAccountModalOpen(false);
+            setSelectedAccountId(null);
+          }}
+        />
+      )}
+      {/* Archive Confirmation Dialog */}
+      <AlertDialog open={archiveDialogOpen} onOpenChange={setArchiveDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Archive Account?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to archive this account? It will be moved to the archive section and can be restored later.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isArchiving}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isArchiving}
+              onClick={async () => {
+                if (!accountIdToArchive) return;
+                setIsArchiving(true);
+                try {
+                  const currentUserId = localStorage.getItem('user_id');
+                  if (!currentUserId) throw new Error('User not authenticated');
+                  await archiveAccount(accountIdToArchive, currentUserId);
+                  setAccounts(prev => prev.filter(acc => acc.id !== accountIdToArchive));
+                  setArchiveDialogOpen(false);
+                  setAccountIdToArchive(null);
+                } catch (error) {
+                  // Optionally show a toast or error message
+                  setIsArchiving(false);
+                } finally {
+                  setIsArchiving(false);
+                }
+              }}
+            >
+              {isArchiving ? 'Archiving...' : 'Archive'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
