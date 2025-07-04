@@ -19,6 +19,7 @@ import { DialogFooter } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import type { AccountStatus, AccountType } from '@/types';
 import { Skeleton } from '@/components/ui/skeleton';
+import { AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 
 // NOTE: The parent component of AccountModal MUST set open=false when onClose is called.
 // The Dialog close button triggers onClose, but AccountModal does not manage its own open state.
@@ -294,37 +295,65 @@ export default function AccountModal({ accountId, open, onClose, aiEnrichment, i
   // Placeholder for current user (customize as needed)
   const currentUser = { name: ownerName || '[Your Name]', email: ownerName || '[Your Email]' };
 
-  // Email generation logic
+  function buildEmailFromSubjectAndBody(subject: string, body: string, firstName: string) {
+    const regards = Math.random() < 0.5 ? 'Best Regards,' : 'Warm Regards,';
+    return `Subject: ${subject}\n\nDear ${firstName},\n\n${body}\n\n${regards}\nNyra\nNeuralArc Inc\nnyra@neuralarc.ai`;
+  }
+
+  function extractSubjectAndBodyFromTemplate(template: string) {
+    // Try to extract subject from first line, rest is body
+    const lines = template.split(/\r?\n/);
+    let subject = '';
+    let body = '';
+    if (lines[0].toLowerCase().startsWith('subject:')) {
+      subject = lines[0].replace(/^subject:/i, '').trim();
+      body = lines.slice(1).join('\n').trim();
+    } else {
+      subject = 'AI-Generated Email';
+      body = template.trim();
+    }
+    return { subject, body };
+  }
+
   const generateProfessionalEmail = async (aiOverride?: any) => {
     setIsGeneratingEmail(true);
-    // If AI-generated email template is present, use it
     const aiData = aiOverride || ai;
-    if (aiData?.emailTemplate) {
-      setIsGeneratingEmail(false);
-      return aiData.emailTemplate;
-    }
-    // Fallback: Compose recommended services string
+    const firstName = account?.contactPersonName?.split(' ')[0] || account?.contactPersonName || '';
+    // Only generate subject and body
+    const subject = `Unlock Your Sales Potential at ${account?.name || ''}`;
     const services = (aiData?.recommended_services || aiData?.recommendations)?.length
       ? (aiData.recommended_services || aiData.recommendations).map((s: string) => `- ${s}`).join('\n')
       : '- AI-powered CRM\n- Sales Forecasting\n- Automated Reporting';
-    // Simulate API call delay
+    const body = `I hope this message finds you well. My name is Nyra, Neural Intelligence Officer at NeuralArc. I wanted to introduce you to our platform, designed to help companies like ${account?.name || ''} streamline sales processes, gain actionable insights, and boost conversions.\n\nOur solution offers:\n${services}\n\nSchedule a Call: https://meet.neuralarc.ai\n\nThank you for your time and consideration.`;
     return new Promise<string>((resolve) => {
       setTimeout(() => {
-        resolve(`Subject: Unlock Your Sales Potential at ${account?.name || ''}
-\nHi ${account?.contactPersonName || ''},
-\nI hope this message finds you well. My name is ${currentUser?.name || ''} from ${userCompany.name}. I wanted to introduce you to our platform, designed to help companies like ${account?.name || ''} streamline sales processes, gain actionable insights, and boost conversions.
-\nOur solution offers:\n${services}
-\nI'd love to schedule a quick call to discuss how we can help ${account?.name || ''} achieve its sales goals. Please let me know your availability, or feel free to reply directly to this email.
-\nBest regards,\n${currentUser?.name || ''}\n${userCompany.name}\n${currentUser?.email || ''}\n${userCompany.website}`);
+        resolve(buildEmailFromSubjectAndBody(subject, body, firstName));
         setIsGeneratingEmail(false);
       }, 1200);
     });
   };
 
+  function enforceEmailTemplateStructure(email: string, firstName: string) {
+    // Remove Mr/Mrs/Dr etc. from greeting
+    email = email.replace(/Dear\s+(Mr\.?|Mrs\.?|Ms\.?|Dr\.?|Miss|Sir|Madam)\s+([A-Za-z]+)/i, `Dear ${firstName}`);
+    email = email.replace(/Dear\s+(Mr\.?|Mrs\.?|Ms\.?|Dr\.?|Miss|Sir|Madam)\s+/i, 'Dear ');
+    // Ensure greeting is 'Dear {firstName},'
+    email = email.replace(/Dear\s+([A-Za-z]+)[^,\n]*,?/i, `Dear ${firstName},`);
+    // Ensure Schedule a Call line is present before thank you or regards
+    if (!email.includes('Schedule a Call: https://meet.neuralarc.ai')) {
+      email = email.replace(/(Thank you[\s\S]*?\n)/i, 'Schedule a Call: https://meet.neuralarc.ai\n$1');
+      if (!email.includes('Schedule a Call: https://meet.neuralarc.ai')) {
+        email = email.replace(/(Warm Regards,)/, 'Schedule a Call: https://meet.neuralarc.ai\n\n$1');
+      }
+    }
+    return email;
+  }
+
   // Copy email content to clipboard
   const handleCopyEmail = () => {
     if (emailTabContent) {
-      navigator.clipboard.writeText(emailTabContent);
+      const firstName = account?.contactPersonName?.split(' ')[0] || account?.contactPersonName || '';
+      navigator.clipboard.writeText(enforceEmailTemplateStructure(emailTabContent, firstName));
       toast({ title: 'Copied!', description: 'Email content copied to clipboard.' });
     }
   };
@@ -353,7 +382,10 @@ export default function AccountModal({ accountId, open, onClose, aiEnrichment, i
   // Generate email only on first visit or on explicit regeneration
   useEffect(() => {
     if (open && emailTabContent === null && !isGeneratingEmail) {
-      generateProfessionalEmail().then(setEmailTabContent);
+      generateProfessionalEmail().then(email => {
+        const firstName = account?.contactPersonName?.split(' ')[0] || account?.contactPersonName || '';
+        setEmailTabContent(enforceEmailTemplateStructure(email, firstName));
+      });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
@@ -363,7 +395,8 @@ export default function AccountModal({ accountId, open, onClose, aiEnrichment, i
     setAI(aiEnrichment || null);
     setLoadingAI(isAiLoading || false);
     if (aiEnrichment && aiEnrichment.emailTemplate) {
-      setEmailTabContent(aiEnrichment.emailTemplate);
+      const firstName = account?.contactPersonName?.split(' ')[0] || account?.contactPersonName || '';
+      setEmailTabContent(enforceEmailTemplateStructure(aiEnrichment.emailTemplate, firstName));
     }
   }, [aiEnrichment, isAiLoading]);
 
@@ -395,6 +428,34 @@ export default function AccountModal({ accountId, open, onClose, aiEnrichment, i
       })();
     }
   }, [open]);
+
+  const [showLogEmailDialog, setShowLogEmailDialog] = useState(false);
+  const [emailSent, setEmailSent] = useState(false);
+
+  const handleSendEmail = () => {
+    setShowLogEmailDialog(true);
+  };
+
+  const handleConfirmSendEmail = async () => {
+    setShowLogEmailDialog(false);
+    try {
+      if (!account) throw new Error('Account not loaded');
+      await fetch('/api/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: account.contactEmail?.includes(':mailto:') ? account.contactEmail.split(':mailto:')[0] : account.contactEmail,
+          subject: emailTabContent?.split('\n')[0].replace('Subject: ', ''),
+          body: emailTabContent?.replace(/^Subject:.*\n+/, '')
+        })
+      });
+      // Log activity (reuse your existing log logic)
+      // ...
+      setEmailSent(true);
+    } catch (error) {
+      toast({ title: 'Failed to send email', description: error instanceof Error ? error.message : 'Could not send email.', variant: 'destructive' });
+    }
+  };
 
   if (!open) return null;
 
@@ -985,43 +1046,35 @@ export default function AccountModal({ accountId, open, onClose, aiEnrichment, i
                       </>
                     ) : null}
                   </div>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="add"
-                        className="max-h-12 flex items-center gap-1 absolute bottom-4 right-6 z-10"
-                        disabled={!emailTabContent}
-                      >
-                        <SendIcon className="h-4 w-4 mr-1" /> Send
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent className="bg-white text-[#282828] p-1 rounded-md border border-[#E5E3DF] shadow-xl max-w-[220px] sm:h-fit">
-                      <DropdownMenuItem onClick={() => window.open(getMailClientUrl('gmail'), '_blank')} className="flex items-center gap-2 cursor-pointer focus:bg-[#F8F7F3] focus:text-black">
-                        <Mail className="h-4 w-4" /> Gmail
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => window.open(getMailClientUrl('outlook'), '_blank')} className="flex items-center gap-2 cursor-pointer focus:bg-[#F8F7F3] focus:text-black">
-                        <Inbox className="h-4 w-4" /> Outlook
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => window.open(getMailClientUrl('yahoo'), '_blank')} className="flex items-center gap-2 cursor-pointer focus:bg-[#F8F7F3] focus:text-black">
-                        <AtSign className="h-4 w-4" /> Yahoo
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => window.open(getMailClientUrl('protonmail'), '_blank')} className="flex items-center gap-2 cursor-pointer focus:bg-[#F8F7F3] focus:text-black">
-                        <Shield className="h-4 w-4" /> ProtonMail
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => window.open(getMailClientUrl('zoho'), '_blank')} className="flex items-center gap-2 cursor-pointer focus:bg-[#F8F7F3] focus:text-black">
-                        <Briefcase className="h-4 w-4" /> Zoho Mail
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={() => window.open(getMailClientUrl('default'), '_blank')} className="flex items-center gap-2 cursor-pointer focus:bg-[#F8F7F3] focus:text-black">
-                        <Computer className="h-4 w-4" /> Other (Choose on device)
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                  <Button
+                    variant="add"
+                    className="max-h-12 flex items-center gap-1 absolute bottom-4 right-6 z-10"
+                    disabled={!emailTabContent || emailSent}
+                    onClick={handleSendEmail}
+                  >
+                    <SendIcon className="h-4 w-4 mr-1" /> {emailSent ? 'Sent' : 'Send'}
+                  </Button>
                 </div>
               </div>
             </TabsContent>
           </div>
         </Tabs>
+        {showLogEmailDialog && (
+          <AlertDialog open={true} onOpenChange={setShowLogEmailDialog}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Log Email Activity?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Do you want to log this email activity for this account and send the email?
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <Button variant="outline" onClick={() => setShowLogEmailDialog(false)}>No</Button>
+                <Button variant="add" onClick={handleConfirmSendEmail}>Yes, Send & Log Activity</Button>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        )}
       </DialogContent>
     </Dialog>
   );

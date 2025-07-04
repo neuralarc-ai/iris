@@ -57,6 +57,27 @@ const getUpdateTypeIcon = (type: Update['type']) => {
   }
 };
 
+function enforceEmailTemplateStructure(email: string, firstName: string) {
+  // Remove Mr/Mrs/Dr etc. from greeting
+  email = email.replace(/Dear\s+(Mr\.?|Mrs\.?|Ms\.?|Dr\.?|Miss|Sir|Madam)\s+([A-Za-z]+)/i, `Dear ${firstName}`);
+  email = email.replace(/Dear\s+(Mr\.?|Mrs\.?|Ms\.?|Dr\.?|Miss|Sir|Madam)\s+/i, 'Dear ');
+  // Ensure greeting is 'Dear {firstName},'
+  email = email.replace(/Dear\s+([A-Za-z]+)[^,\n]*,?/i, `Dear ${firstName},`);
+  // Ensure Schedule a Call line is present before thank you or regards
+  if (!email.includes('Schedule a Call: https://meet.neuralarc.ai')) {
+    email = email.replace(/(Thank you[\s\S]*?\n)/i, 'Schedule a Call: https://meet.neuralarc.ai\n$1');
+    if (!email.includes('Schedule a Call: https://meet.neuralarc.ai')) {
+      email = email.replace(/(Best Regards,|Warm Regards,)/, 'Schedule a Call: https://meet.neuralarc.ai\n\n$1');
+    }
+  }
+  return email;
+}
+
+function buildEmailFromSubjectAndBody(subject: string, body: string, firstName: string) {
+  const regards = Math.random() < 0.5 ? 'Best Regards,' : 'Warm Regards,';
+  return `Subject: ${subject}\n\nDear ${firstName},\n\n${body}\n\n${regards}\nNyra\nNeuralArc Inc\nnyra@neuralarc.ai`;
+}
+
 export default function LeadDialog({
   open,
   onOpenChange,
@@ -348,9 +369,13 @@ export default function LeadDialog({
     const services = enrichmentData?.recommendations?.length
       ? enrichmentData.recommendations.map(s => `- ${s}`).join('\n')
       : '- AI-powered CRM\n- Sales Forecasting\n- Automated Reporting';
+    const firstName = lead.personName?.split(' ')[0] || lead.personName;
+    // Only generate subject and body
+    const subject = `Unlock Your Sales Potential at ${lead.companyName}`;
+    const body = `I hope this message finds you well. My name is Nyra, Neural Intelligence Officer at NeuralArc. I wanted to introduce you to our platform, designed to help companies like ${lead.companyName} streamline sales processes, gain actionable insights, and boost conversions.\n\nOur solution offers:\n${services}\n\nSchedule a Call: https://meet.neuralarc.ai\n\nThank you for your time and consideration.`;
     return new Promise<string>((resolve) => {
       setTimeout(() => {
-        resolve(`Subject: Unlock Your Sales Potential at ${lead.companyName}\n\nHi ${lead.personName},\n\nI hope this message finds you well. My name is ${currentUser?.name || '[Your Name]'} from NeuralArc. I wanted to introduce you to our platform, designed to help companies like ${lead.companyName} streamline sales processes, gain actionable insights, and boost conversions.\n\nOur solution offers:\n${services}\n\nI'd love to schedule a quick call to discuss how we can help ${lead.companyName} achieve its sales goals. Please let me know your availability, or feel free to reply directly to this email.\n\nBest regards,\n${currentUser?.name || '[Your Name]'}\nNeuralArc\n${currentUser?.email || '[Your Email]'}\nhttps://neuralarc.com`);
+        resolve(buildEmailFromSubjectAndBody(subject, body, firstName));
         setIsGeneratingEmail(false);
       }, 1200);
     });
@@ -426,6 +451,28 @@ export default function LeadDialog({
       toast({ title: 'Activity Logged', description: 'Email activity has been logged.' });
     } catch (error) {
       toast({ title: 'Failed to log activity', description: error instanceof Error ? error.message : 'Could not log email activity.', variant: 'destructive' });
+    }
+  };
+
+  const handleSendEmail = async () => {
+    setShowLogEmailDialog('direct');
+  };
+
+  const handleConfirmSendEmail = async () => {
+    setShowLogEmailDialog(null);
+    try {
+      await fetch('/api/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: lead.email?.includes(':mailto:') ? lead.email.split(':mailto:')[0] : lead.email,
+          subject: emailTabContent?.split('\n')[0].replace('Subject: ', ''),
+          body: emailTabContent?.replace(/^Subject:.*\n+/, '')
+        })
+      });
+      await handleLogEmailActivity('direct');
+    } catch (error) {
+      toast({ title: 'Failed to send email', description: error instanceof Error ? error.message : 'Could not send email.', variant: 'destructive' });
     }
   };
 
@@ -1071,31 +1118,11 @@ export default function LeadDialog({
                         variant="add"
                         className="max-h-12 flex items-center gap-1 absolute bottom-4 right-6 z-10"
                         disabled={!emailTabContent || emailSent}
+                        onClick={handleSendEmail}
                       >
                         <SendIcon className="h-4 w-4 mr-1" /> {emailSent ? 'Sent' : 'Send'}
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent className="bg-white text-[#282828] p-1 rounded-md border border-[#E5E3DF] shadow-xl max-w-[220px] sm:h-fit">
-                      <DropdownMenuItem onClick={() => setShowLogEmailDialog('gmail')} className="flex items-center gap-2 cursor-pointer focus:bg-[#F8F7F3] focus:text-black" disabled={emailSent}>
-                        <MailIcon className="h-4 w-4" /> Gmail
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setShowLogEmailDialog('outlook')} className="flex items-center gap-2 cursor-pointer focus:bg-[#F8F7F3] focus:text-black" disabled={emailSent}>
-                        <Inbox className="h-4 w-4" /> Outlook
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setShowLogEmailDialog('yahoo')} className="flex items-center gap-2 cursor-pointer focus:bg-[#F8F7F3] focus:text-black" disabled={emailSent}>
-                        <AtSign className="h-4 w-4" /> Yahoo
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setShowLogEmailDialog('protonmail')} className="flex items-center gap-2 cursor-pointer focus:bg-[#F8F7F3] focus:text-black" disabled={emailSent}>
-                        <Shield className="h-4 w-4" /> ProtonMail
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setShowLogEmailDialog('zoho')} className="flex items-center gap-2 cursor-pointer focus:bg-[#F8F7F3] focus:text-black" disabled={emailSent}>
-                        <Briefcase className="h-4 w-4" /> Zoho Mail
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={() => setShowLogEmailDialog('default')} className="flex items-center gap-2 cursor-pointer focus:bg-[#F8F7F3] focus:text-black" disabled={emailSent}>
-                        <Computer className="h-4 w-4" /> Other (Choose on device)
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
               </div>
@@ -1104,24 +1131,17 @@ export default function LeadDialog({
         </Tabs>
         {/* Log Email Activity Confirmation Dialog */}
         {showLogEmailDialog && (
-          <AlertDialog open={true} onOpenChange={(open) => setShowLogEmailDialog(open ? showLogEmailDialog : null)}>
+          <AlertDialog open={true} onOpenChange={(open) => setShowLogEmailDialog(open ? 'direct' : null)}>
             <AlertDialogContent>
               <AlertDialogHeader>
                 <AlertDialogTitle>Log Email Activity?</AlertDialogTitle>
                 <AlertDialogDescription>
-                  Do you want to log this email activity for this lead?
+                  Do you want to log this email activity for this lead and send the email?
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
-                <Button variant="outline" onClick={() => {
-                  setShowLogEmailDialog(null);
-                  // Open provider without logging
-                  window.open(getMailClientUrl(showLogEmailDialog), '_blank');
-                }}>No</Button>
-                <Button variant="add" onClick={async () => {
-                  window.open(getMailClientUrl(showLogEmailDialog), '_blank');
-                  await handleLogEmailActivity(showLogEmailDialog);
-                }}>Yes, Log Activity</Button>
+                <Button variant="outline" onClick={() => setShowLogEmailDialog(null)}>No</Button>
+                <Button variant="add" onClick={handleConfirmSendEmail}>Yes, Send & Log Activity</Button>
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>

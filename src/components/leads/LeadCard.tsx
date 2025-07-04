@@ -531,7 +531,8 @@ Best regards,\n${currentUser?.name || '[Your Name]'}\n${userCompany.name}\n${cur
   // Copy email content to clipboard
   const handleCopyEmail = () => {
     if (emailTabContent) {
-      navigator.clipboard.writeText(emailTabContent);
+      const firstName = lead.personName?.split(' ')[0] || lead.personName;
+      navigator.clipboard.writeText(enforceEmailTemplateStructure(emailTabContent, firstName));
       toast({ title: 'Copied!', description: 'Email content copied to clipboard.' });
     }
   };
@@ -557,13 +558,33 @@ Best regards,\n${currentUser?.name || '[Your Name]'}\n${userCompany.name}\n${cur
     }
   };
 
+  function enforceEmailTemplateStructure(email: string, firstName: string) {
+    // Remove Mr/Mrs/Dr etc. from greeting
+    email = email.replace(/Dear\s+(Mr\.?|Mrs\.?|Ms\.?|Dr\.?|Miss|Sir|Madam)\s+([A-Za-z]+)/i, `Dear ${firstName}`);
+    email = email.replace(/Dear\s+(Mr\.?|Mrs\.?|Ms\.?|Dr\.?|Miss|Sir|Madam)\s+/i, 'Dear ');
+    // Ensure greeting is 'Dear {firstName},'
+    email = email.replace(/Dear\s+([A-Za-z]+)[^,\n]*,?/i, `Dear ${firstName},`);
+    // Ensure Schedule a Call line is present before thank you or regards
+    if (!email.includes('Schedule a Call: https://meet.neuralarc.ai')) {
+      email = email.replace(/(Thank you[\s\S]*?\n)/i, 'Schedule a Call: https://meet.neuralarc.ai\n$1');
+      if (!email.includes('Schedule a Call: https://meet.neuralarc.ai')) {
+        email = email.replace(/(Best Regards,|Warm Regards,)/, 'Schedule a Call: https://meet.neuralarc.ai\n\n$1');
+      }
+    }
+    return email;
+  }
+
   // Generate email only on first visit or on explicit regeneration
   React.useEffect(() => {
     if (activeTab === 'email' && !isGeneratingEmail) {
       if (enrichmentData && enrichmentData.emailTemplate) {
-        setEmailTabContent(enrichmentData.emailTemplate);
+        const firstName = lead.personName?.split(' ')[0] || lead.personName;
+        setEmailTabContent(enforceEmailTemplateStructure(enrichmentData.emailTemplate, firstName));
       } else if (emailTabContent === null) {
-        generateProfessionalEmail().then(setEmailTabContent);
+        generateProfessionalEmail().then(email => {
+          const firstName = lead.personName?.split(' ')[0] || lead.personName;
+          setEmailTabContent(enforceEmailTemplateStructure(email, firstName));
+        });
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -1,8 +1,14 @@
 {
   "crons": [
     {
-      "path": "/api/cron/lead-enrichment",
-      "schedule": "0 1 * * *"
+      "path": "src/jobs/account-enrichment-cron.ts",
+      "schedule": "0 */3 * * *",
+      "name": "account-enrichment-cron"
+    },
+    {
+      "path": "src/jobs/lead-enrichment-cron.ts",
+      "schedule": "0 */3 * * *",
+      "name": "lead-enrichment-cron"
     }
   ]
 } 
