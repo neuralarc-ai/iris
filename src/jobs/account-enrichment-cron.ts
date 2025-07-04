@@ -40,7 +40,9 @@ async function processAccount(account: any, user: any, company: any) {
 
     // Fetch Tavily/website summaries if needed (reuse logic from API route if required)
     // For now, skip Tavily/website summaries for simplicity
-    const aiResult = await accountEnrichmentFlow({ account, user, company });
+    // Pass company.website_summary as companyScrapeData
+    const companyScrapeData = company?.website_summary || '';
+    const aiResult = await accountEnrichmentFlow({ account, user, company, companyScrapeData });
 
     // Validate AI result (match lead enrichment logic)
     if (!aiResult || !aiResult.recommendations || !aiResult.pitchNotes || !aiResult.useCase ||
