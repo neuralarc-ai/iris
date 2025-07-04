@@ -171,12 +171,18 @@ Based on this comprehensive analysis, provide:
 2. **Recommended Services**: Suggest 3-4 specific services or products that would be a good fit for this lead.
 3. **Pitch Notes**: Provide concise, actionable talking points for a sales pitch (no more than 2-3 sentences, max 60 words).
 4. **Use Case**: Describe a compelling use case for this lead (no more than 2-3 sentences, max 60 words).
-5. **Email Template**: Write a personalized, ready-to-send cold outreach email to the lead's main contact, referencing their company, your company, and the recommended services. Use a professional, friendly tone. Use all available data. Do not use placeholders like [Your Name] or [Company Name]; fill with real data or leave blank if not available. **In the greeting, always use only the lead's first name (e.g., 'Dear Sam,') and never the full name.**
+5. **Email Subject**: Provide a concise, relevant subject line for the email.
+6. **Email Template**: Write a personalized, ready-to-send cold outreach email to the lead's main contact, referencing their company, your company, and the recommended services. Use a professional, friendly tone. Use all available data. Do not use placeholders like [Your Name] or [Company Name]; fill with real data or leave blank if not available. The email template must start with the subject line in the format: "Subject: <your subject here>" on the first line.
 
-**Signature format:**
+**Email Formatting Requirements:**
+- The greeting must use only the first name of the contact (e.g., 'Dear Sam' instead of 'Dear Sam Holiday').
+- The email body must include the following call scheduling link: http://meet.neuralarc.ai/
+- The email template must start with the subject line in the format: "Subject: <your subject here>" on the first line.
+- The signature must be exactly as follows:
 Best regards,
 Nyra
-Neural Intelligence Officer, NeuralArc Inc
+Neural Intelligence Officer,
+NeuralArc Inc
 https://neuralarc.ai
 
 Return a valid JSON object with this exact schema:
@@ -185,6 +191,7 @@ Return a valid JSON object with this exact schema:
   "recommendations": string[],
   "pitchNotes": string,
   "useCase": string,
+  "emailSubject": string,
   "emailTemplate": string
 }
 
