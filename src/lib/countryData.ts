@@ -252,3 +252,23 @@ export const countries: Country[] = [
   { code: "ZM", name: "Zambia", currencyCode: "ZMW", currencyName: "Zambian Kwacha", currencySymbol: "ZK" },
   { code: "ZW", name: "Zimbabwe", currencyCode: "ZWL", currencyName: "Zimbabwean Dollar", currencySymbol: "$" }
 ];
+
+// Utility: Get flag emoji from country code
+export function getFlagEmojiFromCountryCode(code: string): string {
+  if (!code) return '';
+  // Unicode regional indicator symbols
+  return code
+    .toUpperCase()
+    .replace(/./g, char =>
+      String.fromCodePoint(127397 + char.charCodeAt(0))
+    );
+}
+
+// Utility: Get country code from country name
+export function getCountryCodeFromName(name: string): string | undefined {
+  if (!name) return undefined;
+  const country = countries.find(
+    c => c.name.toLowerCase() === name.toLowerCase()
+  );
+  return country?.code;
+}

@@ -19,6 +19,8 @@ import type { Lead, Update, LeadStatus } from '@/types';
 import { format, parseISO, formatDistanceToNow } from 'date-fns';
 import { supabase } from '@/lib/supabaseClient';
 import { useToast } from '@/hooks/use-toast';
+import { getFlagEmojiFromCountryCode, getCountryCodeFromName } from '@/lib/countryData';
+import { Dialog as AlertDialog, DialogContent as AlertDialogContent, DialogHeader as AlertDialogHeader, DialogTitle as AlertDialogTitle, DialogFooter as AlertDialogFooter, DialogDescription as AlertDialogDescription } from '@/components/ui/dialog';
 
 interface LeadDialogProps {
   open: boolean;
@@ -94,6 +96,8 @@ export default function LeadDialog({
   const [isGeneratingEmail, setIsGeneratingEmail] = useState(false);
   const [emailTabContent, setEmailTabContent] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState<{ name: string; email: string } | null>(null);
+  const [emailSent, setEmailSent] = useState(false);
+  const [showLogEmailDialog, setShowLogEmailDialog] = useState<null | string>(null);
 
   useEffect(() => {
     setEditLead({
@@ -155,6 +159,15 @@ export default function LeadDialog({
     };
     fetchUser();
   }, []);
+
+  // Whenever logs change, check for Email activity
+  useEffect(() => {
+    if (logs.some(log => log.type === 'Email')) {
+      setEmailSent(true);
+    } else {
+      setEmailSent(false);
+    }
+  }, [logs]);
 
   // Handler: Convert Lead to Account
   const handleConvertLead = async () => {
@@ -394,6 +407,28 @@ export default function LeadDialog({
     }
   };
 
+  // Handler: Log Email Activity
+  const handleLogEmailActivity = async (provider: string) => {
+    setShowLogEmailDialog(null);
+    try {
+      const currentUserId = localStorage.getItem('user_id');
+      if (!currentUserId) throw new Error('User not authenticated');
+      const { error } = await supabase.from('update').insert([
+        {
+          type: 'Email',
+          content: emailTabContent || '',
+          updated_by_user_id: currentUserId,
+          date: new Date().toISOString(),
+          lead_id: lead.id,
+        }
+      ]);
+      if (error) throw error;
+      toast({ title: 'Activity Logged', description: 'Email activity has been logged.' });
+    } catch (error) {
+      toast({ title: 'Failed to log activity', description: error instanceof Error ? error.message : 'Could not log email activity.', variant: 'destructive' });
+    }
+  };
+
   useEffect(() => {
     if (activeTab === 'email' && !isGeneratingEmail) {
       if (enrichmentData && enrichmentData.emailTemplate) {
@@ -434,7 +469,57 @@ export default function LeadDialog({
                         autoFocus
                       />
                     ) : (
-                      <DialogTitle className="text-2xl font-bold text-[#282828]">{lead.personName}</DialogTitle>
+                      <DialogTitle className="text-2xl font-bold text-[#282828] flex items-center gap-2">
+                        {lead.personName}
+                        {/* Country flag */}
+                        {lead.country && (
+                          (() => {
+                            const code = getCountryCodeFromName(lead.country);
+                            if (code) {
+                              return <span title={lead.country} style={{fontSize:'1.3em',marginLeft:4}}>{getFlagEmojiFromCountryCode(code)}</span>;
+                            }
+                            return null;
+                          })()
+                        )}
+                        {/* LinkedIn icon */}
+                        {lead.linkedinProfileUrl && (
+                          <a
+                            href={lead.linkedinProfileUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title="View LinkedIn Profile"
+                            style={{ display: 'inline-flex', alignItems: 'center', marginLeft: 4 }}
+                          >
+                            <span
+                              className="linkedin-icon"
+                              style={{ display: 'inline-flex', alignItems: 'center', cursor: 'pointer', transition: 'color 0.2s' }}
+                            >
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                width="26"
+                                height="26"
+                                viewBox="0 0 48 48"
+                                style={{ display: 'block' }}
+                              >
+                                <path
+                                  fill="#868686"
+                                  className="linkedin-bg"
+                                  d="M42,37c0,2.762-2.238,5-5,5H11c-2.761,0-5-2.238-5-5V11c0-2.762,2.239-5,5-5h26c2.762,0,5,2.238,5,5V37z"
+                                ></path>
+                                <path
+                                  fill="#FFF"
+                                  d="M12 19H17V36H12zM14.485 17h-.028C12.965 17 12 15.888 12 14.499 12 13.08 12.995 12 14.514 12c1.521 0 2.458 1.08 2.486 2.499C17 15.887 16.035 17 14.485 17zM36 36h-5v-9.099c0-2.198-1.225-3.698-3.192-3.698-1.501 0-2.313 1.012-2.707 1.99C24.957 25.543 25 26.511 25 27v9h-5V19h5v2.616C25.721 20.5 26.85 19 29.738 19c3.578 0 6.261 2.25 6.261 7.274L36 36 36 36z"
+                                ></path>
+                              </svg>
+                            </span>
+                            <style jsx>{`
+                              .linkedin-icon:hover .linkedin-bg {
+                                fill: #0288D1;
+                              }
+                            `}</style>
+                          </a>
+                        )}
+                      </DialogTitle>
                     )}
                     {!editMode && (
                       <Button
@@ -553,23 +638,6 @@ export default function LeadDialog({
                       </div>
                       <div className="bg-[#F8F7F3] p-3 rounded-md">
                         <div className="flex items-start gap-3">
-                          <Phone className="h-5 w-5 text-[#4B7B9D] mt-1 flex-shrink-0" />
-                          <div>
-                            <p className="text-sm text-[#5E6156]">Phone</p>
-                            {editMode ? (
-                              <Input
-                                value={editLead.phone}
-                                onChange={e => handleEditChange('phone', e.target.value)}
-                                className="border-0 border-b-2 border-[#916D5B] bg-transparent px-0 rounded-none text-base font-medium text-[#282828] placeholder:text-base"
-                              />
-                            ) : (
-                              <p className="text-base text-[#282828] font-medium">{lead.phone || 'N/A'}</p>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="bg-[#F8F7F3] p-3 rounded-md">
-                        <div className="flex items-start gap-3">
                           <UserCheck className="h-5 w-5 text-[#5E6156] mt-1 flex-shrink-0" />
                           <div>
                             <p className="text-sm text-[#5E6156]">Job Title</p>
@@ -581,6 +649,23 @@ export default function LeadDialog({
                               />
                             ) : (
                               <p className="text-base text-[#282828] font-medium">{lead.jobTitle || 'N/A'}</p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="bg-[#F8F7F3] p-3 rounded-md">
+                        <div className="flex items-start gap-3">
+                          <Phone className="h-5 w-5 text-[#4B7B9D] mt-1 flex-shrink-0" />
+                          <div>
+                            <p className="text-sm text-[#5E6156]">Phone</p>
+                            {editMode ? (
+                              <Input
+                                value={editLead.phone}
+                                onChange={e => handleEditChange('phone', e.target.value)}
+                                className="border-0 border-b-2 border-[#916D5B] bg-transparent px-0 rounded-none text-base font-medium text-[#282828] placeholder:text-base"
+                              />
+                            ) : (
+                              <p className="text-base text-[#282828] font-medium">{lead.phone || 'N/A'}</p>
                             )}
                           </div>
                         </div>
@@ -896,7 +981,9 @@ export default function LeadDialog({
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center justify-between mb-1">
                                   <p className="text-sm font-medium text-[#282828] line-clamp-2">
-                                    {log.content}
+                                    {log.type === 'Email' && log.content?.startsWith('Subject: ')
+                                      ? log.content.split('\n')[0].replace(/^Subject: /, '')
+                                      : log.content}
                                   </p>
                                   <span className="text-xs text-[#998876] ml-2 font-medium">
                                     {format(new Date(log.date), 'MMM dd')}
@@ -937,10 +1024,15 @@ export default function LeadDialog({
                     <h4 className="text-lg font-semibold text-[#282828] flex items-center gap-2 pl-6">
                       <MailIcon className="h-5 w-5 text-[#5E6156]" /> Email to Lead
                     </h4>
-                    <div className="flex gap-2 pr-4">
+                    <div className="flex gap-2 pr-4 items-center">
+                      {emailSent && (
+                        <span className="inline-flex items-center gap-1 p-2 px-4 bg-green-100 text-green-800 text-sm font-semibold rounded-sm">
+                          <CheckSquare className="h-4 w-4 text-green-800" /> Sent
+                        </span>
+                      )}
                       <Button
                         variant="outline"
-                        className="max-h-12 flex items-center gap-1 border-[#E5E3DF] text-[#282828] bg-white hover:bg-[#F8F7F3]"
+                        className="flex items-center gap-1 border-[#E5E3DF] text-[#282828] bg-white hover:bg-[#F8F7F3] max-h-10 px-2 min-w-20"
                         onClick={handleCopyEmail}
                         disabled={!emailTabContent}
                       >
@@ -978,29 +1070,29 @@ export default function LeadDialog({
                       <Button
                         variant="add"
                         className="max-h-12 flex items-center gap-1 absolute bottom-4 right-6 z-10"
-                        disabled={!emailTabContent}
+                        disabled={!emailTabContent || emailSent}
                       >
-                        <SendIcon className="h-4 w-4 mr-1" /> Send
+                        <SendIcon className="h-4 w-4 mr-1" /> {emailSent ? 'Sent' : 'Send'}
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent className="bg-white text-[#282828] p-1 rounded-md border border-[#E5E3DF] shadow-xl max-w-[220px] sm:h-fit">
-                      <DropdownMenuItem onClick={() => window.open(getMailClientUrl('gmail'), '_blank')} className="flex items-center gap-2 cursor-pointer focus:bg-[#F8F7F3] focus:text-black">
+                      <DropdownMenuItem onClick={() => setShowLogEmailDialog('gmail')} className="flex items-center gap-2 cursor-pointer focus:bg-[#F8F7F3] focus:text-black" disabled={emailSent}>
                         <MailIcon className="h-4 w-4" /> Gmail
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => window.open(getMailClientUrl('outlook'), '_blank')} className="flex items-center gap-2 cursor-pointer focus:bg-[#F8F7F3] focus:text-black">
+                      <DropdownMenuItem onClick={() => setShowLogEmailDialog('outlook')} className="flex items-center gap-2 cursor-pointer focus:bg-[#F8F7F3] focus:text-black" disabled={emailSent}>
                         <Inbox className="h-4 w-4" /> Outlook
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => window.open(getMailClientUrl('yahoo'), '_blank')} className="flex items-center gap-2 cursor-pointer focus:bg-[#F8F7F3] focus:text-black">
+                      <DropdownMenuItem onClick={() => setShowLogEmailDialog('yahoo')} className="flex items-center gap-2 cursor-pointer focus:bg-[#F8F7F3] focus:text-black" disabled={emailSent}>
                         <AtSign className="h-4 w-4" /> Yahoo
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => window.open(getMailClientUrl('protonmail'), '_blank')} className="flex items-center gap-2 cursor-pointer focus:bg-[#F8F7F3] focus:text-black">
+                      <DropdownMenuItem onClick={() => setShowLogEmailDialog('protonmail')} className="flex items-center gap-2 cursor-pointer focus:bg-[#F8F7F3] focus:text-black" disabled={emailSent}>
                         <Shield className="h-4 w-4" /> ProtonMail
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => window.open(getMailClientUrl('zoho'), '_blank')} className="flex items-center gap-2 cursor-pointer focus:bg-[#F8F7F3] focus:text-black">
+                      <DropdownMenuItem onClick={() => setShowLogEmailDialog('zoho')} className="flex items-center gap-2 cursor-pointer focus:bg-[#F8F7F3] focus:text-black" disabled={emailSent}>
                         <Briefcase className="h-4 w-4" /> Zoho Mail
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={() => window.open(getMailClientUrl('default'), '_blank')} className="flex items-center gap-2 cursor-pointer focus:bg-[#F8F7F3] focus:text-black">
+                      <DropdownMenuItem onClick={() => setShowLogEmailDialog('default')} className="flex items-center gap-2 cursor-pointer focus:bg-[#F8F7F3] focus:text-black" disabled={emailSent}>
                         <Computer className="h-4 w-4" /> Other (Choose on device)
                       </DropdownMenuItem>
                     </DropdownMenuContent>
@@ -1010,6 +1102,30 @@ export default function LeadDialog({
             </TabsContent>
           </div>
         </Tabs>
+        {/* Log Email Activity Confirmation Dialog */}
+        {showLogEmailDialog && (
+          <AlertDialog open={true} onOpenChange={(open) => setShowLogEmailDialog(open ? showLogEmailDialog : null)}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Log Email Activity?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Do you want to log this email activity for this lead?
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <Button variant="outline" onClick={() => {
+                  setShowLogEmailDialog(null);
+                  // Open provider without logging
+                  window.open(getMailClientUrl(showLogEmailDialog), '_blank');
+                }}>No</Button>
+                <Button variant="add" onClick={async () => {
+                  window.open(getMailClientUrl(showLogEmailDialog), '_blank');
+                  await handleLogEmailActivity(showLogEmailDialog);
+                }}>Yes, Log Activity</Button>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        )}
       </DialogContent>
     </Dialog>
   );
