@@ -5,7 +5,7 @@ import PageTitle from '@/components/common/PageTitle';
 import OpportunityCard from '@/components/opportunities/OpportunityCard';
 import type { Opportunity, OpportunityStatus } from '@/types';
 import { Button } from '@/components/ui/button';
-import { ListFilter, Search, BarChartBig, List, Grid, Eye, PlusCircle, Archive } from 'lucide-react';
+import { ListFilter, Search, BarChartBig, List, Grid, Eye, PlusCircle, Archive, CheckSquare } from 'lucide-react';
 import Image from 'next/image';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -612,6 +612,7 @@ export default function OpportunitiesPage() {
                       );
                     }}
                     onDelete={() => handleRestoreArchivedOpportunity(opportunity.id)}
+                    isArchived={true}
                   />
                 ))}
               </div>

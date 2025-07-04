@@ -40,6 +40,7 @@ import {
   Trash2,
   Coins,
   MinusCircle,
+  CheckSquare,
 } from "lucide-react";
 import type {
   Opportunity,
@@ -124,6 +125,7 @@ interface OpportunityCardProps {
   onDelete?: (opportunityId: string) => void;
   selectMode?: boolean;
   onSelect?: () => void;
+  isArchived?: boolean;
 }
 
 const getStatusBadgeColorClasses = (status: Opportunity["status"]): string => {
@@ -204,6 +206,7 @@ export default function OpportunityCard({
   onDelete,
   selectMode,
   onSelect,
+  isArchived,
 }: OpportunityCardProps) {
   // const [forecast, setForecast] = useState<AIOpportunityForecast | null>(null);
   // const [isLoadingForecast, setIsLoadingForecast] = useState(false);
@@ -955,18 +958,29 @@ export default function OpportunityCard({
           </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent className="bg-[#fff] text-[#282828] p-1 rounded-md border border-[#E5E3DF] shadow-xl sm:max-w-[308px] sm:h-fit">
-              <DropdownMenuItem
-                onClick={() => setIsDialogOpen(true)}
-                className="min-h-[44px] text-[#282828] bg-[#fff] focus:bg-[#F8F7F3] focus:text-black flex items-center gap-2 cursor-pointer"
-              >
-                <Eye className="h-5 w-5 text-[#282828]" /> View Details
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => setShowDeleteDialog(true)}
-                className="min-h-[44px] bg-[#fff] flex items-center gap-2 text-[#916D5B] focus:bg-[#F8F7F3] focus:text-[#916D5B] cursor-pointer"
-              >
-                <Trash2 className="h-5 w-5 text-[#916D5B]" /> Delete Opportunity
-              </DropdownMenuItem>
+              {isArchived ? (
+                <DropdownMenuItem
+                  onClick={() => onDelete && onDelete(opportunity.id)}
+                  className="min-h-[44px] bg-[#fff] flex items-center gap-2 text-[#3987BE] focus:bg-[#F8F7F3] focus:text-[#3987BE] cursor-pointer"
+                >
+                  <CheckSquare className="h-5 w-5 text-[#3987BE]" /> Restore Opportunity
+                </DropdownMenuItem>
+              ) : (
+                <>
+                  <DropdownMenuItem
+                    onClick={() => setIsDialogOpen(true)}
+                    className="min-h-[44px] text-[#282828] bg-[#fff] focus:bg-[#F8F7F3] focus:text-black flex items-center gap-2 cursor-pointer"
+                  >
+                    <Eye className="h-5 w-5 text-[#282828]" /> View Details
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => setShowDeleteDialog(true)}
+                    className="min-h-[44px] bg-[#fff] flex items-center gap-2 text-[#916D5B] focus:bg-[#F8F7F3] focus:text-[#916D5B] cursor-pointer"
+                  >
+                    <Trash2 className="h-5 w-5 text-[#916D5B]" /> Delete Opportunity
+                  </DropdownMenuItem>
+                </>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

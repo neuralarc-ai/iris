@@ -6,7 +6,7 @@ import AccountCard from '@/components/accounts/AccountCard';
 import { mockAccounts as initialMockAccounts } from '@/lib/data';
 import type { Account, AccountType, AccountStatus } from '@/types';
 import { Button } from '@/components/ui/button';
-import { Search, ListFilter, List, Grid, Eye, PlusCircle, Loader2, Archive, Trash2 } from 'lucide-react';
+import { Search, ListFilter, List, Grid, Eye, PlusCircle, Loader2, Archive, Trash2, CheckSquare } from 'lucide-react';
 import Image from 'next/image';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -539,6 +539,7 @@ export default function AccountsPage() {
                       setOpportunityAccountId(account.id);
                       setIsAddOpportunityDialogOpen(true);
                     }}
+                    isArchived={true}
                   />
                 ))}
               </div>

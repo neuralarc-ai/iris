@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Briefcase, ListChecks, PlusCircle, Eye, Users, Mail, Phone, Tag, Trash2, FileText, MoreHorizontal } from 'lucide-react';
+import { Briefcase, ListChecks, PlusCircle, Eye, Users, Mail, Phone, Tag, Trash2, FileText, MoreHorizontal, CheckSquare } from 'lucide-react';
 import type { Account, DailyAccountSummary as AIDailySummary, Opportunity, Update, UpdateType } from '@/types';
 import { generateDailyAccountSummary } from '@/ai/flows/daily-account-summary';
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
@@ -24,9 +24,10 @@ interface AccountCardProps {
   owner?: string;
   onAccountDeleted?: (accountId: string) => void;
   onAccountUpdated?: (updatedAccount: any) => void;
+  isArchived?: boolean;
 }
 
-export default function AccountCard({ account, onNewOpportunity, owner, onAccountDeleted, onAccountUpdated }: AccountCardProps) {
+export default function AccountCard({ account, onNewOpportunity, owner, onAccountDeleted, onAccountUpdated, isArchived }: AccountCardProps) {
   const { toast } = useToast();
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [aiScore, setAiScore] = useState<number | null>(null);
@@ -172,12 +173,20 @@ export default function AccountCard({ account, onNewOpportunity, owner, onAccoun
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent className="bg-[#fff] text-[#282828] p-1 rounded-md border border-[#E5E3DF] shadow-xl sm:max-w-[308px] sm:h-fit">
-            <DropdownMenuItem onClick={onNewOpportunity} className="min-h-[44px] text-[#282828] bg-[#fff] focus:bg-[#F8F7F3] focus:text-black flex items-center gap-2 cursor-pointer">
-              <PlusCircle className="h-5 w-5 text-[#282828]" /> Add Opportunity
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setShowDeleteDialog(true)} className="min-h-[44px] bg-[#fff] flex items-center gap-2 text-[#916D5B] focus:bg-[#F8F7F3] focus:text-[#916D5B] cursor-pointer">
-              <Trash2 className="h-5 w-5 text-[#916D5B]" /> Archive Account
-            </DropdownMenuItem>
+            {isArchived ? (
+              <DropdownMenuItem onClick={() => onAccountDeleted && onAccountDeleted(account.id)} className="min-h-[44px] bg-[#fff] flex items-center gap-2 text-[#3987BE] focus:bg-[#F8F7F3] focus:text-[#3987BE] cursor-pointer">
+                <CheckSquare className="h-5 w-5 text-[#3987BE]" /> Restore Account
+              </DropdownMenuItem>
+            ) : (
+              <>
+                <DropdownMenuItem onClick={onNewOpportunity} className="min-h-[44px] text-[#282828] bg-[#fff] focus:bg-[#F8F7F3] focus:text-black flex items-center gap-2 cursor-pointer">
+                  <PlusCircle className="h-5 w-5 text-[#282828]" /> Add Opportunity
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setShowDeleteDialog(true)} className="min-h-[44px] bg-[#fff] flex items-center gap-2 text-[#916D5B] focus:bg-[#F8F7F3] focus:text-[#916D5B] cursor-pointer">
+                  <Trash2 className="h-5 w-5 text-[#916D5B]" /> Archive Account
+                </DropdownMenuItem>
+              </>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
