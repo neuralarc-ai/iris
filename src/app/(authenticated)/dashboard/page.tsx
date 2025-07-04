@@ -379,9 +379,9 @@ export default function DashboardPage() {
     }
   }, [isLoading, isLoadingEngagement]);
 
+  // On initial load, if Hot segment is empty and Warm is not, default to Warm. But always allow manual tab switching.
   useEffect(() => {
-    // Only auto-switch if currently on Hot, not loading, and Hot is empty but Warm is not
-    if (!isLoadingEngagement && leadSegment === 'Hot') {
+    if (!isLoadingEngagement) {
       const getSegment = (score?: number) => {
         if (score === undefined) return 'Cold';
         if (score >= 80) return 'Hot';
@@ -400,11 +400,13 @@ export default function DashboardPage() {
         if (ai.entity_type === 'Account') return false;
         return getSegment(ai.match_score) === 'Warm';
       });
-      if (hotLeads.length === 0 && warmLeads.length > 0) {
+      // Only auto-switch on first load
+      if (leadSegment === 'Hot' && hotLeads.length === 0 && warmLeads.length > 0) {
         setLeadSegment('Warm');
       }
     }
-  }, [isLoadingEngagement, engagementLeads, engagementAI, leadSegment]);
+    // eslint-disable-next-line
+  }, [isLoadingEngagement, engagementLeads, engagementAI]);
 
   if (!showDashboard) {
     return (
@@ -686,7 +688,7 @@ export default function DashboardPage() {
                   </Button>
             </div>
               </CardHeader>
-              <CardContent className="relative flex-grow flex flex-col gap-4 overflow-scroll max-h-[290px] h-full">
+              <CardContent className="relative flex-grow flex flex-col gap-4 overflow-scroll max-h-[260px] h-full">
                 {isLoadingEngagement ? (
                   <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
                     <Users className="h-8 w-8 mb-2 animate-pulse" />

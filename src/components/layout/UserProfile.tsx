@@ -71,11 +71,11 @@ export default function UserProfile() {
       <Dialog open={open} onOpenChange={setOpen}>
         <DropdownMenu>
           <DropdownMenuTrigger asChild className='w-20 h-20 p-0 min-w-0 rounded-sm'>
-            <Button variant="ghost" className="relative p-0 h-auto w-fit rounded-sm focus-visible:outline-none focus-visible:ring-0 focus-within:outline-none focus-within:ring-0">
-              <div className="w-fit h-auto p-0 flex items-center justify-center">
+            <Button variant="ghost" className="relative p-0 h-4 w-4 focus-visible:outline-none focus-visible:ring-0 focus-within:outline-none focus-within:ring-0">
+              <div className="w-auto h-auto p-0 flex items-center justify-center">
                 <Avatar 
                   name={userData?.email || "admin@iris.ai"} 
-                  size={40} 
+                  size={80} 
                   variant="marble"
                   colors={["#916D5B", "#CBCAC5", "#E6D0D7", "#97A487", "#5E6156"]}
                 />

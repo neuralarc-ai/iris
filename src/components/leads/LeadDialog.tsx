@@ -933,25 +933,11 @@ export default function LeadDialog({
             <TabsContent value="email">
               <div className="flex flex-col h-full min-h-[300px]">
                 <div className="bg-white rounded-lg shadow-sm border border-[#E5E3DF] relative min-h-[200px] flex flex-col">
-                  <div className="flex items-center justify-between px-0 pt-2 pb-3 border-b border-[#EFEDE7]">
+                  <div className="flex items-center justify-between px-0 pt-4 pb-3 border-b border-[#EFEDE7]">
                     <h4 className="text-lg font-semibold text-[#282828] flex items-center gap-2 pl-6">
                       <MailIcon className="h-5 w-5 text-[#5E6156]" /> Email to Lead
                     </h4>
-                    <div className="flex gap-2 pr-6">
-                      <Button
-                        variant="outline"
-                        className="max-h-12 flex items-center gap-1 border-[#E5E3DF] text-[#282828] bg-white hover:bg-[#F8F7F3]"
-                        onClick={async () => {
-                          setIsGeneratingEmail(true);
-                          setEmailTabContent(null);
-                          const email = await generateProfessionalEmail();
-                          setEmailTabContent(email);
-                        }}
-                        disabled={isGeneratingEmail}
-                      >
-                        <RefreshCw className="h-4 w-4 mr-1" />
-                        {isGeneratingEmail ? 'Regenerating...' : 'Regenerate'}
-                      </Button>
+                    <div className="flex gap-2 pr-4">
                       <Button
                         variant="outline"
                         className="max-h-12 flex items-center gap-1 border-[#E5E3DF] text-[#282828] bg-white hover:bg-[#F8F7F3]"

@@ -80,7 +80,6 @@ export default function HorizontalNav() {
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.45, ease: 'easeOut' }}
         className={cn("z-50 w-full border-b", "bg-transparent text-black")}
-        style={{ height: "70px" }}
       >
         <div className="max-w-[1440px] mx-auto w-full flex h-full items-center justify-between px-4 py-2">
           <div className="flex items-center">

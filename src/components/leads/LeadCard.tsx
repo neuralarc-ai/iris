@@ -451,8 +451,8 @@ export default function LeadCard({ lead, onLeadConverted, onLeadDeleted, onActiv
   // Placeholder for user's company info
   const userCompany = {
     name: 'NeuralArc',
-    website: 'https://neuralarc.com',
-    contact: 'contact@neuralarc.com',
+    website: 'https://neuralarc.ai',
+    contact: 'contact@neuralarc.ai',
   };
 
   // Placeholder for Gemini email generation
