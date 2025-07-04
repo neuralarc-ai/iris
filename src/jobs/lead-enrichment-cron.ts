@@ -4,6 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 import { leadEnrichmentFlow } from '../ai/flows/lead-enrichment';
 import { v4 as uuidv4 } from 'uuid';
 import { getDelayBetweenLeads, shouldSkipLead, CRON_CONFIG } from '@/lib/cron-config';
+import { fetchAndCacheCompanyWebsiteSummary } from '@/lib/utils';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -38,15 +39,20 @@ async function processLead(lead: any, user: any, company: any) {
     }
     
     // Mark job as processing
-    await supabase.from('lead_analysis_job').upsert({
-      lead_id: lead.id,
-      status: 'processing',
-      updated_at: new Date().toISOString(),
-    }, { onConflict: ['lead_id'] });
+    await supabase.from('lead_analysis_job').upsert([
+      {
+        lead_id: lead.id,
+        status: 'processing',
+        updated_at: new Date().toISOString(),
+      }
+    ], { onConflict: 'lead_id' });
+    
+    // Fetch company website summary (cached)
+    const companyScrapeData = await fetchAndCacheCompanyWebsiteSummary(company);
     
     // Fetch Tavily/website summaries if needed (reuse logic from API route if required)
     // For now, skip Tavily/website summaries for simplicity
-    const aiResult = await leadEnrichmentFlow({ lead, user, company });
+    const aiResult = await leadEnrichmentFlow({ lead, user, company, companyScrapeData });
     
     await supabase.from('aianalysis').insert([
       {
@@ -67,11 +73,13 @@ async function processLead(lead: any, user: any, company: any) {
       },
     ]);
     
-    await supabase.from('lead_analysis_job').upsert({
-      lead_id: lead.id,
-      status: 'success',
-      updated_at: new Date().toISOString(),
-    }, { onConflict: ['lead_id'] });
+    await supabase.from('lead_analysis_job').upsert([
+      {
+        lead_id: lead.id,
+        status: 'success',
+        updated_at: new Date().toISOString(),
+      }
+    ], { onConflict: 'lead_id' });
     
     console.log(`✅ Successfully processed ${lead.company_name}`);
     
@@ -79,12 +87,14 @@ async function processLead(lead: any, user: any, company: any) {
     console.error(`❌ Error processing lead ${lead.company_name}:`, e);
     
     // Save error to database
-    await supabase.from('lead_analysis_job').upsert({
-      lead_id: lead.id,
-      status: 'error',
-      error_message: e.message,
-      updated_at: new Date().toISOString(),
-    }, { onConflict: ['lead_id'] });
+    await supabase.from('lead_analysis_job').upsert([
+      {
+        lead_id: lead.id,
+        status: 'error',
+        error_message: e.message,
+        updated_at: new Date().toISOString(),
+      }
+    ], { onConflict: 'lead_id' });
     
     // Also save error to aianalysis table
     await supabase.from('aianalysis').upsert({

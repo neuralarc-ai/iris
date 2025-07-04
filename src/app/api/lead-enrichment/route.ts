@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { leadEnrichmentFlow } from '@/ai/flows/lead-enrichment';
 import { createClient } from '@supabase/supabase-js';
 import { v4 as uuidv4 } from 'uuid';
+import { fetchAndCacheCompanyWebsiteSummary } from '@/lib/utils';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -112,6 +113,9 @@ export async function POST(req: NextRequest) {
     // Fetch company data
     const { data: company } = await supabase.from('company').select('*, services:company_service(*)').single();
 
+    // Fetch company website summary (cached)
+    const companyScrapeData = await fetchAndCacheCompanyWebsiteSummary(company);
+
     // If triggerEnrichment is requested, fetch lead data and process
     if (triggerEnrichment && leadId) {
       // Fetch lead data from database
@@ -216,7 +220,7 @@ export async function POST(req: NextRequest) {
     // Generate AI analysis
     let aiResult;
     try {
-      aiResult = await leadEnrichmentFlow({ lead, user, company, tavilySummary, websiteSummary, opportunities, serperSummary, exaSummary });
+      aiResult = await leadEnrichmentFlow({ lead, user, company, companyScrapeData, tavilySummary, websiteSummary, opportunities, serperSummary, exaSummary });
     } catch (error) {
       console.error('AI enrichment failed:', error);
       return NextResponse.json({ error: 'AI enrichment failed due to insufficient data or an AI error.' }, { status: 500 });

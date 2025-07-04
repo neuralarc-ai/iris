@@ -32,7 +32,7 @@ import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader,
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
 import { supabase } from '@/lib/supabaseClient';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
-import Avvvatars from 'avvvatars-react';
+import Avatar from 'boring-avatars';
 
 // Extend User type to ensure 'role' property exists
 interface User extends BaseUser {
@@ -330,7 +330,12 @@ export default function UserManagementPage() {
                   <TableRow key={user.id} className="hover:bg-transparent bg-transparent">
                     <TableCell className="text-center text-muted-foreground font-mono">{idx + 1}</TableCell>
                     <TableCell className="text-center">
-                      <Avvvatars value={user.email || user.name} size={36} style="shape" radius={4} />
+                      <Avatar 
+                        name={user.email || user.name} 
+                        size={40} 
+                        variant="marble"
+                        colors={["#916D5B", "#CBCAC5", "#E6D0D7", "#97A487", "#5E6156"]}
+                      />
                     </TableCell>
                     <TableCell className="font-medium text-foreground">{user.name}</TableCell>
                     <TableCell>{user.email}</TableCell>

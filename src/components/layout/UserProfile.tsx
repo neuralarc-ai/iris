@@ -12,7 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { User, LogOut, Building2 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
-import Avvvatars from 'avvvatars-react';
+import Avatar from 'boring-avatars';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -70,10 +70,15 @@ export default function UserProfile() {
     <>
       <Dialog open={open} onOpenChange={setOpen}>
         <DropdownMenu>
-          <DropdownMenuTrigger asChild className='w-fit min-w-0 rounded-sm'>
-            <Button variant="ghost" className="relative px-0 h-9 w-fit rounded-sm focus-visible:outline-none focus-visible:ring-0 focus-within:outline-none focus-within:ring-0">
-              <div className="w-fit h-9 px-0 flex items-center justify-center rounde-sm">
-                <Avvvatars value={userData?.email || "admin@iris.ai"} size={36} style="shape" radius={4}/>
+          <DropdownMenuTrigger asChild className='w-20 h-20 p-0 min-w-0 rounded-sm'>
+            <Button variant="ghost" className="relative p-0 h-auto w-fit rounded-sm focus-visible:outline-none focus-visible:ring-0 focus-within:outline-none focus-within:ring-0">
+              <div className="w-fit h-auto p-0 flex items-center justify-center">
+                <Avatar 
+                  name={userData?.email || "admin@iris.ai"} 
+                  size={40} 
+                  variant="marble"
+                  colors={["#916D5B", "#CBCAC5", "#E6D0D7", "#97A487", "#5E6156"]}
+                />
               </div>
             </Button>
           </DropdownMenuTrigger>
