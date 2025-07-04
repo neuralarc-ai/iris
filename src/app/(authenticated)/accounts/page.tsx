@@ -48,6 +48,8 @@ export default function AccountsPage() {
   const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
   const [accountIdToArchive, setAccountIdToArchive] = useState<string | null>(null);
   const [isArchiving, setIsArchiving] = useState(false);
+  const [selectedAccountEnrichment, setSelectedAccountEnrichment] = useState<any>(null);
+  const [isAccountEnrichmentLoading, setIsAccountEnrichmentLoading] = useState(false);
 
   useEffect(() => {
     const fetchAccounts = async () => {
@@ -400,8 +402,22 @@ export default function AccountsPage() {
                               variant="outline"
                               size="sm"
                               className="rounded-[4px] p-2"
-                              onClick={() => {
+                              onClick={async () => {
+                                setIsAccountEnrichmentLoading(true);
                                 setSelectedAccountId(account.id);
+                                // Fetch enrichment from Supabase
+                                const { data } = await supabase
+                                  .from('aianalysis')
+                                  .select('ai_output')
+                                  .eq('entity_type', 'Account')
+                                  .eq('entity_id', account.id)
+                                  .eq('analysis_type', 'enrichment')
+                                  .eq('status', 'success')
+                                  .order('last_refreshed_at', { ascending: false })
+                                  .limit(1)
+                                  .single();
+                                setSelectedAccountEnrichment(data?.ai_output || null);
+                                setIsAccountEnrichmentLoading(false);
                                 setIsAccountModalOpen(true);
                               }}
                             >
@@ -716,7 +732,10 @@ export default function AccountsPage() {
           onClose={() => {
             setIsAccountModalOpen(false);
             setSelectedAccountId(null);
+            setSelectedAccountEnrichment(null);
           }}
+          aiEnrichment={selectedAccountEnrichment}
+          isAiLoading={isAccountEnrichmentLoading}
         />
       )}
       {/* Archive Confirmation Dialog */}
