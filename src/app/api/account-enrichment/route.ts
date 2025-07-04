@@ -90,6 +90,8 @@ export async function POST(req: NextRequest) {
 
     // Fetch company data
     const { data: company } = await supabase.from('company').select('*, services:company_service(*)').single();
+    // Pass company.website_summary as companyScrapeData
+    const companyScrapeData = company?.website_summary || '';
 
     // If triggerEnrichment is requested, fetch account data and process
     if (triggerEnrichment && accountId) {
@@ -183,7 +185,7 @@ export async function POST(req: NextRequest) {
     // Generate AI analysis
     let aiResult;
     try {
-      aiResult = await accountEnrichmentFlow({ account, user, company, tavilySummary, websiteSummary, opportunities, serperSummary, exaSummary });
+      aiResult = await accountEnrichmentFlow({ account, user, company, companyScrapeData, tavilySummary, websiteSummary, opportunities, serperSummary, exaSummary });
     } catch (error) {
       console.error('AI enrichment failed:', error);
       return NextResponse.json({ error: 'AI enrichment failed due to insufficient data or an AI error.' }, { status: 500 });
