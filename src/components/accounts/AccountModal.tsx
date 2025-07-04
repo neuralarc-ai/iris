@@ -62,6 +62,8 @@ export default function AccountModal({ accountId, open, onClose, aiEnrichment, i
     industry: '',
     contactPersonName: '',
     contactPhone: '',
+    website: '',
+    jobTitle: '',
   });
 
   // --- Activity Form State ---
@@ -127,6 +129,25 @@ export default function AccountModal({ accountId, open, onClose, aiEnrichment, i
     }
   };
 
+  const [leadInfo, setLeadInfo] = useState<{ website?: string; industry?: string; jobTitle?: string } | null>(null);
+
+  useEffect(() => {
+    if (account && (!account.website || !account.industry || !account.jobTitle) && (account as any).converted_from_lead_id) {
+      (async () => {
+        const { data: lead } = await supabase.from('lead').select('website, industry, job_title').eq('id', (account as any).converted_from_lead_id).single();
+        if (lead) {
+          setLeadInfo({
+            website: lead.website,
+            industry: lead.industry,
+            jobTitle: lead.job_title,
+          });
+        }
+      })();
+    } else {
+      setLeadInfo(null);
+    }
+  }, [account]);
+
   useEffect(() => {
     if (!open) return;
     (async () => {
@@ -188,6 +209,8 @@ export default function AccountModal({ accountId, open, onClose, aiEnrichment, i
         industry: account.industry || '',
         contactPersonName: account.contactPersonName || '',
         contactPhone: account.contactPhone || '',
+        website: account.website || '',
+        jobTitle: account.jobTitle || '',
       });
     }
   }, [account]);
@@ -210,7 +233,7 @@ export default function AccountModal({ accountId, open, onClose, aiEnrichment, i
 
   const handleSaveEdit = async () => {
     if (!account) return;
-    const { name, type, status, description, contactEmail, industry, contactPersonName, contactPhone } = editAccount;
+    const { name, type, status, description, contactEmail, industry, contactPersonName, contactPhone, website, jobTitle } = editAccount;
     const { error } = await supabase.from('account').update({
       name,
       type,
@@ -220,6 +243,8 @@ export default function AccountModal({ accountId, open, onClose, aiEnrichment, i
       industry,
       contact_person_name: contactPersonName,
       contact_phone: contactPhone,
+      website,
+      job_title: jobTitle,
     }).eq('id', account.id);
     if (!error) {
       setAccount({
@@ -232,6 +257,8 @@ export default function AccountModal({ accountId, open, onClose, aiEnrichment, i
         industry,
         contactPersonName,
         contactPhone,
+        website,
+        jobTitle,
       });
       setEditMode(false);
       toast({ title: 'Account updated', description: 'Account details have been updated.' });
@@ -251,6 +278,8 @@ export default function AccountModal({ accountId, open, onClose, aiEnrichment, i
         industry: account.industry || '',
         contactPersonName: account.contactPersonName || '',
         contactPhone: account.contactPhone || '',
+        website: account.website || '',
+        jobTitle: account.jobTitle || '',
       });
     }
     setEditMode(false);
@@ -390,7 +419,47 @@ export default function AccountModal({ accountId, open, onClose, aiEnrichment, i
                         onChange={e => handleEditChange('name', e.target.value)}
                       />
                     ) : (
-                      <DialogTitle className="text-2xl font-bold text-[#282828]">{account?.contactPersonName || account?.name}</DialogTitle>
+                      <DialogTitle className="text-2xl font-bold text-[#282828] flex items-center gap-2">
+                        {account?.contactPersonName || account?.name}
+                        {/* LinkedIn icon if linkedin_profile_url exists */}
+                        {account && (account as any).linkedin_profile_url && (
+                          <a
+                            href={(account as any).linkedin_profile_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title="View LinkedIn Profile"
+                            style={{ display: 'inline-flex', alignItems: 'center', marginLeft: 4 }}
+                          >
+                            <span
+                              className="linkedin-icon"
+                              style={{ display: 'inline-flex', alignItems: 'center', cursor: 'pointer', transition: 'color 0.2s' }}
+                            >
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                width="26"
+                                height="26"
+                                viewBox="0 0 48 48"
+                                style={{ display: 'block' }}
+                              >
+                                <path
+                                  fill="#868686"
+                                  className="linkedin-bg"
+                                  d="M42,37c0,2.762-2.238,5-5,5H11c-2.761,0-5-2.238-5-5V11c0-2.762,2.239-5,5-5h26c2.762,0,5,2.238,5,5V37z"
+                                ></path>
+                                <path
+                                  fill="#FFF"
+                                  d="M12 19H17V36H12zM14.485 17h-.028C12.965 17 12 15.888 12 14.499 12 13.08 12.995 12 14.514 12c1.521 0 2.458 1.08 2.486 2.499C17 15.887 16.035 17 14.485 17zM36 36h-5v-9.099c0-2.198-1.225-3.698-3.192-3.698-1.501 0-2.313 1.012-2.707 1.99C24.957 25.543 25 26.511 25 27v9h-5V19h5v2.616C25.721 20.5 26.85 19 29.738 19c3.578 0 6.261 2.25 6.261 7.274L36 36 36 36z"
+                                ></path>
+                              </svg>
+                            </span>
+                            <style jsx>{`
+                              .linkedin-icon:hover .linkedin-bg {
+                                fill: #0288D1;
+                              }
+                            `}</style>
+                          </a>
+                        )}
+                      </DialogTitle>
                     )}
                     {editMode ? (
                       <>
@@ -488,21 +557,30 @@ export default function AccountModal({ accountId, open, onClose, aiEnrichment, i
                       <UserCheck className="h-5 w-5 text-[#5E6156]" /> Contact Information
                     </h3>
                     <div className="space-y-2">
-                      {account?.contactPersonName && (
-                        <div className="bg-[#F8F7F3] p-3 rounded-md flex items-start gap-3">
-                          <Users className="h-5 w-5 text-[#5E6156] mt-1 flex-shrink-0" />
-                          <div>
-                            <p className="text-sm text-[#5E6156]">Contact Person</p>
-                            <p className="text-base text-[#282828] font-medium">{account.contactPersonName}</p>
-                          </div>
-                        </div>
-                      )}
                       {account?.contactEmail && (
                         <div className="bg-[#F8F7F3] p-3 rounded-md flex items-start gap-3">
                           <Mail className="h-5 w-5 text-[#C57E94] mt-1 flex-shrink-0" />
                           <div>
                             <p className="text-sm text-[#5E6156]">Email</p>
-                            <p className="text-base text-[#282828] font-medium break-all">{account.contactEmail}</p>
+                            <p className="text-base text-[#282828] font-medium break-all">{account.contactEmail?.includes(':mailto:') ? account.contactEmail.split(':mailto:')[0] : account.contactEmail}</p>
+                          </div>
+                        </div>
+                      )}
+                      {(account?.website || leadInfo?.website) && (
+                        <div className="bg-[#F8F7F3] p-3 rounded-md flex items-start gap-3">
+                          <Globe className="w-5 h-5 mt-0.5 flex-shrink-0 text-[#3987BE]" />
+                          <div>
+                            <p className="text-sm text-[#5E6156]">Website</p>
+                            <a href={account?.website || leadInfo?.website} target="_blank" rel="noopener noreferrer" className="text-base font-medium text-[#282828] underline">{account?.website || leadInfo?.website}</a>
+                          </div>
+                        </div>
+                      )}
+                      {(account?.jobTitle || leadInfo?.jobTitle) && (
+                        <div className="bg-[#F8F7F3] p-3 rounded-md flex items-start gap-3">
+                          <UserCheck className="h-5 w-5 text-[#5E6156] mt-1 flex-shrink-0" />
+                          <div>
+                            <p className="text-sm text-[#5E6156]">Job Title</p>
+                            <p className="text-base text-[#282828] font-medium">{account?.jobTitle || leadInfo?.jobTitle}</p>
                           </div>
                         </div>
                       )}
@@ -512,15 +590,6 @@ export default function AccountModal({ accountId, open, onClose, aiEnrichment, i
                           <div>
                             <p className="text-sm text-[#5E6156]">Phone</p>
                             <p className="text-base text-[#282828] font-medium">{account.contactPhone}</p>
-                          </div>
-                        </div>
-                      )}
-                      {account?.jobTitle && (
-                        <div className="bg-[#F8F7F3] p-3 rounded-md flex items-start gap-3">
-                          <UserCheck className="h-5 w-5 text-[#5E6156] mt-1 flex-shrink-0" />
-                          <div>
-                            <p className="text-sm text-[#5E6156]">Job Title</p>
-                            <p className="text-base text-[#282828] font-medium">{account.jobTitle}</p>
                           </div>
                         </div>
                       )}
@@ -534,6 +603,7 @@ export default function AccountModal({ accountId, open, onClose, aiEnrichment, i
                     <div className="space-y-2">
                       {editMode ? (
                         <>
+                          {/* Company Name */}
                           <div className="bg-[#F8F7F3] p-3 rounded-md flex items-start gap-3">
                             <Building2 className="h-5 w-5 text-[#998876] mt-1 flex-shrink-0" />
                             <div>
@@ -545,70 +615,61 @@ export default function AccountModal({ accountId, open, onClose, aiEnrichment, i
                               />
                             </div>
                           </div>
+                          {/* Website */}
                           <div className="bg-[#F8F7F3] p-3 rounded-md flex items-start gap-3">
                             <Globe className="w-5 h-5 mt-0.5 flex-shrink-0 text-[#3987BE]" />
                             <div>
                               <p className="text-sm text-[#5E6156]">Website</p>
                               <Input
                                 className="text-base font-medium text-[#282828] bg-white border border-[#E5E3DF] px-2 py-1 rounded-md"
-                                value={account?.website || ''}
-                                onChange={e => {}}
-                                disabled
+                                value={editAccount.website || leadInfo?.website || ''}
+                                onChange={e => handleEditChange('website', e.target.value)}
                               />
                             </div>
                           </div>
+                          {/* Industry */}
                           <div className="bg-[#F8F7F3] p-3 rounded-md flex items-start gap-3">
                             <Briefcase className="h-5 w-5 text-[#998876] mt-1 flex-shrink-0" />
                             <div>
                               <p className="text-sm text-[#5E6156]">Industry</p>
                               <Input
                                 className="text-base font-medium text-[#282828] bg-white border border-[#E5E3DF] px-2 py-1 rounded-md"
-                                value={editAccount.industry}
+                                value={editAccount.industry || leadInfo?.industry || ''}
                                 onChange={e => handleEditChange('industry', e.target.value)}
                               />
                             </div>
                           </div>
-                          {account && (account.country || (account as any).country) && (
+                          {account?.description && (
                             <div className="bg-[#F8F7F3] p-3 rounded-md flex items-start gap-3">
-                              <MapPin className="h-5 w-5 text-[#5E6156] mt-1 flex-shrink-0" />
+                              <FileText className="h-5 w-5 text-[#998876] mt-1 flex-shrink-0" />
                               <div>
-                                <p className="text-sm text-[#5E6156]">Country</p>
+                                <p className="text-sm text-[#5E6156]">Description</p>
                                 <Input
-                                  className="text-base font-medium text-[#282828] bg-white border border-[#E5E3DF] px-2 py-1 rounded-md"
-                                  value={account.country || (account as any).country}
-                                  onChange={e => {}}
-                                  disabled
+                                  className="text-base font-medium text-[#282828] bg-white border border-[#E5E3DF] px-2 py-1 rounded-md max-h-[160px]"
+                                  value={editAccount.description}
+                                  onChange={e => handleEditChange('description', e.target.value)}
                                 />
                               </div>
                             </div>
                           )}
-                          <div className="bg-[#F8F7F3] p-3 rounded-md flex items-start gap-3">
-                            <FileText className="h-5 w-5 text-[#998876] mt-1 flex-shrink-0" />
-                            <div>
-                              <p className="text-sm text-[#5E6156]">Description</p>
-                              <Input
-                                className="text-base font-medium text-[#282828] bg-white border border-[#E5E3DF] px-2 py-1 rounded-md max-h-[160px]"
-                                value={editAccount.description}
-                                onChange={e => handleEditChange('description', e.target.value)}
-                              />
+                          {account?.type && (
+                            <div className="bg-[#F8F7F3] p-3 rounded-md flex items-start gap-3">
+                              <Tag className="h-5 w-5 text-[#5E6156] mt-1 flex-shrink-0" />
+                              <div>
+                                <p className="text-sm text-[#5E6156]">Type</p>
+                                <Select value={editAccount.type} onValueChange={val => handleEditChange('type', val)}>
+                                  <SelectTrigger className="w-full border-[#E5E3DF] bg-white">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {['Client', 'Channel Partner'].map(type => (
+                                      <SelectItem key={type} value={type}>{type}</SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
                             </div>
-                          </div>
-                          <div className="bg-[#F8F7F3] p-3 rounded-md flex items-start gap-3">
-                            <Tag className="h-5 w-5 text-[#5E6156] mt-1 flex-shrink-0" />
-                            <div>
-                              <p className="text-sm text-[#5E6156]">Type</p>
-                              <Select value={editAccount.type} onValueChange={val => handleEditChange('type', val)}>
-                                <SelectTrigger className="w-full border-[#E5E3DF] bg-white">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {['Client', 'Channel Partner'].map(type => (
-                                    <SelectItem key={type} value={type}>{type}</SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                          </div>
+                          )}
                         </>
                       ) : (
                         <>
@@ -621,30 +682,21 @@ export default function AccountModal({ accountId, open, onClose, aiEnrichment, i
                               </div>
                             </div>
                           )}
-                          {account?.website && (
+                          {(account?.website || leadInfo?.website) && (
                             <div className="bg-[#F8F7F3] p-3 rounded-md flex items-start gap-3">
                               <Globe className="w-5 h-5 mt-0.5 flex-shrink-0 text-[#3987BE]" />
                               <div>
                                 <p className="text-sm text-[#5E6156]">Website</p>
-                                <a href={account.website} target="_blank" rel="noopener noreferrer" className="text-base font-medium text-[#282828] underline">{account.website}</a>
+                                <a href={account?.website || leadInfo?.website} target="_blank" rel="noopener noreferrer" className="text-base font-medium text-[#282828] underline">{account?.website || leadInfo?.website}</a>
                               </div>
                             </div>
                           )}
-                          {account?.industry && (
+                          {(account?.industry || leadInfo?.industry) && (
                             <div className="bg-[#F8F7F3] p-3 rounded-md flex items-start gap-3">
                               <Briefcase className="h-5 w-5 text-[#998876] mt-1 flex-shrink-0" />
                               <div>
                                 <p className="text-sm text-[#5E6156]">Industry</p>
-                                <p className="text-base font-medium text-[#282828]">{account.industry}</p>
-                              </div>
-                            </div>
-                          )}
-                          {account && (account.country || (account as any).country) && (
-                            <div className="bg-[#F8F7F3] p-3 rounded-md flex items-start gap-3">
-                              <MapPin className="h-5 w-5 text-[#5E6156] mt-1 flex-shrink-0" />
-                              <div>
-                                <p className="text-sm text-[#5E6156]">Country</p>
-                                <p className="text-base font-medium text-[#282828]">{account.country || (account as any).country}</p>
+                                <p className="text-base font-medium text-[#282828]">{account?.industry || leadInfo?.industry}</p>
                               </div>
                             </div>
                           )}

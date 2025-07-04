@@ -128,9 +128,49 @@ export default function AccountCard({ account, onNewOpportunity, owner, onAccoun
     >
       <div className="flex flex-col gap-1">
         <div className="flex items-start justify-between">
-          <div>
-            <div className="text-xl font-bold text-[#282828] leading-tight truncate">{contactPersonName}</div>
-            <div className="text-base text-[#5E6156] font-medium mt-0.5 truncate">{account.name}</div>
+          <div className="flex items-center min-w-0 w-full">
+            <div className="text-xl font-bold text-[#282828] leading-tight truncate">{contactPersonName}
+              {/* LinkedIn icon if linkedin_profile_url exists */}
+              {(account as any).linkedin_profile_url && (
+                <a
+                  href={(account as any).linkedin_profile_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title="View LinkedIn Profile"
+                  style={{ display: 'inline-flex', alignItems: 'center', marginLeft: 4 }}
+                >
+                  <span
+                    className="linkedin-icon"
+                    style={{ display: 'inline-flex', alignItems: 'center', cursor: 'pointer', transition: 'color 0.2s' }}
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="26"
+                      height="26"
+                      viewBox="0 0 48 48"
+                      style={{ display: 'block' }}
+                    >
+                      <path
+                        fill="#868686"
+                        className="linkedin-bg"
+                        d="M42,37c0,2.762-2.238,5-5,5H11c-2.761,0-5-2.238-5-5V11c0-2.762,2.239-5,5-5h26c2.762,0,5,2.238,5,5V37z"
+                      ></path>
+                      <path
+                        fill="#FFF"
+                        d="M12 19H17V36H12zM14.485 17h-.028C12.965 17 12 15.888 12 14.499 12 13.08 12.995 12 14.514 12c1.521 0 2.458 1.08 2.486 2.499C17 15.887 16.035 17 14.485 17zM36 36h-5v-9.099c0-2.198-1.225-3.698-3.192-3.698-1.501 0-2.313 1.012-2.707 1.99C24.957 25.543 25 26.511 25 27v9h-5V19h5v2.616C25.721 20.5 26.85 19 29.738 19c3.578 0 6.261 2.25 6.261 7.274L36 36 36 36z"
+                      ></path>
+                    </svg>
+                  </span>
+                  <style jsx>{`
+                    .linkedin-icon:hover .linkedin-bg {
+                      fill: #0288D1;
+                    }
+                  `}</style>
+                </a>
+              )}
+            </div>
+            {/* Status badge at far right */}
+            <span className="ml-auto flex-shrink-0 px-3 py-1 rounded-full text-xs font-semibold border bg-[#C57E94]/10 text-[#C57E94] border-[#C57E94]/20">{account.status}</span>
           </div>
         </div>
         <div className="mt-3 text-sm font-medium text-[#5E6156]">Account Score</div>
@@ -154,7 +194,7 @@ export default function AccountCard({ account, onNewOpportunity, owner, onAccoun
         </div>
         <div className="mt-4 space-y-1.5 text-[15px]">
           <div className="text-[#5E6156] truncate">
-            <span className="font-medium">Email: {contactEmail || 'N/A'} </span>
+            <span className="font-medium">Email: {contactEmail?.includes(':mailto:') ? contactEmail.split(':mailto:')[0] : contactEmail || 'N/A'} </span>
           </div>
           <div className="text-[#5E6156] truncate">
             <span className="font-medium">Phone:</span> <span className="text-[#282828]">{contactPhone || 'N/A'}</span>

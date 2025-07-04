@@ -631,7 +631,7 @@ export default function LeadDialog({
                                 className="border-0 border-b-2 border-[#916D5B] bg-transparent px-0 rounded-none text-base font-medium text-[#282828] placeholder:text-base"
                               />
                             ) : (
-                              <p className="text-base text-[#282828] font-medium break-all">{lead.email}</p>
+                              <p className="text-base text-[#282828] font-medium break-all">{lead.email?.includes(':mailto:') ? lead.email.split(':mailto:')[0] : lead.email}</p>
                             )}
                           </div>
                         </div>

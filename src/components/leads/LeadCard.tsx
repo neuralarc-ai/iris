@@ -585,9 +585,13 @@ Best regards,\n${currentUser?.name || '[Your Name]'}\n${userCompany.name}\n${cur
       >
         <div className="flex flex-col gap-1">
           <div className="flex items-start justify-between">
-            <div>
+            <div className="flex items-center min-w-0 w-full">
               <div className="text-xl font-bold text-[#282828] leading-tight truncate">{lead.personName}</div>
-              <div className="text-base text-[#5E6156] font-medium mt-0.5 truncate">{lead.companyName}</div>
+              <span
+                className={`ml-auto flex-shrink-0 px-3 py-1 rounded-full text-xs font-semibold border ${getStatusBadgeColorClasses(lead.status)}`}
+              >
+                {lead.status}
+              </span>
             </div>
           </div>
           <div className="mt-3 text-sm font-medium text-[#5E6156]">Lead Score</div>
@@ -611,7 +615,7 @@ Best regards,\n${currentUser?.name || '[Your Name]'}\n${userCompany.name}\n${cur
           </div>
           <div className="mt-4 space-y-1.5 text-[15px]">
             <div className="text-[#5E6156] truncate">
-              <span className="font-medium">Email: {lead.email} </span>
+              <span className="font-medium">Email: {lead.email?.includes(':mailto:') ? lead.email.split(':mailto:')[0] : lead.email} </span>
             </div>
             <div className="text-[#5E6156] truncate">
               <span className="font-medium">Phone:</span> <span className="text-[#282828]">{lead.phone || 'N/A'}</span>
