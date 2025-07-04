@@ -343,7 +343,7 @@ export default function AccountModal({ accountId, open, onClose, aiEnrichment, i
     if (!email.includes('Schedule a Call: https://meet.neuralarc.ai')) {
       email = email.replace(/(Thank you[\s\S]*?\n)/i, 'Schedule a Call: https://meet.neuralarc.ai\n$1');
       if (!email.includes('Schedule a Call: https://meet.neuralarc.ai')) {
-        email = email.replace(/(Warm Regards,)/, 'Schedule a Call: https://meet.neuralarc.ai\n\n$1');
+        email = email.replace(/(Best Regards,|Warm Regards,)/, 'Schedule a Call: https://meet.neuralarc.ai\n\n$1');
       }
     }
     return email;
