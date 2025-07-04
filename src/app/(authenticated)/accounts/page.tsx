@@ -591,7 +591,7 @@ export default function AccountsPage() {
                                   className="rounded-[4px] p-2"
                                   onClick={() => handleRestoreArchivedAccount(account.id)}
                                 >
-                                  <PlusCircle className="h-4 w-4" />
+                                  <CheckSquare className="h-4 w-4" />
                                 </Button>
                               </TooltipTrigger>
                               <TooltipContent>Restore Account</TooltipContent>

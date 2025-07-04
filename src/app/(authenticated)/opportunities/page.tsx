@@ -676,7 +676,7 @@ export default function OpportunitiesPage() {
                                   className="rounded-[4px] p-2"
                                   onClick={() => handleRestoreArchivedOpportunity(opportunity.id)}
                                 >
-                                  <PlusCircle className="h-4 w-4" />
+                                  <CheckSquare className="h-4 w-4" />
                                 </Button>
                               </TooltipTrigger>
                               <TooltipContent>Restore Opportunity</TooltipContent>
