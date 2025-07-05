@@ -152,6 +152,26 @@ function safeParseISO(dateString?: string): Date | null {
   return isValid(parsed) ? parsed : null;
 }
 
+// Map opportunity status to a score percentage
+function getStatusScore(status: OpportunityStatus): number {
+  switch (status) {
+    case "Scope Of Work":
+      return 10;
+    case "Proposal":
+      return 30;
+    case "Negotiation":
+      return 60;
+    case "On Hold":
+      return 40;
+    case "Win":
+      return 100;
+    case "Loss":
+      return 0;
+    default:
+      return 0;
+  }
+}
+
 function calculateProgress(
   startDate: string,
   endDate: string,
@@ -862,9 +882,7 @@ export default function OpportunityCard({
   }
 
   const [animatedScore, setAnimatedScore] = useState(0);
-  const targetScore = aiScore !== null
-    ? aiScore
-    : Math.min(opportunity.value ? Math.floor(opportunity.value / 1000) : 0, 100);
+  const targetScore = getStatusScore(opportunity.status as OpportunityStatus);
   useEffect(() => {
     setAnimatedScore(0);
     const timeout = setTimeout(() => setAnimatedScore(targetScore), 50);

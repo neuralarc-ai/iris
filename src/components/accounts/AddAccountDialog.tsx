@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import type { Account, AccountType, AccountStatus, Lead } from '@/types';
-import { addAccount, getUnconvertedLeads, convertLeadToAccount, mockAccounts } from '@/lib/data';
+import { addAccount, mockAccounts } from '@/lib/data';
 import { Loader2, PlusCircle, UserCheck, Building2 } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/hooks/use-auth';
@@ -82,7 +82,67 @@ export default function AddAccountDialog({ open, onOpenChange, onAccountAdded, o
 
   useEffect(() => {
     if (open) {
-      setAvailableLeads(getUnconvertedLeads());
+      // Fetch actual unconverted leads from database instead of mock data
+      const fetchUnconvertedLeads = async () => {
+        try {
+          const localUserId = localStorage.getItem('user_id');
+          if (!localUserId) return;
+
+          // Fetch user role to determine access
+          const { data: userData } = await supabase.from('users').select('role').eq('id', localUserId).single();
+          const userRole = userData?.role || 'user';
+
+          // Build query for unconverted leads
+          let leadsQuery = supabase
+            .from('lead')
+            .select('*')
+            .neq('status', 'Converted to Account')
+            .neq('status', 'Lost')
+            .order('updated_at', { ascending: false });
+
+          // If not admin, only show leads assigned to current user
+          if (userRole !== 'admin') {
+            leadsQuery = leadsQuery.eq('owner_id', localUserId);
+          }
+
+          const { data: leadsData, error } = await leadsQuery;
+          
+          if (error) {
+            console.error('Error fetching leads:', error);
+            toast({ title: "Error", description: "Failed to fetch leads.", variant: "destructive" });
+            return;
+          }
+
+          if (leadsData) {
+            // Transform snake_case to camelCase for consistency
+            const transformedLeads = leadsData.map((lead: any) => ({
+              id: lead.id,
+              companyName: lead.company_name || '',
+              personName: lead.person_name || '',
+              email: lead.email || '',
+              phone: lead.phone || '',
+              status: lead.status || 'New',
+              linkedinProfileUrl: lead.linkedin_profile_url || '',
+              country: lead.country || '',
+              website: lead.website || '',
+              industry: lead.industry || '',
+              jobTitle: lead.job_title || '',
+              opportunityIds: [],
+              updateIds: [],
+              createdAt: lead.created_at || '',
+              updatedAt: lead.updated_at || '',
+              assignedUserId: lead.owner_id || '',
+              rejectionReasons: []
+            }));
+            setAvailableLeads(transformedLeads);
+          }
+        } catch (error) {
+          console.error('Error fetching unconverted leads:', error);
+          toast({ title: "Error", description: "Failed to fetch leads.", variant: "destructive" });
+        }
+      };
+
+      fetchUnconvertedLeads();
       // Reset form fields when dialog opens if not already reset by onOpenChange
       // This is particularly important if the dialog was closed without submitting previously
       if (!selectedLeadToConvert) { // Or a more explicit reset condition if needed
@@ -135,6 +195,22 @@ export default function AddAccountDialog({ open, onOpenChange, onAccountAdded, o
         setIsLoading(false);
         return;
       }
+
+      // If converting a lead, update the lead status first
+      if (selectedLeadToConvert && selectedLeadToConvert !== MANUAL_CREATE_VALUE) {
+        const { error: leadUpdateError } = await supabase
+          .from('lead')
+          .update({ status: 'Converted to Account' })
+          .eq('id', selectedLeadToConvert);
+        
+        if (leadUpdateError) {
+          console.error('Error updating lead status:', leadUpdateError);
+          toast({ title: "Error", description: "Failed to update lead status.", variant: "destructive" });
+          setIsLoading(false);
+          return;
+        }
+      }
+
       const accountData = {
         name,
         type,
@@ -146,15 +222,26 @@ export default function AddAccountDialog({ open, onOpenChange, onAccountAdded, o
         industry,
         website,
         owner_id: role === 'admin' ? ownerId : currentUser?.id,
+        converted_from_lead_id: selectedLeadToConvert && selectedLeadToConvert !== MANUAL_CREATE_VALUE ? selectedLeadToConvert : null,
       };
+      
       const { data, error } = await supabase.from('account').insert([accountData]).select().single();
       if (error) {
         toast({ title: "Error", description: error.message, variant: "destructive" });
         setIsLoading(false);
         return;
       }
+      
       newAccountId = data.id;
-      toast({ title: "Account Created", description: `${data.name} has been successfully added.` });
+      
+      // Show appropriate success message
+      if (selectedLeadToConvert && selectedLeadToConvert !== MANUAL_CREATE_VALUE) {
+        toast({ title: "Lead Converted!", description: `Lead has been converted and account ${data.name} has been successfully created.` });
+        onLeadConverted?.(selectedLeadToConvert, data.id);
+      } else {
+        toast({ title: "Account Created", description: `${data.name} has been successfully added.` });
+      }
+      
       onAccountAdded?.(data);
       resetFormFields(true);
       onOpenChange(false);
@@ -173,7 +260,7 @@ export default function AddAccountDialog({ open, onOpenChange, onAccountAdded, o
       }
       onOpenChange(isOpen);
     }}>
-      <DialogContent className="sm:max-w-[525px] bg-white">
+      <DialogContent className="sm:max-w-[625px] bg-white">
         <DialogHeader>
           <DialogTitle className="flex items-center">
             <PlusCircle className="mr-2 h-5 w-5" /> Add New Account

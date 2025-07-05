@@ -729,7 +729,7 @@ export default function LeadDialog({
                       <Briefcase className="h-5 w-5 text-[#5E6156]" /> Company Information
                     </h3>
                     <div className="space-y-2">
-                      <div className="bg-[#F8F7F3] p-3 rounded-md">
+                      <div className="bg-[#F8F7F3] p-3 rounded-md overflow-hidden">
                         <div className="flex items-start gap-3">
                           <Building2 className="h-5 w-5 text-[#998876] mt-1 flex-shrink-0" />
                           <div>
@@ -741,13 +741,13 @@ export default function LeadDialog({
                                 className="border-0 border-b-2 border-[#916D5B] bg-transparent px-0 rounded-none text-base font-medium text-[#282828] placeholder:text-base"
                               />
                             ) : (
-                              <p className="text-base text-[#282828] font-medium">{lead.companyName}</p>
+                              <p className="text-base text-[#282828] font-medium truncate">{lead.companyName}</p>
                             )}
                           </div>
                         </div>
                       </div>
                       <div className="bg-[#F8F7F3] p-3 rounded-md">
-                        <div className="flex items-start gap-3">
+                        <div className="flex items-start gap-3 overflow-hidden">
                           <Globe className="w-5 h-5 mt-0.5 flex-shrink-0 text-[#3987BE]" />
                           <div>
                             <p className="text-sm text-[#5E6156]">Website</p>
@@ -762,7 +762,7 @@ export default function LeadDialog({
                                 href={lead.website}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="text-base font-medium text-[#282828] underline"
+                                className="text-base font-medium text-[#282828] underline truncate"
                               >
                                 {lead.website}
                               </Link>
