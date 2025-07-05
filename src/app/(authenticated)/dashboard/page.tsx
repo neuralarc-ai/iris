@@ -22,6 +22,7 @@ import LeadDialog from '@/components/leads/LeadDialog';
 import AccountModal from '@/components/accounts/AccountModal';
 import OpportunityDialog from '@/components/opportunities/OpportunityDialog';
 import AddUpdateDialog from '@/components/activity/AddUpdateDialog';
+import UpcomingActivitiesGrid from '@/components/activity/UpcomingActivitiesGrid';
 
 interface OpportunityWithForecast extends Opportunity {
   forecast?: OpportunityForecast;
@@ -196,7 +197,7 @@ export default function DashboardPage() {
         .not('next_action_date', 'is', null)
         .gte('next_action_date', new Date().toISOString())
         .order('next_action_date', { ascending: true })
-        .limit(4);
+        .limit(12);
       if (userRole !== 'admin') updatesQuery = updatesQuery.eq('updated_by_user_id', currentUserId);
       const { data: updatesData, error: updatesError } = await updatesQuery;
       if (updatesError) {
@@ -850,7 +851,7 @@ export default function DashboardPage() {
                 <div className="pointer-events-none absolute rounded-b-sm left-0 right-0 bottom-0 h-10 bg-gradient-to-b from-transparent to-white to-40%" />
             </Card>
           </motion.div>
-          {/* Recent Activity Stream */}
+          {/* Upcoming Activities Grid */}
           <motion.div variants={fadeUp} transition={{ type: 'spring', stiffness: 60, damping: 18, duration: 0.4, ease: 'easeOut' }} className="col-span-4">
             <Card className="bg-white rounded-md shadow-sm flex flex-col h-full">
               <CardHeader>
@@ -859,50 +860,45 @@ export default function DashboardPage() {
                   Upcoming Activities
                 </CardTitle>
               </CardHeader>
-              <CardContent className="flex-grow flex flex-col gap-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {isLoading && recentUpdates.length === 0 ? (
-                    Array.from({ length: 2 }).map((_, i) => (
-                      <Card key={`update-skeleton-${i}`} className="shadow-md rounded-sm animate-pulse h-full">
+              <CardContent className="flex-grow">
+                {isLoading ? (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {Array.from({ length: 3 }).map((_, i) => (
+                      <Card key={`skeleton-${i}`} className="shadow-md rounded-sm animate-pulse h-full">
                         <CardHeader><div className="h-5 bg-muted/50 rounded w-1/2"></div></CardHeader>
                         <CardContent className="space-y-2">
                           <div className="h-4 bg-muted/50 rounded w-full"></div>
                           <div className="h-4 bg-muted/50 rounded w-3/4"></div>
+                          <div className="h-4 bg-muted/50 rounded w-5/6"></div>
                         </CardContent>
                       </Card>
-                    ))
-                  ) : recentUpdates.length > 0 ? (
-                    recentUpdates.map(update => (
-                      <UpdateItem
-                        key={update.id}
-                        update={update}
-                        onCardClick={(entityType, entityId) => handleEntityDialogOpen(entityType, entityId)}
-                        onAddActivityClick={handleAddActivityClick}
-                      />
-                    ))
-                  ) : (
-                    !isLoading && (
-                      <div className="col-span-2 flex flex-col items-center justify-center bg-white rounded-[8px] h-[343px] shadow-sm border text-center gap-4 animate-fade-in">
-                        {/* Calendar with clock for upcoming activities */}
-                        <svg width="56" height="56" viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg" className="mb-2">
-                          <defs>
-                            <linearGradient id="upcomingGradient" x1="0" y1="0" x2="56" y2="56" gradientUnits="userSpaceOnUse">
-                              <stop stopColor="#916D5B"/>
-                              <stop offset="1" stopColor="#C57E94"/>
-                            </linearGradient>
-                          </defs>
-                          <rect x="12" y="16" width="32" height="24" rx="4" fill="#F8F7F3" stroke="url(#upcomingGradient)" strokeWidth="2"/>
-                          <rect x="16" y="20" width="24" height="4" rx="2" fill="#CBCAC5"/>
-                          <circle cx="28" cy="32" r="6" fill="#fff" stroke="#916D5B" strokeWidth="2"/>
-                          <path d="M28 28v4h3" stroke="#916D5B" strokeWidth="2" strokeLinecap="round"/>
-                          <circle cx="28" cy="32" r="1" fill="#916D5B"/>
-                        </svg>
-                        <span className="text-lg text-muted-foreground font-medium text-center">No upcoming activities yet</span>
-                        <span className="text-sm text-muted-foreground text-center">Once you schedule activities, they will appear here!</span>
-                      </div>
-                    )
-                  )}
-                </div>
+                    ))}
+                  </div>
+                ) : recentUpdates.length > 0 ? (
+                  <UpcomingActivitiesGrid
+                    updates={recentUpdates}
+                    onCardClick={(entityType, entityId) => handleEntityDialogOpen(entityType, entityId)}
+                  />
+                ) : (
+                  <div className="flex flex-col items-center justify-center bg-white rounded-[8px] h-[343px] shadow-sm border text-center gap-4 animate-fade-in">
+                    {/* Calendar with clock for upcoming activities */}
+                    <svg width="56" height="56" viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg" className="mb-2">
+                      <defs>
+                        <linearGradient id="upcomingGradient" x1="0" y1="0" x2="56" y2="56" gradientUnits="userSpaceOnUse">
+                          <stop stopColor="#916D5B"/>
+                          <stop offset="1" stopColor="#C57E94"/>
+                        </linearGradient>
+                      </defs>
+                      <rect x="12" y="16" width="32" height="24" rx="4" fill="#F8F7F3" stroke="url(#upcomingGradient)" strokeWidth="2"/>
+                      <rect x="16" y="20" width="24" height="4" rx="2" fill="#CBCAC5"/>
+                      <circle cx="28" cy="32" r="6" fill="#fff" stroke="#916D5B" strokeWidth="2"/>
+                      <path d="M28 28v4h3" stroke="#916D5B" strokeWidth="2" strokeLinecap="round"/>
+                      <circle cx="28" cy="32" r="1" fill="#916D5B"/>
+                    </svg>
+                    <span className="text-lg text-muted-foreground font-medium text-center">No upcoming activities yet</span>
+                    <span className="text-sm text-muted-foreground text-center">Once you schedule activities, they will appear here!</span>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </motion.div>

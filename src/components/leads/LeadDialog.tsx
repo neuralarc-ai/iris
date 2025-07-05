@@ -121,6 +121,7 @@ export default function LeadDialog({
   const [currentUser, setCurrentUser] = useState<{ name: string; email: string } | null>(null);
   const [emailSent, setEmailSent] = useState(false);
   const [showLogEmailDialog, setShowLogEmailDialog] = useState<null | string>(null);
+  const [nextActionTime, setNextActionTime] = useState('10:30:00');
 
   useEffect(() => {
     setEditLead({
@@ -248,13 +249,19 @@ export default function LeadDialog({
     try {
       const currentUserId = localStorage.getItem('user_id');
       if (!currentUserId) throw new Error('User not authenticated');
+      let nextActionDateTime: Date | undefined = undefined;
+      if (nextActionDate && nextActionTime) {
+        const [hours, minutes, seconds] = nextActionTime.split(":");
+        nextActionDateTime = new Date(nextActionDate);
+        nextActionDateTime.setHours(Number(hours), Number(minutes), Number(seconds || 0), 0);
+      }
       const { data, error } = await supabase.from('update').insert([
         {
           type: updateType,
           content: updateContent.trim(),
           updated_by_user_id: currentUserId,
           date: updateDate?.toISOString() || new Date().toISOString(),
-          next_action_date: nextActionDate?.toISOString() || null,
+          next_action_date: nextActionDateTime ? nextActionDateTime.toISOString() : null,
           lead_id: lead.id,
         }
       ]).select().single();
@@ -276,6 +283,7 @@ export default function LeadDialog({
       setUpdateContent('');
       setUpdateDate(undefined);
       setNextActionDate(undefined);
+      setNextActionTime('10:30:00');
       toast({ title: "Activity Logged", description: "Your update has been successfully logged.", className: "bg-green-100 dark:bg-green-900 border-green-500" });
       if (onActivityLogged) onActivityLogged(lead.id, newUpdate);
     } catch (error) {
@@ -904,7 +912,7 @@ export default function LeadDialog({
             <TabsContent value="activity">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="md:col-span-1 bg-white border border-[#E5E3DF] rounded-lg p-6">
-                  <div className="text-sm font-semibold text-[#5E6156] uppercase tracking-wide mb-3">Add New Activity</div>
+                  <div className="text-sm font-semibold text-[#5E6156] uppercase tracking-wide mb-3">Activity</div>
                   <form className="space-y-4" onSubmit={e => e.preventDefault()}>
                     <div className="flex flex-col md:flex-row gap-3">
                       <div className="flex-1 min-w-0">
@@ -954,35 +962,41 @@ export default function LeadDialog({
                     </div>
                     <div className="flex flex-col md:flex-row gap-3">
                       <div className="flex-1 min-w-0">
-                        <Label htmlFor="next-action-date" className="text-sm font-medium text-[#5E6156] mb-2 block">Next Action Date (Optional)</Label>
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild className="w-full">
-                              <Popover>
-                                <PopoverTrigger asChild>
-                                  <Input
-                                    id="next-action-date"
-                                    type="text"
-                                    value={nextActionDate ? format(nextActionDate, 'dd/MM/yyyy') : ''}
-                                    placeholder="dd/mm/yyyy (optional)"
-                                    readOnly
-                                    className={`cursor-pointer bg-[#F8F7F3] border-[#CBCAC5] focus:ring-1 focus:ring-[#916D5B] focus:border-[#916D5B] rounded-md disabled:cursor-not-allowed disabled:opacity-50 ${updateDate ? 'opacity-60' : ''}`}
-                                    disabled={!!updateDate}
-                                  />
-                                </PopoverTrigger>
-                                <PopoverContent align="start" className="p-0 w-auto border-[#CBCAC5] bg-white rounded-md shadow-lg">
-                                  <Calendar
-                                    mode="single"
-                                    selected={nextActionDate}
-                                    onSelect={handleNextActionDateSelect}
-                                    initialFocus
-                                    disabled={!!updateDate}
-                                  />
-                                </PopoverContent>
-                              </Popover>
-                            </TooltipTrigger>
-                          </Tooltip>
-                        </TooltipProvider>
+                        <Label htmlFor="next-action-date" className="text-sm font-medium text-[#5E6156] mb-2 block">Next Action Date</Label>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Input
+                              id="next-action-date"
+                              type="text"
+                              value={nextActionDate ? format(nextActionDate, 'dd/MM/yyyy') : ''}
+                              placeholder="dd/mm/yyyy (optional)"
+                              readOnly
+                              className={`cursor-pointer bg-[#F8F7F3] border-[#CBCAC5] focus:ring-1 focus:ring-[#916D5B] focus:border-[#916D5B] rounded-md disabled:cursor-not-allowed disabled:opacity-50 ${updateDate ? 'opacity-60' : ''}`}
+                              disabled={!!updateDate}
+                            />
+                          </PopoverTrigger>
+                          <PopoverContent align="start" className="p-0 w-auto border-[#CBCAC5] bg-white rounded-md shadow-lg">
+                            <Calendar
+                              mode="single"
+                              selected={nextActionDate}
+                              onSelect={handleNextActionDateSelect}
+                              initialFocus
+                              disabled={!!updateDate}
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <Label htmlFor="next-action-time" className="text-sm font-medium text-[#5E6156] mb-2 block">Next Action Time</Label>
+                        <Input
+                          type="time"
+                          id="next-action-time"
+                          step="1"
+                          value={nextActionTime}
+                          onChange={e => setNextActionTime(e.target.value)}
+                          className="bg-background appearance-none [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none border-[#CBCAC5] focus:ring-1 focus:ring-[#916D5B] focus:border-[#916D5B] rounded-md"
+                          disabled={!!updateDate}
+                        />
                       </div>
                     </div>
                     <div>
@@ -1036,15 +1050,16 @@ export default function LeadDialog({
                                       ? log.content.split('\n')[0].replace(/^Subject: /, '')
                                       : log.content}
                                   </p>
-                                  <span className="text-xs text-[#998876] ml-2 font-medium">
-                                    {format(new Date(log.date), 'MMM dd')}
-                                  </span>
                                 </div>
                                 <div className="flex items-center space-x-2">
                                   <Badge variant="outline" className="text-xs bg-white border-[#CBCAC5] text-[#5E6156] font-medium">{log.type}</Badge>
-                                  {log.nextActionDate && (
-                                    <span className="text-xs text-[#4B7B9D] font-medium">
-                                      Next: {format(parseISO(log.nextActionDate), 'MMM dd, yyyy')}
+                                  {log.nextActionDate ? (
+                                    <span className="text-xs text-[#4B7B9D] font-semibold">
+                                      {format(parseISO(log.nextActionDate), 'MMM dd, h:mm a')}
+                                    </span>
+                                  ) : (
+                                    <span className="text-xs text-[#998876] font-medium">
+                                      {format(parseISO(log.date), 'MMM dd, h:mm a')}
                                     </span>
                                   )}
                                 </div>
