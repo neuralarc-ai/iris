@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Mail, Phone, Briefcase, Globe, Tag, Pencil, Users, FileText, MessageSquareHeart, Lightbulb, MapPin, UserCheck, Activity, Building2, Target, BrainCircuit, RefreshCw, CopyIcon, SendIcon, Inbox, AtSign, Shield, Computer, CheckSquare, X } from 'lucide-react';
+import { Mail, Phone, Briefcase, Globe, Tag, Pencil, FileText, Lightbulb, UserCheck, Activity, Building2, Target, BrainCircuit, CopyIcon, SendIcon, CheckSquare, X } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { supabase } from '@/lib/supabaseClient';
 import { useToast } from '@/hooks/use-toast';
@@ -16,7 +16,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { DialogFooter } from '@/components/ui/dialog';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import type { AccountStatus, AccountType } from '@/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
