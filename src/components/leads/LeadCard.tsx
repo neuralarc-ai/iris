@@ -221,6 +221,11 @@ export default function LeadCard({ lead, onLeadConverted, onLeadDeleted, onActiv
           contact_phone: lead.phone || '',
           converted_from_lead_id: lead.id,
           owner_id: ownerId,
+          website: lead.website,
+          industry: lead.industry,
+          job_title: lead.jobTitle,
+          linkedin_profile_url: lead.linkedinProfileUrl,
+          country: lead.country,
         }
       ]).select().single();
 
