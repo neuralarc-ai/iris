@@ -445,32 +445,21 @@ export default function AccountModal({ accountId, open, onClose, aiEnrichment, i
     setShowLogEmailDialog(true);
   };
 
-  const handleConfirmSendEmail = async () => {
-    setShowLogEmailDialog(false);
-    try {
-      if (!account) throw new Error('Account not loaded');
-      await fetch('/api/send-email', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          to: account.contactEmail?.includes(':mailto:') ? account.contactEmail.split(':mailto:')[0] : account.contactEmail,
-          subject: emailTabContent?.split('\n')[0].replace('Subject: ', ''),
-          body: emailTabContent?.replace(/^Subject:.*\n+/, '')
-        })
-      });
-      // Log activity (reuse your existing log logic)
-      // ...
-      setEmailSent(true);
-    } catch (error) {
-      toast({ title: 'Failed to send email', description: error instanceof Error ? error.message : 'Could not send email.', variant: 'destructive' });
-    }
-  };
-
   // Add state for editing email subject and body
   const [isEditingEmail, setIsEditingEmail] = useState(false);
   const [editedEmailContent, setEditedEmailContent] = useState<string | null>(null);
   const [editedSubject, setEditedSubject] = useState('');
   const [editedBody, setEditedBody] = useState('');
+
+  // Add state for editing and displaying the account email address
+  const [isEditingEmailAddress, setIsEditingEmailAddress] = useState(false);
+  const [editedEmailAddress, setEditedEmailAddress] = useState(account?.contactEmail || '');
+  const [displayedEmailAddress, setDisplayedEmailAddress] = useState(account?.contactEmail || '');
+
+  useEffect(() => {
+    setEditedEmailAddress(account?.contactEmail || '');
+    setDisplayedEmailAddress(account?.contactEmail || '');
+  }, [account?.contactEmail]);
 
   useEffect(() => {
     if (isEditingEmail && editedEmailContent) {
@@ -480,6 +469,76 @@ export default function AccountModal({ accountId, open, onClose, aiEnrichment, i
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEditingEmail]);
+
+  const handleConfirmSendEmail = async () => {
+    setShowLogEmailDialog(false);
+    try {
+      if (!account) throw new Error('Account not loaded');
+      if (!emailTabContent) throw new Error('No email content');
+      await fetch('/api/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: displayedEmailAddress?.includes(':mailto:') ? displayedEmailAddress.split(':mailto:')[0] : displayedEmailAddress,
+          subject: emailTabContent.split('\n')[0].replace('Subject: ', ''),
+          body: emailTabContent.replace(/^Subject:.*\n+/, '')
+        })
+      });
+      // Log activity (reuse your existing log logic)
+      if (!updateType || !updateContent.trim() || (!updateDate && !nextActionDate)) {
+        toast({ title: 'Missing Information', description: 'Please fill in all required fields.', variant: 'destructive' });
+        return;
+      }
+      setIsLogging(true);
+      try {
+        const currentUserId = localStorage.getItem('user_id');
+        if (!currentUserId) throw new Error('User not authenticated');
+        let nextActionDateTime: Date | undefined = undefined;
+        if (nextActionDate && nextActionTime) {
+          const [hours, minutes, seconds] = nextActionTime.split(":");
+          nextActionDateTime = new Date(nextActionDate);
+          nextActionDateTime.setHours(Number(hours), Number(minutes), Number(seconds || 0), 0);
+        }
+        const { data, error } = await supabase.from('update').insert([
+          {
+            type: updateType,
+            content: updateContent.trim(),
+            updated_by_user_id: currentUserId,
+            date: updateDate?.toISOString() || new Date().toISOString(),
+            next_action_date: nextActionDateTime ? nextActionDateTime.toISOString() : null,
+            account_id: accountId,
+          }
+        ]).select().single();
+        if (error || !data) throw error || new Error('Failed to log update');
+        const newUpdate: Update = {
+          id: data.id,
+          type: data.type,
+          content: data.content || '',
+          updatedByUserId: data.updated_by_user_id,
+          date: data.date || data.created_at || new Date().toISOString(),
+          createdAt: data.created_at || new Date().toISOString(),
+          leadId: data.lead_id,
+          opportunityId: data.opportunity_id,
+          accountId: data.account_id,
+          nextActionDate: data.next_action_date,
+        };
+        setLogs(prev => [newUpdate, ...prev]);
+        setUpdateType('');
+        setUpdateContent('');
+        setUpdateDate(undefined);
+        setNextActionDate(undefined);
+        setNextActionTime('10:30:00');
+        toast({ title: 'Activity Logged', description: 'Your update has been successfully logged.', className: 'bg-green-100 dark:bg-green-900 border-green-500' });
+      } catch (error) {
+        toast({ title: 'Logging Failed', description: error instanceof Error ? error.message : 'Could not log update.', variant: 'destructive' });
+      } finally {
+        setIsLogging(false);
+      }
+      setEmailSent(true);
+    } catch (error) {
+      toast({ title: 'Failed to send email', description: error instanceof Error ? error.message : 'Could not send email.', variant: 'destructive' });
+    }
+  };
 
   if (!open) return null;
 
@@ -1074,19 +1133,62 @@ export default function AccountModal({ accountId, open, onClose, aiEnrichment, i
                       </Button>
                     </div>
                   </div>
-                  {/* Account email address with copy button */}
+                  {/* Account email address with edit button */}
                   <div className="flex items-center gap-2 px-6 pt-4 pb-2">
                     <Mail className="h-5 w-5 text-[#C57E94]" />
-                    <span className="text-base font-medium text-[#282828]">{account?.contactEmail}</span>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="ml-1"
-                      title="Copy email address"
-                      onClick={() => account?.contactEmail && navigator.clipboard.writeText(account.contactEmail)}
-                    >
-                      <CopyIcon className="h-4 w-4" />
-                    </Button>
+                    {isEditingEmailAddress ? (
+                      <>
+                        <Input
+                          value={editedEmailAddress}
+                          onChange={e => setEditedEmailAddress(e.target.value)}
+                          className="text-base font-medium text-[#282828] w-auto"
+                          style={{ maxWidth: 320 }}
+                        />
+                        <Button
+                          variant="add"
+                          size="sm"
+                          className="ml-1"
+                          onClick={async () => {
+                            if (!account) return;
+                            const { error } = await supabase
+                              .from('account')
+                              .update({ contact_email: editedEmailAddress })
+                              .eq('id', account.id);
+                            if (!error) {
+                              setIsEditingEmailAddress(false);
+                              setDisplayedEmailAddress(editedEmailAddress);
+                              setAccount({ ...account, contactEmail: editedEmailAddress });
+                              toast({ title: "Email address updated", description: "The account's email address has been updated." });
+                            } else {
+                              toast({ title: "Update failed", description: error.message, variant: 'destructive' });
+                            }
+                          }}
+                          disabled={!editedEmailAddress || editedEmailAddress === displayedEmailAddress}
+                        >Save</Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="ml-1"
+                          onClick={() => {
+                            setEditedEmailAddress(displayedEmailAddress);
+                            setIsEditingEmailAddress(false);
+                          }}
+                        >Cancel</Button>
+                      </>
+                    ) : (
+                      <>
+                        <span className="text-base font-medium text-[#282828]">{displayedEmailAddress}</span>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="ml-1"
+                          title="Edit email address"
+                          onClick={() => setIsEditingEmailAddress(true)}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      </>
+                    )}
                   </div>
                   <div className="flex-1 overflow-y-auto px-6 py-6 whitespace-pre-line text-[#282828] text-[16px] leading-relaxed font-normal">
                     {isEditingEmail ? (
@@ -1151,7 +1253,7 @@ export default function AccountModal({ accountId, open, onClose, aiEnrichment, i
                     variant="add"
                     className="max-h-12 flex items-center gap-1 absolute bottom-4 right-6 z-10"
                     disabled={!emailTabContent || emailSent}
-                    onClick={handleSendEmail}
+                    onClick={handleConfirmSendEmail}
                   >
                     <SendIcon className="h-4 w-4 mr-1" /> {emailSent ? 'Sent' : 'Send'}
                   </Button>
