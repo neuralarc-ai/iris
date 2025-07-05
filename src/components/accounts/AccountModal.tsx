@@ -1100,7 +1100,7 @@ export default function AccountModal({ accountId, open, onClose, aiEnrichment, i
                         <Textarea
                           value={editedBody}
                           onChange={e => setEditedBody(e.target.value)}
-                          className="text-[16px] text-[#282828] leading-relaxed min-h-[200px]"
+                          className="text-[16px] text-[#282828] leading-relaxed min-h-[300px] resize-none"
                           placeholder="Email Body"
                         />
                         <div className="flex gap-2 mt-2">
