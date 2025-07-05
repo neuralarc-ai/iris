@@ -402,7 +402,8 @@ export default function AccountModal({ accountId, open, onClose, aiEnrichment, i
 
   // Replace the enrichment fetch logic with this useEffect:
   useEffect(() => {
-    if (open && !ai && !loadingAI) {
+    // Only trigger enrichment if no enrichment data is provided and not already enriching
+    if (open && !aiEnrichment && !ai && !loadingAI) {
       setLoadingAI(true);
       (async () => {
         try {
@@ -427,7 +428,7 @@ export default function AccountModal({ accountId, open, onClose, aiEnrichment, i
         }
       })();
     }
-  }, [open]);
+  }, [open, aiEnrichment]);
 
   const [showLogEmailDialog, setShowLogEmailDialog] = useState(false);
   const [emailSent, setEmailSent] = useState(false);

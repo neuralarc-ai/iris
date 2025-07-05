@@ -48,6 +48,7 @@ interface LeadCardProps {
   role?: string;
   enrichmentData?: { leadScore?: number; recommendations?: string[]; pitchNotes?: string; useCase?: string; emailTemplate?: string };
   isEnrichmentLoading?: boolean;
+  onEnrichmentComplete?: () => void;
 }
 
 // Add type for editLead state
@@ -101,7 +102,7 @@ const getUpdateTypeIcon = (type: Update['type']) => {
   }
 };
 
-export default function LeadCard({ lead, onLeadConverted, onLeadDeleted, onActivityLogged, selectMode = false, selected = false, onSelect, assignedUser, onStatusChange, users = [], role, enrichmentData, isEnrichmentLoading }: LeadCardProps) {
+export default function LeadCard({ lead, onLeadConverted, onLeadDeleted, onActivityLogged, selectMode = false, selected = false, onSelect, assignedUser, onStatusChange, users = [], role, enrichmentData, isEnrichmentLoading, onEnrichmentComplete }: LeadCardProps) {
   const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = React.useState(false);
   const [updateType, setUpdateType] = React.useState('');
@@ -513,8 +514,8 @@ Best regards,\n${currentUser?.name || '[Your Name]'}\n${userCompany.name}\n${cur
         className: "bg-green-100 dark:bg-green-900 border-green-500"
       });
 
-      // Trigger a page refresh to show the new enrichment data
-      window.location.reload();
+      // Notify parent component that enrichment is complete
+      if (onEnrichmentComplete) onEnrichmentComplete();
       
     } catch (error) {
       console.error('Error enriching lead:', error);

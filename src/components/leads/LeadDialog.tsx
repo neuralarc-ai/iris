@@ -33,6 +33,7 @@ interface LeadDialogProps {
   role?: string;
   enrichmentData?: { leadScore?: number; recommendations?: string[]; pitchNotes?: string; useCase?: string; emailTemplate?: string };
   isEnrichmentLoading?: boolean;
+  onEnrichmentComplete?: () => void;
 }
 
 const getStatusBadgeColorClasses = (status: Lead['status']): string => {
@@ -88,7 +89,8 @@ export default function LeadDialog({
   users = [],
   role,
   enrichmentData,
-  isEnrichmentLoading
+  isEnrichmentLoading,
+  onEnrichmentComplete
 }: LeadDialogProps) {
   const { toast } = useToast();
   const [editMode, setEditMode] = useState(false);
@@ -394,7 +396,8 @@ export default function LeadDialog({
       if (!response.ok) throw new Error('Failed to enrich lead');
       const data = await response.json();
       toast({ title: 'Lead Enriched', description: `AI analysis completed for ${lead.companyName}. Lead score: ${data.leadScore}%`, className: "bg-green-100 dark:bg-green-900 border-green-500" });
-      window.location.reload();
+      // Notify parent component that enrichment is complete
+      if (onEnrichmentComplete) onEnrichmentComplete();
     } catch (error) {
       console.error('Error enriching lead:', error);
       toast({ title: 'Enrichment Failed', description: 'Failed to enrich lead. Please try again.', variant: "destructive" });
@@ -487,10 +490,11 @@ export default function LeadDialog({
   }, [activeTab, enrichmentData?.emailTemplate]);
 
   useEffect(() => {
-    if (open && enrichmentData?.leadScore === undefined && !isEnrichingLead && !isEnrichmentLoading) {
+    // Only trigger enrichment if no enrichment data is provided and not already enriching
+    if (open && !enrichmentData && !isEnrichingLead && !isEnrichmentLoading) {
       triggerLeadEnrichment();
     }
-  }, [open, enrichmentData?.leadScore, isEnrichingLead, isEnrichmentLoading]);
+  }, [open, enrichmentData, isEnrichingLead, isEnrichmentLoading]);
 
   // --- DIALOG CONTENT ---
   return (
@@ -834,7 +838,7 @@ export default function LeadDialog({
                                 body: JSON.stringify({ leadId: lead.id, triggerEnrichment: true, forceRefresh: true }),
                               });
                               if (!response.ok) throw new Error('Failed to regenerate AI analysis');
-                              window.location.reload();
+                              // Don't reload the page - let the parent component handle data updates
                             } catch (e) {
                               toast({ title: 'Regeneration Failed', description: 'Could not regenerate AI analysis.', variant: 'destructive' });
                             } finally {

@@ -76,6 +76,19 @@ export default function UpdatesPage() {
     id: string | null;
   }>({ type: null, id: null });
 
+  // State for enrichment data to prevent API calls in dialogs
+  const [leadEnrichments, setLeadEnrichments] = useState<Record<string, any>>({});
+  const [accountEnrichments, setAccountEnrichments] = useState<Record<string, any>>({});
+  const [enrichmentLoading, setEnrichmentLoading] = useState<Record<string, boolean>>({});
+
+  // State for entity data when dialogs are opened
+  const [dialogLead, setDialogLead] = useState<any>(null);
+  const [dialogAccount, setDialogAccount] = useState<any>(null);
+  const [dialogOpportunity, setDialogOpportunity] = useState<any>(null);
+  const [isLoadingEntityData, setIsLoadingEntityData] = useState(false);
+  const [users, setUsers] = useState<Array<{ id: string; name: string; email: string }>>([]);
+  const [userRole, setUserRole] = useState<string>('user');
+
   useEffect(() => {
     const fetchUpdatesAndOpportunities = async () => {
       const localUserId = localStorage.getItem('user_id');
@@ -158,6 +171,7 @@ export default function UpdatesPage() {
       // Fetch user role
       const { data: userData } = await supabase.from('users').select('role').eq('id', localUserId).single();
       const userRole = userData?.role || 'user';
+      setUserRole(userRole);
       // Fetch leads - Admin sees all leads, users see only their own
       let leadsQuery = supabase.from('lead').select('*').order('updated_at', { ascending: false });
       if (userRole !== 'admin') {
@@ -175,6 +189,82 @@ export default function UpdatesPage() {
     };
     fetchLeadsAndAccounts();
   }, []);
+
+  // Fetch users data for dialogs
+  useEffect(() => {
+    const fetchUsers = async () => {
+      const { data: usersData } = await supabase.from('users').select('id, name, email');
+      if (usersData) {
+        setUsers(usersData);
+      }
+    };
+    fetchUsers();
+  }, []);
+
+  // Fetch enrichment data for leads and accounts to prevent API calls in dialogs
+  useEffect(() => {
+    const fetchEnrichmentData = async () => {
+      if (leads.length === 0 && accounts.length === 0) return;
+
+      // Fetch lead enrichments
+      if (leads.length > 0) {
+        const leadIds = leads.map(lead => lead.id);
+        const { data: leadAnalysisData } = await supabase
+          .from('aianalysis')
+          .select('*')
+          .eq('entity_type', 'Lead')
+          .in('entity_id', leadIds)
+          .eq('status', 'success')
+          .order('last_refreshed_at', { ascending: false });
+
+        if (leadAnalysisData) {
+          const enrichments: Record<string, any> = {};
+          leadAnalysisData.forEach(analysis => {
+            if (analysis.ai_output) {
+              enrichments[analysis.entity_id] = {
+                leadScore: analysis.match_score,
+                recommendations: analysis.recommended_services || [],
+                pitchNotes: analysis.pitch_notes || '',
+                useCase: analysis.use_case || '',
+                emailTemplate: analysis.email_template || '',
+              };
+            }
+          });
+          setLeadEnrichments(enrichments);
+        }
+      }
+
+      // Fetch account enrichments
+      if (accounts.length > 0) {
+        const accountIds = accounts.map(account => account.id);
+        const { data: accountAnalysisData } = await supabase
+          .from('aianalysis')
+          .select('*')
+          .eq('entity_type', 'Account')
+          .in('entity_id', accountIds)
+          .eq('status', 'success')
+          .order('last_refreshed_at', { ascending: false });
+
+        if (accountAnalysisData) {
+          const enrichments: Record<string, any> = {};
+          accountAnalysisData.forEach(analysis => {
+            if (analysis.ai_output) {
+              enrichments[analysis.entity_id] = {
+                accountScore: analysis.match_score,
+                recommendations: analysis.recommended_services || [],
+                pitchNotes: analysis.pitch_notes || '',
+                useCase: analysis.use_case || '',
+                emailTemplate: analysis.email_template || '',
+              };
+            }
+          });
+          setAccountEnrichments(enrichments);
+        }
+      }
+    };
+
+    fetchEnrichmentData();
+  }, [leads, accounts]);
 
   // Reset filters when entity type changes
   useEffect(() => {
@@ -457,11 +547,50 @@ export default function UpdatesPage() {
   // Handler to open the correct dialog
   const handleEntityDialogOpen = (entityType: 'lead' | 'account' | 'opportunity', entityId: string) => {
     setEntityDialog({ type: entityType, id: entityId });
+    
+    // Fetch complete entity data when dialog opens
+    const fetchEntityData = async () => {
+      setIsLoadingEntityData(true);
+      try {
+        if (entityType === 'lead') {
+          const { data: leadData } = await supabase
+            .from('lead')
+            .select('*')
+            .eq('id', entityId)
+            .single();
+          setDialogLead(leadData);
+        } else if (entityType === 'account') {
+          const { data: accountData } = await supabase
+            .from('account')
+            .select('*')
+            .eq('id', entityId)
+            .single();
+          setDialogAccount(accountData);
+        } else if (entityType === 'opportunity') {
+          const { data: opportunityData } = await supabase
+            .from('opportunity')
+            .select('*')
+            .eq('id', entityId)
+            .single();
+          setDialogOpportunity(opportunityData);
+        }
+      } catch (error) {
+        console.error('Error fetching entity data:', error);
+      } finally {
+        setIsLoadingEntityData(false);
+      }
+    };
+    
+    fetchEntityData();
   };
 
   // Handler to close dialog
   const handleEntityDialogClose = () => {
     setEntityDialog({ type: null, id: null });
+    // Clear dialog data when closing
+    setDialogLead(null);
+    setDialogAccount(null);
+    setDialogOpportunity(null);
   };
 
   if (isLoading) {
@@ -1063,30 +1192,166 @@ export default function UpdatesPage() {
       )}
       {/* Entity Dialogs */}
       {entityDialog.type === 'lead' && entityDialog.id && (
-        <LeadDialog
-          open={true}
-          onOpenChange={open => { if (!open) handleEntityDialogClose(); }}
-          lead={leads.find(l => l.id === entityDialog.id) || { id: entityDialog.id, companyName: '', personName: '', email: '', status: 'New', opportunityIds: [], updateIds: [], createdAt: '', updatedAt: '', assignedUserId: '', rejectionReasons: [] }}
-          onLeadConverted={() => { handleEntityDialogClose(); refreshData(); }}
-          onLeadDeleted={() => { handleEntityDialogClose(); refreshData(); }}
-          onActivityLogged={() => { refreshData(); }}
-          users={[]}
-          role={undefined}
-        />
+        <>
+          {isLoadingEntityData ? (
+            <Dialog open={true} onOpenChange={() => handleEntityDialogClose()}>
+              <DialogContent className="sm:max-w-4xl bg-white border-0 rounded-lg p-0 max-h-[95vh] overflow-scroll">
+                <div className="flex items-center justify-center h-64">
+                  <div className="text-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+                    <p className="text-muted-foreground">Loading lead data...</p>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+          ) : dialogLead ? (
+            <LeadDialog
+              open={true}
+              onOpenChange={open => { if (!open) handleEntityDialogClose(); }}
+              lead={{
+                id: dialogLead.id,
+                companyName: dialogLead.company_name || '',
+                personName: dialogLead.person_name || '',
+                email: dialogLead.email || '',
+                phone: dialogLead.phone || '',
+                country: dialogLead.country || '',
+                website: dialogLead.website || '',
+                industry: dialogLead.industry || '',
+                jobTitle: dialogLead.job_title || '',
+                linkedinProfileUrl: dialogLead.linkedin_profile_url || '',
+                status: dialogLead.status || 'New',
+                opportunityIds: [],
+                updateIds: [],
+                createdAt: dialogLead.created_at || '',
+                updatedAt: dialogLead.updated_at || '',
+                assignedUserId: dialogLead.owner_id || '',
+                rejectionReasons: []
+              }}
+              onLeadConverted={() => { handleEntityDialogClose(); refreshData(); }}
+              onLeadDeleted={() => { handleEntityDialogClose(); refreshData(); }}
+              onActivityLogged={() => { refreshData(); }}
+              users={users}
+              role={userRole}
+              enrichmentData={leadEnrichments[entityDialog.id]}
+              isEnrichmentLoading={enrichmentLoading[entityDialog.id] || false}
+              onEnrichmentComplete={() => {
+                // Refresh enrichment data after completion
+                const fetchEnrichmentData = async () => {
+                  const { data: analysisData } = await supabase
+                    .from('aianalysis')
+                    .select('*')
+                    .eq('entity_type', 'Lead')
+                    .eq('entity_id', entityDialog.id)
+                    .eq('status', 'success')
+                    .order('last_refreshed_at', { ascending: false })
+                    .limit(1)
+                    .single();
+
+                  if (analysisData && analysisData.ai_output) {
+                    setLeadEnrichments(prev => ({
+                      ...prev,
+                      [entityDialog.id!]: {
+                        leadScore: analysisData.match_score,
+                        recommendations: analysisData.recommended_services || [],
+                        pitchNotes: analysisData.pitch_notes || '',
+                        useCase: analysisData.use_case || '',
+                        emailTemplate: analysisData.email_template || '',
+                      }
+                    }));
+                  }
+                };
+                fetchEnrichmentData();
+              }}
+            />
+          ) : null}
+        </>
       )}
       {entityDialog.type === 'account' && entityDialog.id && (
-        <AccountModal
-          accountId={entityDialog.id}
-          open={true}
-          onClose={handleEntityDialogClose}
-        />
+        <>
+          {isLoadingEntityData ? (
+            <Dialog open={true} onOpenChange={() => handleEntityDialogClose()}>
+              <DialogContent className="sm:max-w-4xl bg-white border-0 rounded-lg p-0 max-h-[95vh] overflow-scroll">
+                <div className="flex items-center justify-center h-64">
+                  <div className="text-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+                    <p className="text-muted-foreground">Loading account data...</p>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+          ) : dialogAccount ? (
+            <AccountModal
+              accountId={entityDialog.id}
+              open={true}
+              onClose={handleEntityDialogClose}
+              aiEnrichment={accountEnrichments[entityDialog.id]}
+              isAiLoading={enrichmentLoading[entityDialog.id] || false}
+              onEnrichmentComplete={() => {
+                // Refresh enrichment data after completion
+                const fetchEnrichmentData = async () => {
+                  const { data: analysisData } = await supabase
+                    .from('aianalysis')
+                    .select('*')
+                    .eq('entity_type', 'Account')
+                    .eq('entity_id', entityDialog.id)
+                    .eq('status', 'success')
+                    .order('last_refreshed_at', { ascending: false })
+                    .limit(1)
+                    .single();
+
+                  if (analysisData && analysisData.ai_output) {
+                    setAccountEnrichments(prev => ({
+                      ...prev,
+                      [entityDialog.id!]: {
+                        accountScore: analysisData.match_score,
+                        recommendations: analysisData.recommended_services || [],
+                        pitchNotes: analysisData.pitch_notes || '',
+                        useCase: analysisData.use_case || '',
+                        emailTemplate: analysisData.email_template || '',
+                      }
+                    }));
+                  }
+                };
+                fetchEnrichmentData();
+              }}
+            />
+          ) : null}
+        </>
       )}
       {entityDialog.type === 'opportunity' && entityDialog.id && (
-        <OpportunityDialog
-          open={true}
-          onOpenChange={open => { if (!open) handleEntityDialogClose(); }}
-          opportunity={opportunities.find(o => o.id === entityDialog.id) || { id: entityDialog.id, name: '', value: 0, status: 'Scope Of Work', description: '', accountId: '', startDate: '', endDate: '', updateIds: [], createdAt: '', updatedAt: '' }}
-        />
+        <>
+          {isLoadingEntityData ? (
+            <Dialog open={true} onOpenChange={() => handleEntityDialogClose()}>
+              <DialogContent className="sm:max-w-4xl bg-white border-0 rounded-lg p-0 max-h-[95vh] overflow-scroll">
+                <div className="flex items-center justify-center h-64">
+                  <div className="text-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+                    <p className="text-muted-foreground">Loading opportunity data...</p>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+          ) : dialogOpportunity ? (
+            <OpportunityDialog
+              open={true}
+              onOpenChange={open => { if (!open) handleEntityDialogClose(); }}
+              opportunity={{
+                id: dialogOpportunity.id,
+                name: dialogOpportunity.name || '',
+                value: dialogOpportunity.value || 0,
+                status: dialogOpportunity.status || 'Scope Of Work',
+                description: dialogOpportunity.description || '',
+                accountId: dialogOpportunity.account_id || '',
+                startDate: dialogOpportunity.start_date || '',
+                endDate: dialogOpportunity.end_date || '',
+                currency: dialogOpportunity.currency || 'USD',
+                updateIds: [],
+                createdAt: dialogOpportunity.created_at || '',
+                updatedAt: dialogOpportunity.updated_at || ''
+              }}
+            />
+          ) : null}
+        </>
       )}
     </div>
   );
