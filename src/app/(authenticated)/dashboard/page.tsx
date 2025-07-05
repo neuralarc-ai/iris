@@ -70,7 +70,7 @@ export default function DashboardPage() {
   const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
-  const [opportunityStatusCounts, setOpportunityStatusCounts] = useState<{ name: string, count: number }[]>([]);
+  const [opportunityStatusCounts, setOpportunityStatusCounts] = useState<{ name: string, count: number, value: number }[]>([]);
   const [engagementLeads, setEngagementLeads] = useState<any[]>([]);
   const [engagementAI, setEngagementAI] = useState<Record<string, any>>({});
   const [engagementUpdates, setEngagementUpdates] = useState<Record<string, any[]>>({});
@@ -120,7 +120,7 @@ export default function DashboardPage() {
     setIsLoadingEngagement(true);
     try {
       // Opportunities Pipeline (status counts)
-      let oppStatusQuery = supabase.from('opportunity').select('*');
+      let oppStatusQuery = supabase.from('opportunity').select('*').eq('is_archived', false);
       if (userRole !== 'admin') oppStatusQuery = oppStatusQuery.eq('owner_id', currentUserId);
       const { data: allOpportunities, error: allOpportunitiesError } = await oppStatusQuery;
       if (allOpportunitiesError) {
@@ -131,12 +131,21 @@ export default function DashboardPage() {
           "Scope Of Work": 0, "Proposal": 0, "Negotiation": 0,
           "On Hold": 0, "Win": 0, "Loss": 0,
         };
+        const values: Record<string, number> = {
+          "Scope Of Work": 0, "Proposal": 0, "Negotiation": 0,
+          "On Hold": 0, "Win": 0, "Loss": 0,
+        };
         allOpportunities.forEach((opp: any) => {
           if (counts.hasOwnProperty(opp.status)) {
             counts[opp.status]++;
+            values[opp.status] += opp.value || 0;
           }
         });
-        setOpportunityStatusCounts(statusOrder.map(name => ({ name, count: counts[name] })));
+        setOpportunityStatusCounts(statusOrder.map(name => ({ 
+          name, 
+          count: counts[name],
+          value: values[name]
+        })));
       }
 
       // Recent Updates
@@ -153,6 +162,7 @@ export default function DashboardPage() {
           opportunity_id,
           account_id
         `)
+        .eq('is_archived', false)
         .order('date', { ascending: false })
         .limit(2);
       if (userRole !== 'admin') updatesQuery = updatesQuery.eq('updated_by_user_id', currentUserId);
@@ -193,6 +203,7 @@ export default function DashboardPage() {
           updated_at,
           owner_id
         `)
+        .eq('is_archived', false)
         .order('created_at', { ascending: false })
         .limit(2);
       if (userRole !== 'admin') oppsQuery = oppsQuery.eq('owner_id', currentUserId);
@@ -222,6 +233,7 @@ export default function DashboardPage() {
             const { data: accountsData } = await supabase
               .from('account')
               .select('id, name')
+              .eq('is_archived', false)
               .in('id', accountIds);
             const accountMap = new Map();
             if (accountsData) {
@@ -249,7 +261,7 @@ export default function DashboardPage() {
 
       // --- Lead Engagement Data ---
       // 1. Fetch leads for user
-      let leadsQuery = supabase.from('lead').select('*').order('updated_at', { ascending: false });
+      let leadsQuery = supabase.from('lead').select('*').eq('is_archived', false).order('updated_at', { ascending: false });
       if (userRole !== 'admin') leadsQuery = leadsQuery.eq('owner_id', currentUserId);
       const { data: leadsData, error: leadsError } = await leadsQuery;
       if (leadsError || !leadsData) {
@@ -287,6 +299,7 @@ export default function DashboardPage() {
         const updatesQuery = supabase
           .from('update')
           .select('lead_id, type, content, date')
+          .eq('is_archived', false)
           .in('lead_id', leadIds)
           .order('date', { ascending: false });
         const { data: updatesData, error: updatesError } = await updatesQuery;
@@ -509,6 +522,9 @@ export default function DashboardPage() {
                   <BarChartHorizontalBig className="mr-3 h-5 w-5 text-[#916D5B]" />
                   Opportunities Pipeline
                 </CardTitle>
+                <div className="text-sm text-muted-foreground mt-1">
+                  Total Value: ${opportunityStatusCounts.reduce((sum, item) => sum + item.value, 0).toLocaleString()}
+                </div>
               </CardHeader>
               <CardContent className="flex-grow flex flex-col items-center justify-center">
                 {isLoading && opportunityStatusCounts.length === 0 ? (
@@ -560,6 +576,10 @@ export default function DashboardPage() {
                           }}
                           labelStyle={{ color: "#282828" }}
                           itemStyle={{ color: "#916D5B" }}
+                          formatter={(value: any, name: any, props: any) => [
+                            `${props.payload.name}: ${props.payload.count} opportunities, $${props.payload.value.toLocaleString()}`,
+                            'Value'
+                          ]}
                       />
                       </PieChart>
                     </ResponsiveContainer>
@@ -567,7 +587,9 @@ export default function DashboardPage() {
                       {opportunityStatusCounts.filter(s => s.count > 0).map((entry, idx) => (
                         <div key={entry.name} className="flex items-center gap-2">
                           <span className="inline-block w-4 h-4 rounded-full" style={{ backgroundColor: statusColorMap[entry.name as keyof typeof statusColorMap] || '#CBCAC5' }}></span>
-                          <span className="text-xs text-[#282828] font-medium">{entry.name} ({entry.count})</span>
+                          <span className="text-xs text-[#282828] font-medium">
+                            {entry.name} ({entry.count} opps, ${entry.value.toLocaleString()})
+                          </span>
                         </div>
                       ))}
                     </div>

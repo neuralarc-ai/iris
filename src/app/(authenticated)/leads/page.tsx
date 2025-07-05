@@ -2051,18 +2051,95 @@ export default function LeadsPage() {
           {activeTab === 'archived' && (
             <div className="mt-6">
               {filteredArchivedLeads.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  {paginatedArchivedLeads.map((lead) => (
-                    <ArchivedLeadCard
-                      key={lead.id}
-                      lead={lead}
-                      userNamesById={archivedByNames}
-                      onRestore={handleRestoreArchivedLead}
-                      onDelete={handleDeleteRejectedLead}
-                      onUpdate={handleUpdateRejectedLead}
-                    />
-                  ))}
-                </div>
+                view === 'list' ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {paginatedArchivedLeads.map((lead) => (
+                      <ArchivedLeadCard
+                        key={lead.id}
+                        lead={lead}
+                        userNamesById={archivedByNames}
+                        onRestore={handleRestoreArchivedLead}
+                        onDelete={handleDeleteRejectedLead}
+                        onUpdate={handleUpdateRejectedLead}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="rounded-lg border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className='text-[#282828]'>Company</TableHead>
+                          <TableHead className='text-[#282828]'>Contact</TableHead>
+                          <TableHead className='text-[#282828]'>Email</TableHead>
+                          <TableHead className='text-[#282828]'>Phone</TableHead>
+                          <TableHead className='text-[#282828]'>Country</TableHead>
+                          <TableHead className='text-[#282828]'>Status</TableHead>
+                          <TableHead className='text-[#282828]'>Archived By</TableHead>
+                          <TableHead className='text-[#282828]'>Archived Date</TableHead>
+                          <TableHead className='text-[#282828] rounded-tr-[8px]'>Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {paginatedArchivedLeads.map((lead) => (
+                          <React.Fragment key={lead.id}>
+                            <TableRow
+                              className={`hover:bg-transparent`}
+                              onClick={(e) => {
+                                const target = e.target as HTMLElement;
+                                if (!target.closest('button')) {
+                                  // Open archived lead dialog or show details
+                                  console.log('View archived lead details:', lead.id);
+                                }
+                              }}
+                            >
+                              <TableCell className="font-semibold text-foreground">{lead.companyName}</TableCell>
+                              <TableCell>{lead.personName}</TableCell>
+                              <TableCell><a href={`mailto:${lead.email}`} className="text-primary hover:underline" onClick={e => e.stopPropagation()}>{lead.email}</a></TableCell>
+                              <TableCell>{lead.phone || '-'}</TableCell>
+                              <TableCell>{lead.country}</TableCell>
+                              <TableCell><span className="inline-block rounded-full bg-muted px-3 py-1 text-xs font-semibold text-muted-foreground" style={{background:'#b0aca7',color:'#23201d'}}>{lead.status}</span></TableCell>
+                              <TableCell>{archivedByNames[lead.archivedBy || ''] || '-'}</TableCell>
+                              <TableCell>{lead.archivedAt ? new Date(lead.archivedAt).toLocaleDateString('en-GB') : '-'}</TableCell>
+                              <TableCell className="flex gap-2" onClick={e => e.stopPropagation()}>
+                                <TooltipProvider delayDuration={0}>
+                                  {/* Restore Button */}
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button 
+                                        size="sm" 
+                                        variant="add" 
+                                        className="rounded-sm p-2 h-8 w-8"
+                                        onClick={() => handleRestoreArchivedLead(lead.id)}
+                                      >
+                                        <CheckSquare className="h-3.5 w-3.5" />
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="top" align="center">Restore Lead</TooltipContent>
+                                  </Tooltip>
+                                  {/* Delete Button */}
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button 
+                                        size="sm" 
+                                        variant="delete" 
+                                        className="rounded-sm p-2 h-8 w-8"
+                                        onClick={() => handleDeleteRejectedLead(lead.id)}
+                                      >
+                                        <Trash2 className="h-3.5 w-3.5" />
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="top" align="center">Delete Permanently</TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                              </TableCell>
+                            </TableRow>
+                          </React.Fragment>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )
               ) : (
                 <div className="text-center py-16">
                   <Archive className="mx-auto h-16 w-16 text-muted-foreground/50 mb-6" />
