@@ -626,19 +626,19 @@ export default function UpdatesPage() {
                 placeholder="Search activities by content, type, or entity..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9 bg-white w-full min-h-12 shadow-sm"
+                className="pl-9 bg-white rounded-sm border-[#E5E3DF] shadow-sm hover:shadow-md transition-all duration-300 ease-in-out w-full min-h-12 hover:bg-white"
               />
             </div>
           </div>
           <div className="flex items-center gap-2 ml-4">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="flex bg-white max-w-10 border-[#2B2521]/30 items-center gap-2 min-w-[140px] max-h-12 shadow-sm">
+                <Button variant="outline" className="flex bg-white max-w-10 border-[#E5E3DF] shadow-sm items-center gap-2 min-w-[140px] max-h-12 hover:bg-white hover:shadow-md transition-all duration-300 ease-in-out">
                   <ListFilter className="h-5 w-5 text-primary" />
                   Sort & Filter
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className=" bg-white max-w-[140px] border-[#282828]/20 rounded-sm h-fit">
+              <DropdownMenuContent align="end" className=" bg-white max-w-[140px] border-[#E5E3DF] rounded-sm h-fit">
                 <Label htmlFor="entity-filter" className="text-[#282828] font-medium px-2 py-1">Entity Type</Label>
                 <Select value={entityTypeFilter} onValueChange={(value: 'all' | 'lead' | 'opportunity' | 'account') => setEntityTypeFilter(value)}>
                   <SelectTrigger id="entity-filter" className="w-full mt-1 mb-2 border-none bg-[#EFEDE7] text-[#282828]">
@@ -739,7 +739,7 @@ export default function UpdatesPage() {
                 </Popover>
               </DropdownMenuContent>
             </DropdownMenu>
-            <div className="flex items-center border border-[#2B2521]/30 bg-white rounded-[4px] p-1 gap-1 shadow-sm">
+            <div className="flex items-center border border-[#E5E3DF] shadow-sm hover:shadow-md transition-all duration-300 ease-in-out bg-white rounded-[4px] p-1 gap-1 hover:bg-white">
               <Button
                 variant={view === 'grid' ? 'default' : 'ghost'}
                 size="icon"

@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import PageTitle from '@/components/common/PageTitle';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, TrendingUp, Users, Lightbulb, BarChartHorizontalBig, History, Clock, Flame, ThumbsUp, Calendar, Target, UserCheck, MessageSquare } from 'lucide-react';
+import { RefreshCw, TrendingUp, Users, Lightbulb, BarChartHorizontalBig, History, Clock, Flame, ThumbsUp, Calendar, Target, UserCheck, MessageSquare, Snowflake } from 'lucide-react';
 import { aiPoweredOpportunityForecasting } from '@/ai/flows/ai-powered-opportunity-forecasting';
 import { mockOpportunities, mockLeads, getRecentUpdates } from '@/lib/data';
 import type { Opportunity, OpportunityForecast, Update, Account } from '@/types';
@@ -804,7 +804,7 @@ export default function DashboardPage() {
             <Card className="bg-white rounded-md shadow-sm flex flex-col min-h-[402px] h-full">
               <CardHeader className="flex flex-col gap-2 justify-between">
                 <div className="flex items-center">
-                  <MessageSquare className="mr-3 h-5 w-5 text-[#916D5B]" />
+                  <Users className="mr-3 h-5 w-5 text-[#916D5B]" />
                   <CardTitle className="text-lg flex items-center text-[#282828]">
                     Lead Engagement
                   </CardTitle>
@@ -829,7 +829,7 @@ export default function DashboardPage() {
                     onClick={() => setLeadSegment('Cold')}
                     className={`rounded-full px-4 py-1 shadow-sm max-h-10 hover:bg-[#3987BE]/10 transition-colors font-${leadSegment === 'Cold' ? 'semibold' : 'normal'} focus:outline-none border ${leadSegment === 'Cold' ? 'bg-[#3987BE] hover:bg-[#3987BE] text-white border-transparent' : 'bg-white text-[#3987BE] border-[#3987BE]'}`}
                   >
-                    <MessageSquare className={`h-4 w-4 ${leadSegment === 'Cold' ? 'text-white' : 'text-[#3987BE]'}`} /> Cold
+                    <Snowflake className={`h-4 w-4 ${leadSegment === 'Cold' ? 'text-white' : 'text-[#3987BE]'}`} /> Cold
                   </Button>
             </div>
               </CardHeader>
@@ -854,7 +854,7 @@ export default function DashboardPage() {
           {/* Upcoming Activities Grid */}
           <motion.div variants={fadeUp} transition={{ type: 'spring', stiffness: 60, damping: 18, duration: 0.4, ease: 'easeOut' }} className="col-span-4">
             <Card className="bg-white rounded-md shadow-sm flex flex-col h-full">
-              <CardHeader>
+              <CardHeader className='pb-4'>
                 <CardTitle className="text-lg flex items-center text-[#282828]">
                   <Calendar className="mr-3 h-5 w-5 text-[#916D5B]" />
                   Upcoming Activities

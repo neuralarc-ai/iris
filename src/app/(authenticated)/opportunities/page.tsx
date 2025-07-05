@@ -287,19 +287,19 @@ export default function OpportunitiesPage() {
                 placeholder="Search opportunities by name..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9 bg-white w-full min-h-12"
+                className="pl-9 bg-white rounded-sm border-[#E5E3DF] shadow-sm hover:shadow-md transition-all duration-300 ease-in-out w-full min-h-12 hover:bg-white"
               />
             </div>
           </div>
           <div className="flex items-center gap-2 ml-4">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="flex bg-white max-w-10 border-[#2B2521]/30 items-center gap-2 min-w-[140px] max-h-12">
+                <Button variant="outline" className="flex bg-white max-w-10 border-[#E5E3DF] shadow-sm items-center gap-2 min-w-[140px] max-h-12 hover:bg-white hover:shadow-md transition-all duration-300 ease-in-out">
                   <ListFilter className="h-5 w-5 text-primary" />
                   Sort & Filter
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className='w-[150px] rounded-sm h-fit'>
+              <DropdownMenuContent align="end" className='w-[150px] border-[#E5E3DF] rounded-sm h-fit bg-white'>
                 <Label htmlFor="status-filter" className="text-[#282828] font-medium px-2 py-1">Status</Label>
                 <Select value={statusFilter} onValueChange={(value: OpportunityStatus | 'all') => setStatusFilter(value)}>
                   <SelectTrigger id="status-filter" className="w-full mt-1 border-none text-[#282828]">
@@ -326,7 +326,7 @@ export default function OpportunitiesPage() {
                 </Select>
               </DropdownMenuContent>
             </DropdownMenu>
-            <div className="flex items-center border border-[#2B2521]/30 bg-white rounded-[4px] p-1 gap-1">
+            <div className="flex items-center border border-[#E5E3DF] shadow-sm hover:shadow-md transition-all duration-300 ease-in-out bg-white rounded-[4px] p-1 gap-1 hover:bg-white">
               <Button
                 variant={view === 'grid' ? 'default' : 'ghost'}
                 size="icon"
