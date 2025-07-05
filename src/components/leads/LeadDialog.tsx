@@ -119,6 +119,17 @@ export default function LeadDialog({
   const [currentUser, setCurrentUser] = useState<{ name: string; email: string } | null>(null);
   const [emailSent, setEmailSent] = useState(false);
   const [showLogEmailDialog, setShowLogEmailDialog] = useState<null | string>(null);
+  // Add state for editing email
+  const [isEditingEmail, setIsEditingEmail] = useState(false);
+  const [editedEmailContent, setEditedEmailContent] = useState<string | null>(null);
+  // Add state for editing email subject and body
+  const [editedSubject, setEditedSubject] = useState('');
+  const [editedBody, setEditedBody] = useState('');
+  // Add state for editing the email address
+  const [isEditingEmailAddress, setIsEditingEmailAddress] = useState(false);
+  const [editedEmailAddress, setEditedEmailAddress] = useState(lead.email);
+  // Add state for the displayed email address in the Email tab
+  const [displayedEmailAddress, setDisplayedEmailAddress] = useState(lead.email);
 
   useEffect(() => {
     setEditLead({
@@ -415,7 +426,7 @@ export default function LeadDialog({
   const getMailClientUrl = (client: string) => {
     const subject = encodeURIComponent(emailTabContent?.split('\n')[0].replace('Subject: ', '') || '');
     const body = encodeURIComponent(emailTabContent?.replace(/^Subject:.*\n+/, '') || '');
-    const to = encodeURIComponent(editLead.email);
+    const to = encodeURIComponent(lead.email);
     switch (client) {
       case 'gmail':
         return `https://mail.google.com/mail/?view=cm&fs=1&to=${to}&su=${subject}&body=${body}`;
@@ -428,7 +439,7 @@ export default function LeadDialog({
       case 'zoho':
         return `https://mail.zoho.com/zm/#compose?to=${to}&subject=${subject}&body=${body}`;
       default:
-        return `mailto:${editLead.email}?subject=${subject}&body=${body}`;
+        return `mailto:${lead.email}?subject=${subject}&body=${body}`;
     }
   };
 
@@ -465,7 +476,7 @@ export default function LeadDialog({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          to: editLead.email?.includes(':mailto:') ? editLead.email.split(':mailto:')[0] : editLead.email,
+          to: displayedEmailAddress?.includes(':mailto:') ? displayedEmailAddress.split(':mailto:')[0] : displayedEmailAddress,
           subject: emailTabContent?.split('\n')[0].replace('Subject: ', ''),
           body: emailTabContent?.replace(/^Subject:.*\n+/, '')
         })
@@ -491,6 +502,20 @@ export default function LeadDialog({
       triggerLeadEnrichment();
     }
   }, [open, enrichmentData?.leadScore, isEnrichingLead, isEnrichmentLoading]);
+
+  useEffect(() => {
+    if (isEditingEmail && editedEmailContent) {
+      const lines = editedEmailContent.split('\n');
+      setEditedSubject(lines[0].replace(/^Subject: /, ''));
+      setEditedBody(lines.slice(1).join('\n').replace(/^\n+/, ''));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isEditingEmail]);
+
+  useEffect(() => {
+    setEditedEmailAddress(lead.email);
+    setDisplayedEmailAddress(lead.email);
+  }, [lead.email]);
 
   // --- DIALOG CONTENT ---
   return (
@@ -675,17 +700,7 @@ export default function LeadDialog({
                               <Input
                                 value={editLead.email}
                                 onChange={e => handleEditChange('email', e.target.value)}
-                                onBlur={async (e) => {
-                                  if (lead.email !== e.target.value) {
-                                    const { error } = await supabase.from('lead').update({ email: e.target.value }).eq('id', lead.id);
-                                    if (!error) {
-                                      toast({ title: 'Email updated', description: 'Lead email address has been updated.' });
-                                    } else {
-                                      toast({ title: 'Error', description: 'Failed to update email address.', variant: 'destructive' });
-                                    }
-                                  }
-                                }}
-                                className="border-0 border-b-2 border-[#916D5B] bg-transparent px-0 rounded-none text-base font-medium text-[#282828] placeholder:text-base w-72"
+                                className="border-0 border-b-2 border-[#916D5B] bg-transparent px-0 rounded-none text-base font-medium text-[#282828] placeholder:text-base"
                               />
                             ) : (
                               <p className="text-base text-[#282828] font-medium break-all">{lead.email?.includes(':mailto:') ? lead.email.split(':mailto:')[0] : lead.email}</p>
@@ -1095,33 +1110,116 @@ export default function LeadDialog({
                       >
                         <CopyIcon className="h-4 w-4 mr-1" /> Copy
                       </Button>
-                    </div>
-                  </div>
-                  {/* Email Address Display/Edit (moved below title/copy row) */}
-                  <div className="flex items-center gap-3 px-6 pt-4 pb-2">
-                    <Mail className="h-5 w-5 text-[#C57E94] flex-shrink-0" />
-                    <div>
-                      <p className="text-sm text-[#5E6156] mb-0.5">Email Address</p>
-                      <Input
-                        value={editLead.email}
-                        onChange={e => handleEditChange('email', e.target.value)}
-                        onBlur={async (e) => {
-                          if (lead.email !== e.target.value) {
-                            const { error } = await supabase.from('lead').update({ email: e.target.value }).eq('id', lead.id);
-                            if (!error) {
-                              toast({ title: 'Email updated', description: 'Lead email address has been updated.' });
-                            } else {
-                              toast({ title: 'Error', description: 'Failed to update email address.', variant: 'destructive' });
-                            }
-                          }
+                      <Button
+                        variant="outline"
+                        className="flex items-center gap-1 border-[#E5E3DF] text-[#282828] bg-white hover:bg-[#F8F7F3] max-h-10 px-2 min-w-20"
+                        onClick={() => {
+                          setIsEditingEmail(true);
+                          setEditedEmailContent(emailTabContent);
                         }}
-                        className="border-0 border-b-2 border-[#916D5B] bg-transparent px-0 rounded-none text-base font-medium text-[#282828] placeholder:text-base w-72"
-                      />
+                        disabled={!emailTabContent}
+                      >
+                        <Pencil className="h-4 w-4 mr-1" /> Edit
+                      </Button>
                     </div>
                   </div>
-                  
+                  {/* Lead email address with edit button */}
+                  <div className="flex items-center gap-2 px-6 pt-4 pb-2">
+                    <Mail className="h-5 w-5 text-[#C57E94]" />
+                    {isEditingEmailAddress ? (
+                      <>
+                        <Input
+                          value={editedEmailAddress}
+                          onChange={e => setEditedEmailAddress(e.target.value)}
+                          className="text-base font-medium text-[#282828] w-auto"
+                          style={{ maxWidth: 320 }}
+                        />
+                        <Button
+                          variant="add"
+                          size="sm"
+                          className="ml-1"
+                          onClick={async () => {
+                            const { error } = await supabase
+                              .from('lead')
+                              .update({ email: editedEmailAddress })
+                              .eq('id', lead.id);
+                            if (!error) {
+                              setIsEditingEmailAddress(false);
+                              setDisplayedEmailAddress(editedEmailAddress);
+                              toast({ title: "Email address updated", description: "The lead's email address has been updated." });
+                            } else {
+                              toast({ title: "Update failed", description: error.message, variant: 'destructive' });
+                            }
+                          }}
+                          disabled={!editedEmailAddress || editedEmailAddress === displayedEmailAddress}
+                        >Save</Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="ml-1"
+                          onClick={() => {
+                            setEditedEmailAddress(displayedEmailAddress);
+                            setIsEditingEmailAddress(false);
+                          }}
+                        >Cancel</Button>
+                      </>
+                    ) : (
+                      <>
+                        <span className="text-base font-medium text-[#282828]">{displayedEmailAddress}</span>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="ml-1"
+                          title="Edit email address"
+                          onClick={() => setIsEditingEmailAddress(true)}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      </>
+                    )}
+                  </div>
                   <div className="flex-1 overflow-y-auto px-6 py-6 whitespace-pre-line text-[#282828] text-[16px] leading-relaxed font-normal">
-                    {isGeneratingEmail && !emailTabContent ? (
+                    {isEditingEmail ? (
+                      <div className="flex flex-col gap-2">
+                        <Input
+                          value={editedSubject}
+                          onChange={e => setEditedSubject(e.target.value)}
+                          className="font-semibold text-lg text-[#282828] mb-3"
+                          placeholder="Email Subject"
+                        />
+                        <Textarea
+                          value={editedBody}
+                          onChange={e => setEditedBody(e.target.value)}
+                          className="text-[16px] text-[#282828] leading-relaxed min-h-[200px]"
+                          placeholder="Email Body"
+                        />
+                        <div className="flex gap-2 mt-2">
+                          <Button
+                            variant="add"
+                            onClick={async () => {
+                              const newEmail = `Subject: ${editedSubject}\n\n${editedBody}`;
+                              const { error } = await supabase
+                                .from('aianalysis')
+                                .update({ email_template: newEmail })
+                                .eq('entity_type', 'Lead')
+                                .eq('entity_id', lead.id);
+                              if (!error) {
+                                setIsEditingEmail(false);
+                                setEmailTabContent(newEmail);
+                                toast({ title: "Email updated", description: "The email template has been updated." });
+                              } else {
+                                toast({ title: "Update failed", description: error.message, variant: 'destructive' });
+                              }
+                            }}
+                            disabled={!editedSubject || !editedBody || `Subject: ${editedSubject}\n\n${editedBody}` === emailTabContent}
+                          >Save</Button>
+                          <Button
+                            variant="outline"
+                            onClick={() => setIsEditingEmail(false)}
+                          >Cancel</Button>
+                        </div>
+                      </div>
+                    ) : isGeneratingEmail && !emailTabContent ? (
                       <div className="w-full flex flex-col gap-4">
                         <Skeleton className="h-8 w-full rounded-md mb-2" />
                         <Skeleton className="h-24 w-full rounded-md mb-2" />

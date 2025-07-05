@@ -457,6 +457,21 @@ export default function AccountModal({ accountId, open, onClose, aiEnrichment, i
     }
   };
 
+  // Add state for editing email subject and body
+  const [isEditingEmail, setIsEditingEmail] = useState(false);
+  const [editedEmailContent, setEditedEmailContent] = useState<string | null>(null);
+  const [editedSubject, setEditedSubject] = useState('');
+  const [editedBody, setEditedBody] = useState('');
+
+  useEffect(() => {
+    if (isEditingEmail && editedEmailContent) {
+      const lines = editedEmailContent.split('\n');
+      setEditedSubject(lines[0].replace(/^Subject: /, ''));
+      setEditedBody(lines.slice(1).join('\n').replace(/^\n+/, ''));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isEditingEmail]);
+
   if (!open) return null;
 
   return (
@@ -1024,14 +1039,78 @@ export default function AccountModal({ accountId, open, onClose, aiEnrichment, i
                       >
                         <CopyIcon className="h-4 w-4 mr-1" /> Copy
                       </Button>
+                      <Button
+                        variant="outline"
+                        className="max-h-12 flex items-center gap-1 border-[#E5E3DF] text-[#282828] bg-white hover:bg-[#F8F7F3]"
+                        onClick={() => {
+                          setIsEditingEmail(true);
+                          setEditedEmailContent(emailTabContent);
+                        }}
+                        disabled={!emailTabContent}
+                      >
+                        <Pencil className="h-4 w-4 mr-1" /> Edit
+                      </Button>
                     </div>
                   </div>
+                  {/* Account email address with copy button */}
+                  <div className="flex items-center gap-2 px-6 pt-4 pb-2">
+                    <Mail className="h-5 w-5 text-[#C57E94]" />
+                    <span className="text-base font-medium text-[#282828]">{account?.contactEmail}</span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="ml-1"
+                      title="Copy email address"
+                      onClick={() => account?.contactEmail && navigator.clipboard.writeText(account.contactEmail)}
+                    >
+                      <CopyIcon className="h-4 w-4" />
+                    </Button>
+                  </div>
                   <div className="flex-1 overflow-y-auto px-6 py-6 whitespace-pre-line text-[#282828] text-[16px] leading-relaxed font-normal">
-                    {isGeneratingEmail && !emailTabContent ? (
+                    {isEditingEmail ? (
+                      <div className="flex flex-col gap-2">
+                        <Input
+                          value={editedSubject}
+                          onChange={e => setEditedSubject(e.target.value)}
+                          className="font-semibold text-lg text-[#282828] mb-3"
+                          placeholder="Email Subject"
+                        />
+                        <Textarea
+                          value={editedBody}
+                          onChange={e => setEditedBody(e.target.value)}
+                          className="text-[16px] text-[#282828] leading-relaxed min-h-[200px]"
+                          placeholder="Email Body"
+                        />
+                        <div className="flex gap-2 mt-2">
+                          <Button
+                            variant="add"
+                            onClick={async () => {
+                              const newEmail = `Subject: ${editedSubject}\n\n${editedBody}`;
+                              const { error } = await supabase
+                                .from('aianalysis')
+                                .update({ email_template: newEmail })
+                                .eq('entity_type', 'Account')
+                                .eq('entity_id', account?.id);
+                              if (!error) {
+                                setIsEditingEmail(false);
+                                setEmailTabContent(newEmail);
+                                toast({ title: "Email updated", description: "The email template has been updated." });
+                              } else {
+                                toast({ title: "Update failed", description: error.message, variant: 'destructive' });
+                              }
+                            }}
+                            disabled={!editedSubject || !editedBody || `Subject: ${editedSubject}\n\n${editedBody}` === emailTabContent}
+                          >Save</Button>
+                          <Button
+                            variant="outline"
+                            onClick={() => setIsEditingEmail(false)}
+                          >Cancel</Button>
+                        </div>
+                      </div>
+                    ) : isGeneratingEmail && !emailTabContent ? (
                       <span className="text-[#998876]">Generating email...</span>
                     ) : emailTabContent ? (
                       <>
-                        {/* Subject line bold and larger */}
                         {(() => {
                           const lines = emailTabContent.split('\n');
                           const subject = lines[0];
