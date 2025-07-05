@@ -415,7 +415,7 @@ export default function LeadDialog({
   const getMailClientUrl = (client: string) => {
     const subject = encodeURIComponent(emailTabContent?.split('\n')[0].replace('Subject: ', '') || '');
     const body = encodeURIComponent(emailTabContent?.replace(/^Subject:.*\n+/, '') || '');
-    const to = encodeURIComponent(lead.email);
+    const to = encodeURIComponent(editLead.email);
     switch (client) {
       case 'gmail':
         return `https://mail.google.com/mail/?view=cm&fs=1&to=${to}&su=${subject}&body=${body}`;
@@ -428,7 +428,7 @@ export default function LeadDialog({
       case 'zoho':
         return `https://mail.zoho.com/zm/#compose?to=${to}&subject=${subject}&body=${body}`;
       default:
-        return `mailto:${lead.email}?subject=${subject}&body=${body}`;
+        return `mailto:${editLead.email}?subject=${subject}&body=${body}`;
     }
   };
 
@@ -465,7 +465,7 @@ export default function LeadDialog({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          to: lead.email?.includes(':mailto:') ? lead.email.split(':mailto:')[0] : lead.email,
+          to: editLead.email?.includes(':mailto:') ? editLead.email.split(':mailto:')[0] : editLead.email,
           subject: emailTabContent?.split('\n')[0].replace('Subject: ', ''),
           body: emailTabContent?.replace(/^Subject:.*\n+/, '')
         })
@@ -675,7 +675,17 @@ export default function LeadDialog({
                               <Input
                                 value={editLead.email}
                                 onChange={e => handleEditChange('email', e.target.value)}
-                                className="border-0 border-b-2 border-[#916D5B] bg-transparent px-0 rounded-none text-base font-medium text-[#282828] placeholder:text-base"
+                                onBlur={async (e) => {
+                                  if (lead.email !== e.target.value) {
+                                    const { error } = await supabase.from('lead').update({ email: e.target.value }).eq('id', lead.id);
+                                    if (!error) {
+                                      toast({ title: 'Email updated', description: 'Lead email address has been updated.' });
+                                    } else {
+                                      toast({ title: 'Error', description: 'Failed to update email address.', variant: 'destructive' });
+                                    }
+                                  }
+                                }}
+                                className="border-0 border-b-2 border-[#916D5B] bg-transparent px-0 rounded-none text-base font-medium text-[#282828] placeholder:text-base w-72"
                               />
                             ) : (
                               <p className="text-base text-[#282828] font-medium break-all">{lead.email?.includes(':mailto:') ? lead.email.split(':mailto:')[0] : lead.email}</p>
@@ -1087,6 +1097,29 @@ export default function LeadDialog({
                       </Button>
                     </div>
                   </div>
+                  {/* Email Address Display/Edit (moved below title/copy row) */}
+                  <div className="flex items-center gap-3 px-6 pt-4 pb-2">
+                    <Mail className="h-5 w-5 text-[#C57E94] flex-shrink-0" />
+                    <div>
+                      <p className="text-sm text-[#5E6156] mb-0.5">Email Address</p>
+                      <Input
+                        value={editLead.email}
+                        onChange={e => handleEditChange('email', e.target.value)}
+                        onBlur={async (e) => {
+                          if (lead.email !== e.target.value) {
+                            const { error } = await supabase.from('lead').update({ email: e.target.value }).eq('id', lead.id);
+                            if (!error) {
+                              toast({ title: 'Email updated', description: 'Lead email address has been updated.' });
+                            } else {
+                              toast({ title: 'Error', description: 'Failed to update email address.', variant: 'destructive' });
+                            }
+                          }
+                        }}
+                        className="border-0 border-b-2 border-[#916D5B] bg-transparent px-0 rounded-none text-base font-medium text-[#282828] placeholder:text-base w-72"
+                      />
+                    </div>
+                  </div>
+                  
                   <div className="flex-1 overflow-y-auto px-6 py-6 whitespace-pre-line text-[#282828] text-[16px] leading-relaxed font-normal">
                     {isGeneratingEmail && !emailTabContent ? (
                       <div className="w-full flex flex-col gap-4">
