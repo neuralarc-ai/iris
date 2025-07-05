@@ -18,6 +18,10 @@ import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import LeadEngagementCard from '@/components/activity/LeadEngagementCard';
 import { motion } from 'framer-motion';
 import SleekLoader from '@/components/common/SleekLoader';
+import LeadDialog from '@/components/leads/LeadDialog';
+import AccountModal from '@/components/accounts/AccountModal';
+import OpportunityDialog from '@/components/opportunities/OpportunityDialog';
+import AddUpdateDialog from '@/components/activity/AddUpdateDialog';
 
 interface OpportunityWithForecast extends Opportunity {
   forecast?: OpportunityForecast;
@@ -91,6 +95,19 @@ export default function DashboardPage() {
     conversionRatePrev: 0,
   });
   const [showDashboard, setShowDashboard] = useState(false);
+  // Dialog/modal state for entity dialogs and add activity
+  const [openDialog, setOpenDialog] = useState<{ type: 'lead' | 'account' | 'opportunity' | 'activity' | null, id: string | null }>({ type: null, id: null });
+  
+  // State for entity data when dialogs are opened
+  const [dialogLead, setDialogLead] = useState<any>(null);
+  const [dialogAccount, setDialogAccount] = useState<any>(null);
+  const [dialogOpportunity, setDialogOpportunity] = useState<any>(null);
+  const [isLoadingEntityData, setIsLoadingEntityData] = useState(false);
+  const [users, setUsers] = useState<Array<{ id: string; name: string; email: string }>>([]);
+  
+  // State for enrichment data to prevent unnecessary API calls
+  const [leadEnrichments, setLeadEnrichments] = useState<Record<string, any>>({});
+  const [enrichmentLoading, setEnrichmentLoading] = useState<Record<string, boolean>>({});
 
   // Fetch current user ID and role on component mount
   useEffect(() => {
@@ -103,11 +120,23 @@ export default function DashboardPage() {
         .eq('id', userId)
         .single()
         .then(({ data, error }) => {
-          if (!error && data) setUserRole(data.role);
-          else setUserRole(null);
+          if (!error && data) {
+            setUserRole(data.role);
+            // Fetch all users if admin
+            if (data.role === 'admin') {
+              supabase
+                .from('users')
+                .select('id, name, email')
+                .then(({ data: usersData }) => {
+                  if (usersData) setUsers(usersData);
+                });
+            }
+          } else {
+            setUserRole('user');
+          }
         });
     } else {
-      setUserRole(null);
+      setUserRole('user');
     }
   }, []);
 
@@ -420,6 +449,86 @@ export default function DashboardPage() {
     }
     // eslint-disable-next-line
   }, [isLoadingEngagement, engagementLeads, engagementAI]);
+
+  // Handler to open the correct dialog
+  const handleEntityDialogOpen = (entityType: 'lead' | 'account' | 'opportunity', entityId: string) => {
+    setOpenDialog({ type: entityType, id: entityId });
+    
+    // Fetch complete entity data when dialog opens
+    const fetchEntityData = async () => {
+      setIsLoadingEntityData(true);
+      try {
+        if (entityType === 'lead') {
+          const { data: leadData } = await supabase
+            .from('lead')
+            .select('*')
+            .eq('id', entityId)
+            .single();
+          setDialogLead(leadData);
+          
+          // Fetch enrichment data for the lead to prevent API calls
+          if (leadData && !leadEnrichments[entityId] && !enrichmentLoading[entityId]) {
+            setEnrichmentLoading(prev => ({ ...prev, [entityId]: true }));
+            try {
+              const { data: enrichmentData } = await supabase
+                .from('aianalysis')
+                .select('ai_output')
+                .eq('entity_type', 'Lead')
+                .eq('entity_id', entityId)
+                .eq('analysis_type', 'enrichment')
+                .eq('status', 'success')
+                .order('last_refreshed_at', { ascending: false })
+                .limit(1)
+                .single();
+              
+              setLeadEnrichments(prev => ({ 
+                ...prev, 
+                [entityId]: enrichmentData?.ai_output || null 
+              }));
+            } catch (error) {
+              console.error('Error fetching lead enrichment:', error);
+            } finally {
+              setEnrichmentLoading(prev => ({ ...prev, [entityId]: false }));
+            }
+          }
+        } else if (entityType === 'account') {
+          const { data: accountData } = await supabase
+            .from('account')
+            .select('*')
+            .eq('id', entityId)
+            .single();
+          setDialogAccount(accountData);
+        } else if (entityType === 'opportunity') {
+          const { data: opportunityData } = await supabase
+            .from('opportunity')
+            .select('*')
+            .eq('id', entityId)
+            .single();
+          setDialogOpportunity(opportunityData);
+        }
+      } catch (error) {
+        console.error('Error fetching entity data:', error);
+      } finally {
+        setIsLoadingEntityData(false);
+      }
+    };
+    
+    fetchEntityData();
+  };
+
+  // Handler to close dialog
+  const handleEntityDialogClose = () => {
+    setOpenDialog({ type: null, id: null });
+    // Clear dialog data when closing
+    setDialogLead(null);
+    setDialogAccount(null);
+    setDialogOpportunity(null);
+  };
+
+  // Handler for add activity dialog
+  const handleAddActivityClick = (entityType: 'lead' | 'account' | 'opportunity', entityId: string) => {
+    setOpenDialog({ type: 'activity', id: entityId });
+  };
 
   if (!showDashboard) {
     return (
@@ -751,7 +860,12 @@ export default function DashboardPage() {
                     ))
                   ) : recentUpdates.length > 0 ? (
                     recentUpdates.map(update => (
-                      <UpdateItem key={update.id} update={update} />
+                      <UpdateItem
+                        key={update.id}
+                        update={update}
+                        onCardClick={(entityType, entityId) => handleEntityDialogOpen(entityType, entityId)}
+                        onAddActivityClick={handleAddActivityClick}
+                      />
                     ))
                   ) : (
                     !isLoading && (
@@ -780,6 +894,119 @@ export default function DashboardPage() {
           </motion.div>
         </motion.div>
       </motion.div>
+      {/* Dialog/modal rendering */}
+      {openDialog.type && openDialog.id && (
+        <>
+          {/* Lead Dialog */}
+          {openDialog.type === 'lead' && dialogLead && (
+            <LeadDialog
+              open={true}
+              onOpenChange={(open) => {
+                if (!open) handleEntityDialogClose();
+              }}
+              lead={dialogLead}
+              onLeadConverted={(leadId, newAccountId) => {
+                // Handle lead conversion if needed
+                handleEntityDialogClose();
+              }}
+              onLeadDeleted={(leadId) => {
+                // Handle lead deletion if needed
+                handleEntityDialogClose();
+              }}
+              users={users}
+              role={userRole || 'user'}
+              enrichmentData={leadEnrichments[openDialog.id!]}
+              isEnrichmentLoading={enrichmentLoading[openDialog.id!]}
+              onEnrichmentComplete={async () => {
+                // Refresh enrichment data after completion
+                if (openDialog.id) {
+                  setEnrichmentLoading(prev => ({ ...prev, [openDialog.id!]: true }));
+                  try {
+                    const { data } = await supabase
+                      .from('aianalysis')
+                      .select('ai_output')
+                      .eq('entity_type', 'Lead')
+                      .eq('entity_id', openDialog.id)
+                      .eq('analysis_type', 'enrichment')
+                      .eq('status', 'success')
+                      .order('last_refreshed_at', { ascending: false })
+                      .limit(1)
+                      .single();
+                    
+                    setLeadEnrichments(prev => ({ 
+                      ...prev, 
+                      [openDialog.id!]: data?.ai_output || null 
+                    }));
+                  } catch (error) {
+                    console.error('Error refreshing enrichment data:', error);
+                  } finally {
+                    setEnrichmentLoading(prev => ({ ...prev, [openDialog.id!]: false }));
+                  }
+                }
+              }}
+            />
+          )}
+
+          {/* Account Modal */}
+          {openDialog.type === 'account' && dialogAccount && (
+            <AccountModal
+              accountId={dialogAccount.id}
+              open={true}
+              onClose={handleEntityDialogClose}
+            />
+          )}
+
+          {/* Opportunity Dialog */}
+          {openDialog.type === 'opportunity' && dialogOpportunity && (
+            <OpportunityDialog
+              open={true}
+              onOpenChange={(open) => {
+                if (!open) handleEntityDialogClose();
+              }}
+              opportunity={dialogOpportunity}
+              onStatusChange={() => {
+                // Handle status change if needed
+                handleEntityDialogClose();
+              }}
+              onValueChange={() => {
+                // Handle value change if needed
+                handleEntityDialogClose();
+              }}
+              onTimelineChange={() => {
+                // Handle timeline change if needed
+                handleEntityDialogClose();
+              }}
+            />
+          )}
+
+          {/* Add Activity Dialog */}
+          {openDialog.type === 'activity' && (
+            <AddUpdateDialog
+              open={true}
+              onOpenChange={(open) => {
+                if (!open) handleEntityDialogClose();
+              }}
+              onUpdateAdded={() => {
+                // Refresh dashboard data after activity is added
+                fetchDashboardData();
+                handleEntityDialogClose();
+              }}
+            />
+          )}
+
+          {/* Loading state for entity data */}
+          {isLoadingEntityData && (
+            <div className="fixed inset-0 bg-black/30 z-50 flex items-center justify-center">
+              <div className="bg-white p-8 rounded shadow-lg">
+                <div className="flex items-center gap-3">
+                  <LoadingSpinner />
+                  <span>Loading...</span>
+                </div>
+              </div>
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }

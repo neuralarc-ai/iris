@@ -27,6 +27,8 @@ interface UpdateItemProps {
   update: Update;
   groupedUpdates?: Update[];
   onClick?: () => void;
+  onCardClick?: (entityType: 'lead' | 'account' | 'opportunity', entityId: string) => void;
+  onAddActivityClick?: (entityType: 'lead' | 'account' | 'opportunity', entityId: string) => void;
 }
 
 const getUpdateTypeIcon = (type: Update['type']) => {
@@ -61,7 +63,7 @@ const getActivityTypeBadgeClasses = (type: Update['type']) => {
   }
 };
 
-export default function UpdateItem({ update, groupedUpdates, onClick }: UpdateItemProps) {
+export default function UpdateItem({ update, groupedUpdates, onClick, onCardClick, onAddActivityClick }: UpdateItemProps) {
   // State for related data
   const [opportunity, setOpportunity] = useState<Opportunity | undefined>(undefined);
   const [account, setAccount] = useState<Account | undefined>(undefined);
@@ -512,12 +514,27 @@ export default function UpdateItem({ update, groupedUpdates, onClick }: UpdateIt
     );
   };
 
+  // Helper to determine entity type and id
+  const getEntity = () => {
+    if (opportunity) return { type: 'opportunity' as const, id: opportunity.id };
+    if (lead) return { type: 'lead' as const, id: lead.id };
+    if (account) return { type: 'account' as const, id: account.id };
+    return { type: null, id: null };
+  };
+
   return (
     <>
       {/* Card View */}
       <Card 
         className="border border-[#E5E3DF] bg-white rounded-sm shadow-sm hover:shadow-md transition-all duration-300 flex flex-col h-full p-4 cursor-pointer"
-        onClick={onClick}
+        onClick={() => {
+          const entity = getEntity();
+          if (entity.type && entity.id && onCardClick) {
+            onCardClick(entity.type, entity.id);
+          } else if (onClick) {
+            onClick();
+          }
+        }}
       >
         {/* Top badges and name */}
         <div className="flex flex-col gap-1">
@@ -556,13 +573,21 @@ export default function UpdateItem({ update, groupedUpdates, onClick }: UpdateIt
         </div>
         {/* Bottom Button */}
         <CardFooter className="pt-2 px-0 pb-0 border-t mt-auto flex gap-2 bg-white z-10 justify-center">
-                <Button
+          <Button
             variant="outline"
             className="w-full text-[#282828] font-semibold text-base py-2 rounded-md border-[#E5E3DF] bg-[#F8F7F3] hover:bg-[#EFEDE7] flex items-center justify-center gap-2 max-h-10"
-                  onClick={e => { e.stopPropagation(); onClick && onClick(); }}
-                >
+            onClick={e => {
+              e.stopPropagation();
+              const entity = getEntity();
+              if (entity.type && entity.id && onAddActivityClick) {
+                onAddActivityClick(entity.type, entity.id);
+              } else if (onClick) {
+                onClick();
+              }
+            }}
+          >
             <Plus className="h-5 w-5" /> Add Activity
-                </Button>
+          </Button>
         </CardFooter>
       </Card>
     </>
