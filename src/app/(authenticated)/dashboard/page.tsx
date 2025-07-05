@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import PageTitle from '@/components/common/PageTitle';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, TrendingUp, Users, Lightbulb, BarChartHorizontalBig, History, Clock, Flame, ThumbsUp } from 'lucide-react';
+import { RefreshCw, TrendingUp, Users, Lightbulb, BarChartHorizontalBig, History, Clock, Flame, ThumbsUp, Calendar, Target, UserCheck, MessageSquare } from 'lucide-react';
 import { aiPoweredOpportunityForecasting } from '@/ai/flows/ai-powered-opportunity-forecasting';
 import { mockOpportunities, mockLeads, getRecentUpdates } from '@/lib/data';
 import type { Opportunity, OpportunityForecast, Update, Account } from '@/types';
@@ -189,11 +189,14 @@ export default function DashboardPage() {
           created_at,
           lead_id,
           opportunity_id,
-          account_id
+          account_id,
+          next_action_date
         `)
         .eq('is_archived', false)
-        .order('date', { ascending: false })
-        .limit(2);
+        .not('next_action_date', 'is', null)
+        .gte('next_action_date', new Date().toISOString())
+        .order('next_action_date', { ascending: true })
+        .limit(4);
       if (userRole !== 'admin') updatesQuery = updatesQuery.eq('updated_by_user_id', currentUserId);
       const { data: updatesData, error: updatesError } = await updatesQuery;
       if (updatesError) {
@@ -210,6 +213,7 @@ export default function DashboardPage() {
           leadId: update.lead_id,
           opportunityId: update.opportunity_id,
           accountId: update.account_id,
+          nextActionDate: update.next_action_date,
         }));
         setRecentUpdates(transformedUpdates);
       } else {
@@ -685,10 +689,19 @@ export default function DashboardPage() {
                           }}
                           labelStyle={{ color: "#282828" }}
                           itemStyle={{ color: "#916D5B" }}
-                          formatter={(value: any, name: any, props: any) => [
-                            `${props.payload.name}: ${props.payload.count} opportunities, $${props.payload.value.toLocaleString()}`,
-                            'Value'
-                          ]}
+                          content={({ active, payload }) => {
+                            if (active && payload && payload.length) {
+                              const data = payload[0].payload;
+                              return (
+                                <div className="bg-white p-3 rounded-lg border border-[#CBCAC5] shadow-lg">
+                                  <p className="text-[#282828] font-medium">
+                                    {data.count} opportunities • ${data.value.toLocaleString()}
+                                  </p>
+                                </div>
+                              );
+                            }
+                            return null;
+                          }}
                       />
                       </PieChart>
                     </ResponsiveContainer>
@@ -790,7 +803,7 @@ export default function DashboardPage() {
             <Card className="bg-white rounded-md shadow-sm flex flex-col min-h-[402px] h-full">
               <CardHeader className="flex flex-col gap-2 justify-between">
                 <div className="flex items-center">
-                  <Users className="mr-3 h-5 w-5 text-[#916D5B]" />
+                  <MessageSquare className="mr-3 h-5 w-5 text-[#916D5B]" />
                   <CardTitle className="text-lg flex items-center text-[#282828]">
                     Lead Engagement
                   </CardTitle>
@@ -815,14 +828,14 @@ export default function DashboardPage() {
                     onClick={() => setLeadSegment('Cold')}
                     className={`rounded-full px-4 py-1 shadow-sm max-h-10 hover:bg-[#3987BE]/10 transition-colors font-${leadSegment === 'Cold' ? 'semibold' : 'normal'} focus:outline-none border ${leadSegment === 'Cold' ? 'bg-[#3987BE] hover:bg-[#3987BE] text-white border-transparent' : 'bg-white text-[#3987BE] border-[#3987BE]'}`}
                   >
-                    <Users className={`h-4 w-4 ${leadSegment === 'Cold' ? 'text-white' : 'text-[#3987BE]'}`} /> Cold
+                    <MessageSquare className={`h-4 w-4 ${leadSegment === 'Cold' ? 'text-white' : 'text-[#3987BE]'}`} /> Cold
                   </Button>
             </div>
               </CardHeader>
               <CardContent className="relative flex-grow flex flex-col gap-4 overflow-scroll max-h-[260px] h-full">
                 {isLoadingEngagement ? (
                   <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
-                    <Users className="h-8 w-8 mb-2 animate-pulse" />
+                    <MessageSquare className="h-8 w-8 mb-2 animate-pulse" />
                     <span>Loading engagement data...</span>
           </div>
                 ) : (
@@ -842,8 +855,8 @@ export default function DashboardPage() {
             <Card className="bg-white rounded-md shadow-sm flex flex-col h-full">
               <CardHeader>
                 <CardTitle className="text-lg flex items-center text-[#282828]">
-                  <History className="mr-3 h-5 w-5 text-[#916D5B]" />
-                  Recent Activity Stream
+                  <Calendar className="mr-3 h-5 w-5 text-[#916D5B]" />
+                  Upcoming Activities
                 </CardTitle>
               </CardHeader>
               <CardContent className="flex-grow flex flex-col gap-4">
@@ -870,22 +883,23 @@ export default function DashboardPage() {
                   ) : (
                     !isLoading && (
                       <div className="col-span-2 flex flex-col items-center justify-center bg-white rounded-[8px] h-[343px] shadow-sm border text-center gap-4 animate-fade-in">
-                        {/* Pastel calendar with magnifier */}
+                        {/* Calendar with clock for upcoming activities */}
                         <svg width="56" height="56" viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg" className="mb-2">
                           <defs>
-                            <linearGradient id="activityGradient" x1="0" y1="0" x2="56" y2="56" gradientUnits="userSpaceOnUse">
-                              <stop stopColor="#998876"/>
-                              <stop offset="1" stopColor="#CBCAC5"/>
+                            <linearGradient id="upcomingGradient" x1="0" y1="0" x2="56" y2="56" gradientUnits="userSpaceOnUse">
+                              <stop stopColor="#916D5B"/>
+                              <stop offset="1" stopColor="#C57E94"/>
                             </linearGradient>
                           </defs>
-                          <rect x="8" y="16" width="32" height="24" rx="6" fill="#F8F7F3" stroke="url(#activityGradient)" strokeWidth="2"/>
-                          <rect x="12" y="20" width="24" height="8" rx="2" fill="#CBCAC5"/>
-                          <circle cx="40" cy="40" r="7" fill="#fff" stroke="#C57E94" strokeWidth="2"/>
-                          <path d="M44 44L48 48" stroke="#C57E94" strokeWidth="2" strokeLinecap="round"/>
+                          <rect x="12" y="16" width="32" height="24" rx="4" fill="#F8F7F3" stroke="url(#upcomingGradient)" strokeWidth="2"/>
+                          <rect x="16" y="20" width="24" height="4" rx="2" fill="#CBCAC5"/>
+                          <circle cx="28" cy="32" r="6" fill="#fff" stroke="#916D5B" strokeWidth="2"/>
+                          <path d="M28 28v4h3" stroke="#916D5B" strokeWidth="2" strokeLinecap="round"/>
+                          <circle cx="28" cy="32" r="1" fill="#916D5B"/>
                         </svg>
-                        <span className="text-lg text-muted-foreground font-medium text-center">No recent activity yet</span>
-                        <span className="text-sm text-muted-foreground text-center">Once you start engaging, updates will appear here!</span>
-        </div>
+                        <span className="text-lg text-muted-foreground font-medium text-center">No upcoming activities yet</span>
+                        <span className="text-sm text-muted-foreground text-center">Once you schedule activities, they will appear here!</span>
+                      </div>
                     )
                   )}
                 </div>

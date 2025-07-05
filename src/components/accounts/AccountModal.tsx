@@ -99,8 +99,8 @@ export default function AccountModal({ accountId, open, onClose, aiEnrichment, i
           type: updateType,
           content: updateContent.trim(),
           updated_by_user_id: currentUserId,
-          date: updateDate ? updateDate.toISOString() : null,
-          next_action_date: nextActionDate ? nextActionDate.toISOString() : null,
+          date: updateDate?.toISOString() || new Date().toISOString(),
+          next_action_date: nextActionDate?.toISOString() || null,
           account_id: accountId,
         }
       ]).select().single();

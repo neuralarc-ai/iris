@@ -240,7 +240,7 @@ export default function LeadDialog({
 
   // Handler: Log Update
   const handleLogUpdate = async () => {
-    if (!updateType || !updateContent.trim() || !updateDate) {
+    if (!updateType || !updateContent.trim() || (!updateDate && !nextActionDate)) {
       toast({ title: "Missing Information", description: "Please fill in all required fields.", variant: "destructive" });
       return;
     }
@@ -253,7 +253,7 @@ export default function LeadDialog({
           type: updateType,
           content: updateContent.trim(),
           updated_by_user_id: currentUserId,
-          date: updateDate.toISOString(),
+          date: updateDate?.toISOString() || new Date().toISOString(),
           next_action_date: nextActionDate?.toISOString() || null,
           lead_id: lead.id,
         }

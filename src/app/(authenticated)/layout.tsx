@@ -36,7 +36,7 @@ export default function AuthenticatedLayout({
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-background">
+    <div className="flex flex-col min-h-[calc(100vh-69px)] bg-background">
       <HorizontalNav />
       <motion.main
         className="overflow-y-auto lg:pt-8"
