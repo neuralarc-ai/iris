@@ -1,9 +1,8 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
 import { 
   MessageSquare, 
   MessageCircleMore, 
@@ -14,7 +13,7 @@ import {
   Sun,
   Moon
 } from 'lucide-react';
-import type { Update, Opportunity, Account, Lead } from '@/types';
+import type { Update } from '@/types';
 import { format, parseISO, isToday, isTomorrow, isYesterday } from 'date-fns';
 import { supabase } from '@/lib/supabaseClient';
 
@@ -252,7 +251,7 @@ export default function UpcomingActivitiesGrid({ updates, onCardClick }: Upcomin
   }
 
   return (
-    <div className="h-[343px] grid grid-cols-1 md:grid-cols-3 border-[] gap-0 bg-white rounded-lg overflow-hidden">
+    <div className="h-[343px] grid grid-cols-1 md:grid-cols-3 border-[] gap-0 bg-white border border-[#E5E3DF] rounded-lg overflow-hidden shadow-sm">
       {timeSlots.map((slot, index) => {
         const activities = groupedActivities[slot] || [];
         
@@ -286,7 +285,7 @@ export default function UpcomingActivitiesGrid({ updates, onCardClick }: Upcomin
                       return (
                         <Card
                           key={activity.id}
-                          className="border border-[#E5E3DF] bg-[#F8F7F3] rounded-sm shadow-sm hover:shadow-md transition-all duration-300 cursor-pointer p-3"
+                          className="border border-[#E5E3DF] bg-[#FFFFFF] rounded-sm shadow-sm hover:shadow-md transition-all duration-300 cursor-pointer p-3"
                           onClick={() => {
                             if (activity.entityType && activity.entityId && onCardClick) {
                               onCardClick(activity.entityType, activity.entityId);
@@ -339,7 +338,7 @@ export default function UpcomingActivitiesGrid({ updates, onCardClick }: Upcomin
             
             {/* Vertical Separator */}
             {index < timeSlots.length - 1 && (
-              <div className="absolute right-0 top-0 bottom-0 w-px bg-[#FAFAFA]"></div>
+              <div className="absolute right-0 top-0 bottom-0 w-px bg-[#E5E3DF]"></div>
             )}
           </div>
         );

@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Briefcase, ListChecks, PlusCircle, Eye, Users, Mail, Phone, Tag, Trash2, FileText, MoreHorizontal, CheckSquare } from 'lucide-react';
+import { Briefcase, ListChecks, PlusCircle, Eye, Users, Mail, Phone, Tag, Archive, FileText, MoreHorizontal, CheckSquare } from 'lucide-react';
 import type { Account, DailyAccountSummary as AIDailySummary, Opportunity, Update, UpdateType } from '@/types';
 import { generateDailyAccountSummary } from '@/ai/flows/daily-account-summary';
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
@@ -223,7 +223,7 @@ export default function AccountCard({ account, onNewOpportunity, owner, onAccoun
                   <PlusCircle className="h-5 w-5 text-[#282828]" /> Add Opportunity
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setShowDeleteDialog(true)} className="min-h-[44px] bg-[#fff] flex items-center gap-2 text-[#916D5B] focus:bg-[#F8F7F3] focus:text-[#916D5B] cursor-pointer">
-                  <Trash2 className="h-5 w-5 text-[#916D5B]" /> Archive Account
+                  <Archive className="h-5 w-5 text-[#916D5B]" /> Archive Account
                 </DropdownMenuItem>
               </>
             )}

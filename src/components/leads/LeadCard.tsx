@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Users, User, Mail, Phone, Eye, CheckSquare, FileWarning, CalendarPlus, History, Linkedin, MapPin, Trash2, Pencil, X, FileText, Building2, UserCheck, Clock, Calendar as CalendarIcon, Activity, PlusCircle, MoreHorizontal, Briefcase, Target, User as UserIcon, BrainCircuit, FileText as FileTextIcon, Lightbulb, Mail as MailIcon, Globe, RefreshCw, Copy as CopyIcon, Send as SendIcon, Inbox, AtSign, Shield, Computer } from 'lucide-react';
+import { Users, User, Mail, Phone, Eye, CheckSquare, FileWarning, CalendarPlus, History, Linkedin, MapPin, Archive, Pencil, X, FileText, Building2, UserCheck, Clock, Calendar as CalendarIcon, Activity, PlusCircle, MoreHorizontal, Briefcase, Target, User as UserIcon, BrainCircuit, FileText as FileTextIcon, Lightbulb, Mail as MailIcon, Globe, RefreshCw, Copy as CopyIcon, Send as SendIcon, Inbox, AtSign, Shield, Computer } from 'lucide-react';
 import type { Lead, Update, LeadStatus } from '@/types';
 import { add, formatDistanceToNow, format, parseISO } from 'date-fns';
 import { convertLeadToAccount, deleteLead } from '@/lib/data';
@@ -659,7 +659,7 @@ Best regards,\n${currentUser?.name || '[Your Name]'}\n${userCompany.name}\n${cur
                 <CheckSquare className="h-5 w-5 text-[#282828]" /> Convert to Account
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => setShowDeleteDialog(true)} className="min-h-[44px] bg-[#fff] flex items-center gap-2 text-[#916D5B] focus:bg-[#F8F7F3] focus:text-[#916D5B] cursor-pointer">
-                                        <Trash2 className="h-5 w-5 text-[#916D5B]" /> Archive Lead
+                <Archive className="h-5 w-5 text-[#916D5B]" /> Archive Lead
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -704,14 +704,14 @@ Best regards,\n${currentUser?.name || '[Your Name]'}\n${userCompany.name}\n${cur
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-                                <AlertDialogTitle>Archive Lead?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Are you sure you want to archive this lead? It will be moved to the archive section and can be restored later.
-                    </AlertDialogDescription>
+            <AlertDialogTitle>Archive Lead?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to archive this lead? It will be moved to the archive section and can be restored later.
+            </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                    <AlertDialogAction onClick={() => { setShowDeleteDialog(false); handleArchiveLead(); }} className="bg-[#916D5B] text-white rounded-md border-0 hover:bg-[#a98a77]">Archive</AlertDialogAction>
+            <AlertDialogAction onClick={() => { setShowDeleteDialog(false); handleArchiveLead(); }} className="bg-[#916D5B] text-white rounded-md border-0 hover:bg-[#a98a77]">Archive</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
